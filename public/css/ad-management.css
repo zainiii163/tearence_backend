@@ -1,0 +1,269 @@
+/* Ad Management Responsive Design */
+
+/* Mobile First Approach */
+@media (max-width: 640px) {
+    .ad-management-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+    
+    .ad-stats-card {
+        padding: 1rem !important;
+    }
+    
+    .ad-stats-card .text-2xl {
+        font-size: 1.5rem !important;
+    }
+    
+    .ad-management-table {
+        font-size: 0.875rem !important;
+    }
+    
+    .ad-management-table th,
+    .ad-management-table td {
+        padding: 0.5rem !important;
+    }
+    
+    .ad-management-actions {
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+    
+    .ad-management-actions button {
+        width: 100% !important;
+    }
+    
+    .ad-chart-container {
+        height: 200px !important;
+    }
+    
+    .ad-filter-form {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Tablet Styles */
+@media (min-width: 641px) and (max-width: 1024px) {
+    .ad-management-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .ad-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .ad-chart-container {
+        height: 250px !important;
+    }
+    
+    .ad-filter-form {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* Desktop Styles */
+@media (min-width: 1025px) {
+    .ad-management-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+    
+    .ad-stats-grid {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+    
+    .ad-chart-container {
+        height: 300px !important;
+    }
+    
+    .ad-filter-form {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
+
+/* Large Desktop */
+@media (min-width: 1536px) {
+    .ad-stats-grid {
+        grid-template-columns: repeat(5, 1fr) !important;
+    }
+}
+
+/* Responsive Tables */
+.ad-management-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ad-management-table table {
+    min-width: 600px;
+}
+
+/* Card Hover Effects */
+.ad-stats-card {
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.ad-stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: #3b82f6;
+}
+
+/* Button Responsive Styles */
+.ad-management-btn {
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .ad-management-btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .ad-management-btn span {
+        display: none;
+    }
+    
+    .ad-management-btn svg {
+        margin-right: 0 !important;
+    }
+}
+
+/* Form Responsive Styles */
+.ad-management-form {
+    max-width: 100%;
+}
+
+.ad-management-form .grid {
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .ad-management-form .grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Modal Responsive Styles */
+.ad-management-modal {
+    max-width: 95vw;
+    margin: 1rem;
+}
+
+@media (max-width: 640px) {
+    .ad-management-modal {
+        max-width: 100vw;
+        margin: 0;
+        height: 100vh;
+        border-radius: 0;
+    }
+}
+
+/* Chart Responsive Styles */
+.ad-chart-wrapper {
+    position: relative;
+    height: 0;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+}
+
+.ad-chart-wrapper canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 640px) {
+    .ad-chart-wrapper {
+        padding-bottom: 75%; /* 4:3 Aspect Ratio for mobile */
+    }
+}
+
+/* Loading States */
+.ad-management-loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.ad-management-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .ad-stats-card:hover {
+        border-color: #60a5fa;
+    }
+    
+    .ad-management-loading::after {
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .ad-management-actions,
+    .ad-management-filters,
+    .ad-management-pagination {
+        display: none !important;
+    }
+    
+    .ad-management-table {
+        overflow: visible;
+    }
+    
+    .ad-stats-card {
+        break-inside: avoid;
+        border: 1px solid #ccc;
+    }
+}
+
+/* Accessibility */
+.ad-management-card:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.ad-management-btn:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .ad-stats-card {
+        border: 2px solid #000;
+    }
+    
+    .ad-management-btn {
+        border: 2px solid #000;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .ad-stats-card,
+    .ad-management-btn,
+    .ad-management-loading::after {
+        transition: none;
+        animation: none;
+    }
+}

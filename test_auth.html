@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Test</title>
+</head>
+<body>
+    <h1>Authentication Test</h1>
+    <div id="results"></div>
+    
+    <script src="/js/api-service.js"></script>
+    <script>
+        const api = new APIService();
+        
+        async function testAuth() {
+            const results = document.getElementById('results');
+            
+            // Test 1: Check if token exists
+            results.innerHTML += '<p>Token exists: ' + !!api.token + '</p>';
+            
+            if (api.token) {
+                try {
+                    // Test 2: Try web-check endpoint
+                    const user = await api.getCurrentUser();
+                    results.innerHTML += '<p>Web-check success: ' + (user ? user.email : 'No user') + '</p>';
+                } catch (error) {
+                    results.innerHTML += '<p>Web-check error: ' + error.message + '</p>';
+                }
+            } else {
+                results.innerHTML += '<p>No token found - please login first</p>';
+            }
+        }
+        
+        // Run test
+        testAuth();
+    </script>
+</body>
+</html>

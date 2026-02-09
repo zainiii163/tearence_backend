@@ -1,0 +1,257 @@
+{
+	"info": {
+		"_postman_id": "maintenance-panel-api",
+		"name": "Maintenance Panel API",
+		"description": "Complete API collection for Laravel Admin Maintenance Panel",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('jwt_token', jsonData.data.access_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Public Endpoints",
+			"item": [
+				{
+					"name": "Get Maintenance Status (Public)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/maintenance/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"maintenance",
+								"status"
+							]
+						},
+						"description": "Check if the site is in maintenance mode (no authentication required)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Admin - Maintenance Control",
+			"item": [
+				{
+					"name": "Get Maintenance Status (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"status"
+							]
+						},
+						"description": "Get detailed maintenance status including configuration"
+					},
+					"response": []
+				},
+				{
+					"name": "Enable Maintenance Mode (Basic)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"Site is under maintenance. Please check back soon.\",\n    \"retry\": 60\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/down",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"down"
+							]
+						},
+						"description": "Enable maintenance mode with basic settings"
+					},
+					"response": []
+				},
+				{
+					"name": "Enable Maintenance Mode (With Secret)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"message\": \"We're upgrading our systems. Back in 30 minutes!\",\n    \"retry\": 1800,\n    \"secret\": \"admin-bypass-2026\",\n    \"refresh\": 60\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/down",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"down"
+							]
+						},
+						"description": "Enable maintenance mode with admin bypass secret and auto-refresh"
+					},
+					"response": []
+				},
+				{
+					"name": "Disable Maintenance Mode",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/up",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"up"
+							]
+						},
+						"description": "Disable maintenance mode and bring site back online"
+					},
+					"response": []
+				},
+				{
+					"name": "Schedule Maintenance",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"scheduled_at\": \"2026-02-05 02:00:00\",\n    \"duration_minutes\": 30,\n    \"message\": \"Scheduled database maintenance\",\n    \"notify_users\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/schedule",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"schedule"
+							]
+						},
+						"description": "Schedule a future maintenance window"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Maintenance Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/admin/maintenance/logs",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"admin",
+								"maintenance",
+								"logs"
+							]
+						},
+						"description": "Retrieve maintenance activity logs"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
