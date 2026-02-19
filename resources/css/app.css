@@ -19,3 +19,69 @@ body {
     border-bottom: 1px solid rgba(0, 0, 0, 0.125);
     font-weight: 600;
 }
+
+/* Modal scrolling fixes */
+.modal {
+    overflow: hidden !important;
+}
+
+.modal-dialog {
+    height: calc(100vh - 60px);
+    max-height: calc(100vh - 60px);
+    margin: 30px auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+}
+
+/* Scrollable sections within modal */
+.modal-scrollable {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
+}
+
+.modal-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-scrollable::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Ensure proper scrolling for order summary and lens type sections */
+.order-summary-section,
+.lens-type-section {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Fix for Bootstrap modal backdrop */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}

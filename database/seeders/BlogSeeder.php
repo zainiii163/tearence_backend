@@ -69,7 +69,10 @@ class BlogSeeder extends Seeder
         ];
 
         foreach ($blogs as $blog) {
-            Blog::create($blog);
+            Blog::firstOrCreate(
+                ['slug' => $blog['slug']],
+                $blog
+            );
         }
     }
 }

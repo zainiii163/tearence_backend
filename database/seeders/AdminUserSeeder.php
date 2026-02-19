@@ -126,88 +126,96 @@ class AdminUserSeeder extends Seeder
     private function createSampleUsers(): void
     {
         // Sample verified user (Admin user, not customer)
-        $verifiedUser = User::create([
-            'user_uid' => Str::random(13),
-            'first_name' => 'John',
-            'last_name' => 'Doe',
-            'email' => 'john.doe@admin.worldwideadverts.info',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'group_id' => null,
-            'timezone' => 'UTC',
-            'kyc_status' => 'verified',
-            'kyc_verified_at' => now()->subDays(5),
-            'kyc_documents' => json_encode([
-                [
-                    'type' => 'passport',
-                    'path' => 'kyc_documents/john_passport.jpg',
-                    'original_name' => 'john_passport.jpg',
-                    'uploaded_at' => now()->subDays(5)->toISOString()
-                ],
-                [
-                    'type' => 'id_document',
-                    'path' => 'kyc_documents/john_id.jpg',
-                    'original_name' => 'john_id.jpg',
-                    'uploaded_at' => now()->subDays(5)->toISOString()
-                ]
-            ]),
-        ]);
+        $verifiedUser = User::firstOrCreate(
+            ['email' => 'john.doe@admin.worldwideadverts.info'],
+            [
+                'user_uid' => Str::random(13),
+                'first_name' => 'John',
+                'last_name' => 'Doe',
+                'password' => Hash::make('password123'),
+                'email_verified_at' => now(),
+                'group_id' => null,
+                'timezone' => 'UTC',
+                'kyc_status' => 'verified',
+                'kyc_verified_at' => now()->subDays(5),
+                'kyc_documents' => json_encode([
+                    [
+                        'type' => 'passport',
+                        'path' => 'kyc_documents/john_passport.jpg',
+                        'original_name' => 'john_passport.jpg',
+                        'uploaded_at' => now()->subDays(5)->toISOString()
+                    ],
+                    [
+                        'type' => 'id_document',
+                        'path' => 'kyc_documents/john_id.jpg',
+                        'original_name' => 'john_id.jpg',
+                        'uploaded_at' => now()->subDays(5)->toISOString()
+                    ]
+                ]),
+            ]
+        );
 
         // Sample pending KYC user (Admin user, not customer)
-        $pendingUser = User::create([
-            'user_uid' => Str::random(13),
-            'first_name' => 'Jane',
-            'last_name' => 'Smith',
-            'email' => 'jane.smith@admin.worldwideadverts.info',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'group_id' => null,
-            'timezone' => 'UTC',
-            'kyc_status' => 'submitted',
-            'kyc_documents' => json_encode([
-                [
-                    'type' => 'national_id',
-                    'path' => 'kyc_documents/jane_id.jpg',
-                    'original_name' => 'jane_id.jpg',
-                    'uploaded_at' => now()->subDay()->toISOString()
-                ]
-            ]),
-        ]);
+        $pendingUser = User::firstOrCreate(
+            ['email' => 'jane.smith@admin.worldwideadverts.info'],
+            [
+                'user_uid' => Str::random(13),
+                'first_name' => 'Jane',
+                'last_name' => 'Smith',
+                'password' => Hash::make('password123'),
+                'email_verified_at' => now(),
+                'group_id' => null,
+                'timezone' => 'UTC',
+                'kyc_status' => 'submitted',
+                'kyc_documents' => json_encode([
+                    [
+                        'type' => 'national_id',
+                        'path' => 'kyc_documents/jane_id.jpg',
+                        'original_name' => 'jane_id.jpg',
+                        'uploaded_at' => now()->subDay()->toISOString()
+                    ]
+                ]),
+            ]
+        );
 
         // Sample rejected KYC user (Admin user, not customer)
-        $rejectedUser = User::create([
-            'user_uid' => Str::random(13),
-            'first_name' => 'Bob',
-            'last_name' => 'Wilson',
-            'email' => 'bob.wilson@admin.worldwideadverts.info',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'group_id' => null,
-            'timezone' => 'UTC',
-            'kyc_status' => 'rejected',
-            'kyc_rejection_reason' => 'Document quality too low. Please resubmit with clear, high-resolution documents.',
-            'kyc_documents' => json_encode([
-                [
-                    'type' => 'driver_license',
-                    'path' => 'kyc_documents/bob_license.jpg',
-                    'original_name' => 'bob_license.jpg',
-                    'uploaded_at' => now()->subDays(2)->toISOString()
-                ]
-            ]),
-        ]);
+        $rejectedUser = User::firstOrCreate(
+            ['email' => 'bob.wilson@admin.worldwideadverts.info'],
+            [
+                'user_uid' => Str::random(13),
+                'first_name' => 'Bob',
+                'last_name' => 'Wilson',
+                'password' => Hash::make('password123'),
+                'email_verified_at' => now(),
+                'group_id' => null,
+                'timezone' => 'UTC',
+                'kyc_status' => 'rejected',
+                'kyc_rejection_reason' => 'Document quality too low. Please resubmit with clear, high-resolution documents.',
+                'kyc_documents' => json_encode([
+                    [
+                        'type' => 'driver_license',
+                        'path' => 'kyc_documents/bob_license.jpg',
+                        'original_name' => 'bob_license.jpg',
+                        'uploaded_at' => now()->subDays(2)->toISOString()
+                    ]
+                ]),
+            ]
+        );
 
         // Sample user without KYC (Admin user, not customer)
-        $noKycUser = User::create([
-            'user_uid' => Str::random(13),
-            'first_name' => 'Alice',
-            'last_name' => 'Brown',
-            'email' => 'alice.brown@admin.worldwideadverts.info',
-            'password' => Hash::make('password123'),
-            'email_verified_at' => now(),
-            'group_id' => null,
-            'timezone' => 'UTC',
-            'kyc_status' => 'pending',
-        ]);
+        $noKycUser = User::firstOrCreate(
+            ['email' => 'alice.brown@admin.worldwideadverts.info'],
+            [
+                'user_uid' => Str::random(13),
+                'first_name' => 'Alice',
+                'last_name' => 'Brown',
+                'password' => Hash::make('password123'),
+                'email_verified_at' => now(),
+                'group_id' => null,
+                'timezone' => 'UTC',
+                'kyc_status' => 'pending',
+            ]
+        );
 
         $this->command->info('Sample admin users created for KYC testing:');
         $this->command->info('- John Doe (Verified): john.doe@admin.worldwideadverts.info / password123');

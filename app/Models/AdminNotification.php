@@ -77,7 +77,7 @@ class AdminNotification extends Model
                 'user_id' => $admin->user_id,
                 'type' => $type,
                 'message' => $message,
-                'data' => $data,
+                'data' => json_encode($data),
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
