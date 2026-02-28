@@ -17,7 +17,7 @@ class Affiliate extends Model
      *
      * @var string
      */
-    protected $table = 'affiliate_links';
+    protected $table = 'ea_affiliate_links';
 
     public function getImageUrlAttribute($image)
     {

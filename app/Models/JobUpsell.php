@@ -11,7 +11,7 @@ class JobUpsell extends Model
     use HasFactory, SoftDeletes;
 
     protected $primaryKey = 'job_upsell_id';
-    protected $table = 'job_upsells';
+    protected $table = 'ea_job_upsells';
 
     protected $fillable = [
         'listing_id',

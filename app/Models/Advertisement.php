@@ -14,7 +14,7 @@ class Advertisement extends Model
      *
      * @var string
      */
-    protected $table = 'advertisement';
+    protected $table = 'ea_advertisement';
 
     protected $primaryKey = 'advertisement_id';
 
@@ -23,14 +23,31 @@ class Advertisement extends Model
         'description',
         'url',
         'image',
+        'type',
+        'pricing_plan_id',
+        'price',
+        'payment_status',
+        'payment_transaction_id',
         'is_active',
         'start_date',
         'end_date',
+        'created_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'start_date' => 'datetime',
         'end_date' => 'datetime',
+        'price' => 'decimal:2',
     ];
+
+    public function pricingPlan()
+    {
+        return $this->belongsTo(AdPricingPlan::class, 'pricing_plan_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 } 

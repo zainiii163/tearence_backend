@@ -65,6 +65,7 @@ Route::group([
 
     // no auth
     Route::group(['prefix' => 'auth'], function () {
+        Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/login-admin', [AuthController::class, 'loginAdmin']);
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);

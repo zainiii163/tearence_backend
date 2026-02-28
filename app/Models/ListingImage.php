@@ -14,7 +14,7 @@ class ListingImage extends Model
      *
      * @var string
      */
-    protected $table = 'listing_image';
+    protected $table = 'ea_listing_image';
 
     public function getImagePathAttribute($value)
     {

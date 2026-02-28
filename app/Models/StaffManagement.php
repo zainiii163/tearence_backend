@@ -10,7 +10,7 @@ class StaffManagement extends Model
     use HasFactory;
 
     protected $primaryKey = 'staff_id';
-    protected $table = 'staff_management';
+    protected $table = 'ea_staff_management';
 
     protected $fillable = [
         'customer_id',

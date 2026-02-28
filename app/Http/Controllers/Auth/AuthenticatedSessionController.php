@@ -39,7 +39,7 @@ class AuthenticatedSessionController extends Controller
         
         if ($adminUser && \Hash::check($credentials['password'], $adminUser->password)) {
             // Authenticate admin user with session using attempt method
-            if (Auth::guard('admin-web')->attempt($credentials)) {
+            if (\Illuminate\Support\Facades\Auth::guard('admin-web')->attempt($credentials)) {
                 $request->session()->regenerate();
                 
                 \Log::info('Admin login successful for: ' . $adminUser->email);
@@ -54,7 +54,7 @@ class AuthenticatedSessionController extends Controller
         
         if ($customer && \Hash::check($credentials['password'], $customer->password)) {
             // Authenticate customer user
-            Auth::guard('web')->attempt($credentials);
+            \Illuminate\Support\Facades\Auth::guard('web')->attempt($credentials);
             $request->session()->regenerate();
             
             \Log::info('Customer login successful for: ' . $customer->email);
@@ -80,10 +80,10 @@ class AuthenticatedSessionController extends Controller
     public function destroy(Request $request)
     {
         // Check if user is logged in as admin
-        if (Auth::guard('admin-web')->check()) {
-            Auth::guard('admin-web')->logout();
+        if (\Illuminate\Support\Facades\Auth::guard('admin-web')->check()) {
+            \Illuminate\Support\Facades\Auth::guard('admin-web')->logout();
         } else {
-            Auth::guard('web')->logout();
+            \Illuminate\Support\Facades\Auth::guard('web')->logout();
         }
 
         $request->session()->invalidate();

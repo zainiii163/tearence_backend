@@ -72,6 +72,9 @@ class AdManagementResource extends Resource
                                     ->image()
                                     ->directory('advertisements')
                                     ->imageEditor()
+                                    ->visibility('public')
+                                    ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'])
+                                    ->maxSize(5120)
                                     ->columnSpan(['lg' => 1, 'md' => 1, 'sm' => 1]),
                             ])
                             ->columns(['lg' => 3, 'md' => 2, 'sm' => 1]),
@@ -177,6 +180,24 @@ class AdManagementResource extends Resource
                     ->defaultImageUrl(url('/placeholder.png'))
                     ->square()
                     ->size(60)
+                    ->getStateUsing(function ($record) {
+                        if (!$record->image) {
+                            return null;
+                        }
+                        
+                        // If the image path is already a full URL, return it as is
+                        if (filter_var($record->image, FILTER_VALIDATE_URL)) {
+                            return $record->image;
+                        }
+                        
+                        // If the image path starts with 'advertisements/', make sure it's properly formatted
+                        if (str_starts_with($record->image, 'advertisements/')) {
+                            return $record->image;
+                        }
+                        
+                        // If it's just a filename, prepend the directory
+                        return 'advertisements/' . $record->image;
+                    })
                     ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('title')

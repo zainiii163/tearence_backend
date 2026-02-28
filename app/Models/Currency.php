@@ -14,7 +14,7 @@ class Currency extends Model
      *
      * @var string
      */
-    protected $table = 'currency';
+    protected $table = 'ea_currency';
 
     protected $primaryKey = 'currency_id';
 

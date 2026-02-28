@@ -30,7 +30,7 @@ class ListingFavorite extends Model
      *
      * @var string
      */
-    protected $table = 'listing_favorite';
+    protected $table = 'ea_listing_favorite';
 
     /**
      * Get the customer that owns the listingFavorite.

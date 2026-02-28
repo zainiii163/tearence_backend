@@ -38,10 +38,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('listing', function (Blueprint $table) {
-            $table->dropIndex(['venue_type', 'capacity']);
-            $table->dropIndex('country');
-            $table->dropIndex('price_per_hour');
-            $table->dropIndex('price_per_day');
+            // Drop single-column indexes that exist
+            $table->dropIndex(['country']);
+            $table->dropIndex(['price_per_hour']);
+            $table->dropIndex(['price_per_day']);
             
             $table->dropColumn([
                 'venue_name',

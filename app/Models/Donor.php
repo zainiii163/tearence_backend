@@ -10,6 +10,8 @@ class Donor extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'ea_donor';
+
     protected $fillable = [
         'customer_id',
         'campaign_id',

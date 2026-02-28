@@ -6,7 +6,12 @@ use App\Filament\Resources\AdManagementResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
-use Filament\Infolists\Components;
+use Filament\Infolists\Components\BadgeEntry;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
 use Illuminate\Contracts\View\View;
 
 class ViewAd extends ViewRecord
@@ -46,13 +51,13 @@ class ViewAd extends ViewRecord
     {
         return $infolist
             ->schema([
-                Components\Section::make('Advertisement Details')
+                Section::make('Advertisement Details')
                     ->schema([
-                        Components\Grid::make(3)
+                        Grid::make(3)
                             ->schema([
-                                Components\TextEntry::make('title')
+                                TextEntry::make('title')
                                     ->columnSpan(2),
-                                Components\BadgeEntry::make('type')
+                                BadgeEntry::make('type')
                                     ->colors([
                                         'primary' => 'banner',
                                         'success' => 'sponsored',
@@ -61,26 +66,44 @@ class ViewAd extends ViewRecord
                                     ->formatStateUsing(fn ($state) => ucfirst($state)),
                             ]),
                         
-                        Components\TextEntry::make('description')
+                        TextEntry::make('description')
                             ->columnSpanFull(),
                         
-                        Components\Grid::make(2)
+                        Grid::make(2)
                             ->schema([
-                                Components\ImageEntry::make('image')
+                                ImageEntry::make('image')
                                     ->square()
                                     ->height(200)
-                                    ->defaultImageUrl(url('/placeholder.png')),
+                                    ->defaultImageUrl(url('/placeholder.png'))
+                                    ->getStateUsing(function ($record) {
+                                        if (!$record->image) {
+                                            return null;
+                                        }
+                                        
+                                        // If the image path is already a full URL, return it as is
+                                        if (filter_var($record->image, FILTER_VALIDATE_URL)) {
+                                            return $record->image;
+                                        }
+                                        
+                                        // If the image path starts with 'advertisements/', make sure it's properly formatted
+                                        if (str_starts_with($record->image, 'advertisements/')) {
+                                            return $record->image;
+                                        }
+                                        
+                                        // If it's just a filename, prepend the directory
+                                        return 'advertisements/' . $record->image;
+                                    }),
                                 
-                                Components\Grid::make(1)
+                                Grid::make(1)
                                     ->schema([
-                                        Components\TextEntry::make('url')
+                                        TextEntry::make('url')
                                             ->url()
                                             ->icon('heroicon-o-link'),
-                                        Components\TextEntry::make('pricingPlan.name')
+                                        TextEntry::make('pricingPlan.name')
                                             ->label('Pricing Plan'),
-                                        Components\TextEntry::make('price')
+                                        TextEntry::make('price')
                                             ->money('USD'),
-                                        Components\BadgeEntry::make('payment_status')
+                                        BadgeEntry::make('payment_status')
                                             ->colors([
                                                 'secondary' => 'pending',
                                                 'success' => 'paid',
@@ -92,17 +115,17 @@ class ViewAd extends ViewRecord
                             ]),
                     ]),
                 
-                Components\Section::make('Schedule & Status')
+                Section::make('Schedule & Status')
                     ->schema([
-                        Components\Grid::make(4)
+                        Grid::make(4)
                             ->schema([
-                                Components\TextEntry::make('start_date')
+                                TextEntry::make('start_date')
                                     ->dateTime(),
-                                Components\TextEntry::make('end_date')
+                                TextEntry::make('end_date')
                                     ->dateTime(),
-                                Components\IconEntry::make('is_active')
+                                IconEntry::make('is_active')
                                     ->boolean(),
-                                Components\TextEntry::make('created_at')
+                                TextEntry::make('created_at')
                                     ->dateTime()
                                     ->label('Created'),
                             ]),

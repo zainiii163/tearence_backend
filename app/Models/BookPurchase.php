@@ -14,7 +14,7 @@ class BookPurchase extends Model
 
     protected $primaryKey = 'purchase_id';
 
-    protected $table = 'book_purchases';
+    protected $table = 'ea_book_purchases';
 
     protected $casts = [
         'price_paid' => 'decimal:2',

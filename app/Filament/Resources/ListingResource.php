@@ -638,7 +638,7 @@ class ListingResource extends Resource
                         ->label('Approve Selected')
                         ->icon('heroicon-o-check')
                         ->color('success')
-                        ->visible(fn ($records) => $records->where('approval_status', 'pending')->isNotEmpty())
+                        ->visible(fn ($records) => $records && $records->count() > 0 && $records->where('approval_status', 'pending')->count() > 0)
                         ->form([
                             Forms\Components\Select::make('post_type')
                                 ->label('Post Type')
@@ -661,7 +661,7 @@ class ListingResource extends Resource
                         ->label('Reject Selected')
                         ->icon('heroicon-o-x')
                         ->color('danger')
-                        ->visible(fn ($records) => $records->where('approval_status', 'pending')->isNotEmpty())
+                        ->visible(fn ($records) => $records && $records->count() > 0 && $records->where('approval_status', 'pending')->count() > 0)
                         ->form([
                             Forms\Components\Textarea::make('reason')
                                 ->label('Rejection Reason')

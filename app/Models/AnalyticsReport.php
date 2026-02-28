@@ -14,7 +14,7 @@ class AnalyticsReport extends Model
     /**
      * The database table used by the model.
      */
-    protected $table = 'analytics_reports';
+    protected $table = 'ea_analytics_reports';
     
     /**
      * The primary key associated with the table.

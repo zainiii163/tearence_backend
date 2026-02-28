@@ -10,6 +10,8 @@ class Campaign extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'ea_campaign';
+
     protected $fillable = [
         'code',
         'customer_id',

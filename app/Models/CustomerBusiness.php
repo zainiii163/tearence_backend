@@ -15,7 +15,7 @@ class CustomerBusiness extends Model
      *
      * @var string
      */
-    protected $table = 'customer_business';
+    protected $table = 'ea_customer_business';
 
     /**
      * The primary key associated with the table.

@@ -21,7 +21,7 @@ class Package extends Model
      *
      * @var string
      */
-    protected $table = 'listing_package';
+    protected $table = 'ea_listing_package';
 
     /**
      * The attributes that are mass assignable.

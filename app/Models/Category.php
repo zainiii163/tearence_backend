@@ -14,7 +14,7 @@ class Category extends Model
      *
      * @var string
      */
-    protected $table = 'category';
+    protected $table = 'ea_category';
 
     protected $primaryKey = 'category_id';
 

@@ -14,7 +14,7 @@ class DashboardPermission extends Model
     /**
      * The database table used by the model.
      */
-    protected $table = 'dashboard_permissions';
+    protected $table = 'ea_dashboard_permissions';
     
     /**
      * The primary key associated with the table.

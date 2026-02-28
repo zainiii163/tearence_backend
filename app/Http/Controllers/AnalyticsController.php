@@ -357,6 +357,43 @@ class AnalyticsController extends APIController
     public function overview(Request $request)
     {
         try {
+            $now = now();
+            
+            // Total revenue (all time)
+            $totalRevenue = RevenueTracking::where('payment_status', 'completed')->sum('amount');
+            
+            // This month revenue
+            $monthlyRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->whereMonth('payment_date', $now->month)
+                ->whereYear('payment_date', $now->year)
+                ->sum('amount');
+            
+            // This week revenue (last 7 days)
+            $weeklyRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->whereBetween('payment_date', [$now->copy()->subDays(7), $now])
+                ->sum('amount');
+            
+            // Today's revenue
+            $dailyRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->whereDate('payment_date', $now->toDateString())
+                ->sum('amount');
+            
+            // Ad revenue breakdown
+            $totalAdRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->whereIn('revenue_type', ['banner_ad', 'affiliate_ad'])
+                ->sum('amount');
+            
+            $bannerRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->where('revenue_type', 'banner_ad')
+                ->sum('amount');
+            
+            $affiliateRevenue = RevenueTracking::where('payment_status', 'completed')
+                ->where('revenue_type', 'affiliate_ad')
+                ->sum('amount');
+            
+            // Other revenue (upsells, listings, etc.)
+            $otherRevenue = $totalRevenue - $totalAdRevenue;
+
             $overview = [
                 'total_jobs' => Listing::count(),
                 'active_jobs' => Listing::where('status', 'active')
@@ -367,17 +404,28 @@ class AnalyticsController extends APIController
                     ->count(),
                 'total_candidates' => CandidateProfile::count(),
                 'active_candidates' => CandidateProfile::where('visibility', 'public')->count(),
-                'total_revenue' => RevenueTracking::where('payment_status', 'completed')->sum('amount'),
-                'monthly_revenue' => RevenueTracking::where('payment_status', 'completed')
-                    ->whereMonth('payment_date', now()->month)
-                    ->whereYear('payment_date', now()->year)
-                    ->sum('amount'),
                 'active_upsells' => JobUpsell::where('status', 'active')
                     ->where(function($q) {
                         $q->whereNull('expires_at')
                           ->orWhere('expires_at', '>', now());
                     })
                     ->count(),
+                
+                // Revenue breakdowns
+                'revenue' => [
+                    'total_all_time' => $totalRevenue,
+                    'this_month' => $monthlyRevenue,
+                    'this_week' => $weeklyRevenue,
+                    'today' => $dailyRevenue,
+                    'total_ad_revenue' => $totalAdRevenue,
+                    'banner_revenue' => $bannerRevenue,
+                    'affiliate_revenue' => $affiliateRevenue,
+                    'other_revenue' => $otherRevenue,
+                ],
+                
+                // Legacy compatibility
+                'total_revenue' => $totalRevenue,
+                'monthly_revenue' => $monthlyRevenue,
             ];
 
             return $this->successResponse($overview, 'Platform overview retrieved successfully', Response::HTTP_OK);

@@ -14,7 +14,7 @@ class Language extends Model
      *
      * @var string
      */
-    protected $table = 'language';
+    protected $table = 'ea_language';
 
     /**
      * The primary key associated with the table.

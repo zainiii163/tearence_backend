@@ -18,7 +18,7 @@ class Banner extends Model
      *
      * @var string
      */
-    protected $table = 'banner';
+    protected $table = 'ea_banner';
 
     public function getImgAttribute($image)
     {

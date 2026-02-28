@@ -7,8 +7,9 @@ use Filament\Panel;
 use Filament\Models\Contracts\HasName;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements FilamentUser, HasName
+class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
 {
     // use HasApiTokens, HasFactory, Notifiable;
     protected $appends = ['name'];
@@ -34,7 +35,7 @@ class User extends Authenticatable implements FilamentUser, HasName
      *
      * @var string
      */
-    protected $table = 'user';
+    protected $table = 'ea_user';
 
     /**
      * The attributes that are mass assignable.

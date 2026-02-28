@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ListingUpsell extends Model
 {
     protected $primaryKey = 'upsell_id';
-    protected $table = 'listing_upsells';
+    protected $table = 'ea_listing_upsells';
     
     protected $fillable = [
         'listing_id',

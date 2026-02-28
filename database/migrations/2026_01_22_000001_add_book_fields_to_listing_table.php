@@ -42,8 +42,8 @@ return new class extends Migration
     {
         Schema::table('listing', function (Blueprint $table) {
             $table->dropIndex(['book_type', 'genre']);
-            $table->dropIndex('author');
-            $table->dropIndex('isbn');
+            $table->dropIndex(['author']);
+            $table->dropIndex(['isbn']);
             
             $table->dropColumn([
                 'book_type',

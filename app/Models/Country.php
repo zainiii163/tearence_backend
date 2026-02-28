@@ -14,7 +14,7 @@ class Country extends Model
      *
      * @var string
      */
-    protected $table = 'country';
+    protected $table = 'ea_country';
 
     /**
      * The primary key associated with the table.

@@ -9,7 +9,7 @@ class AdPricingPlan extends Model
 {
     use HasFactory;
 
-    protected $table = 'ad_pricing_plans';
+    protected $table = 'ea_ad_pricing_plans';
 
     protected $fillable = [
         'name',

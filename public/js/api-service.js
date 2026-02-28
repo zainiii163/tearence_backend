@@ -1,6 +1,9 @@
 class APIService {
     constructor() {
-        this.baseURL = window.location.origin + '/api/v1';
+        // Production API URL
+        this.baseURL = 'https://api.worldwideadverts.info/api/v1';
+        // For local development, uncomment below and comment above
+        // this.baseURL = 'http://localhost:8000/api/v1';
         this.token = localStorage.getItem('auth_token');
     }
 
@@ -308,6 +311,72 @@ class APIService {
             }
             return null;
         }
+    }
+
+    // Analytics endpoints
+    async getAnalyticsOverview() {
+        return this.request('/analytics/overview', {
+            method: 'GET'
+        });
+    }
+
+    async getAnalyticsRevenue(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/analytics/revenue${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    async getAnalyticsJobs(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/analytics/jobs${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    async getAnalyticsCandidates(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/analytics/candidates${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    async getAnalyticsUpsells(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/analytics/upsells${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    // Customer endpoints
+    async getCustomers(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/customer${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    // Candidate profile endpoints
+    async getCandidateProfiles(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/candidate-profile${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    async getCandidateUpsells(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/candidate-upsell${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
+    }
+
+    // Job upsell endpoints
+    async getJobUpsells(params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/job-upsell${queryString ? '?' + queryString : ''}`, {
+            method: 'GET'
+        });
     }
 
     // Handle API errors globally

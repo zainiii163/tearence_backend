@@ -16,5 +16,5 @@ class Book extends Model
      *
      * @var string
      */
-    protected $table = 'books';
+    protected $table = 'ea_books';
 }

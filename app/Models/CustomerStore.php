@@ -17,7 +17,7 @@ class CustomerStore extends Model
      *
      * @var string
      */
-    protected $table = 'customer_store';
+    protected $table = 'ea_customer_store';
 
     /**
      * The primary key associated with the table.
