@@ -14,7 +14,7 @@ class Advertisement extends Model
      *
      * @var string
      */
-    protected $table = 'ea_advertisement';
+    protected $table = 'advertisement';
 
     protected $primaryKey = 'advertisement_id';
 

@@ -35,7 +35,7 @@ class Customer extends Authenticatable implements JWTSubject
      *
      * @var string
      */
-    protected $table = 'ea_customer';
+    protected $table = 'customer';
 
     /**
      * The attributes that should be hidden for serialization.

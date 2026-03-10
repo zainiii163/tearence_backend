@@ -6,43 +6,61 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 
 class Service extends Model
 {
     use HasFactory;
 
+    protected $table = 'services';
+
     protected $fillable = [
         'user_id',
+        'service_provider_id',
         'category_id',
         'title',
+        'slug',
+        'tagline',
         'description',
-        'service_type',
-        'pricing_model',
-        'base_price',
-        'delivery_time',
-        'skill_level',
-        'service_category',
-        'portfolio_link',
+        'whats_included',
+        'whats_not_included',
         'requirements',
-        'revisions_included',
-        'extra_fast_delivery',
-        'is_active',
-        'views_count',
-        'orders_count',
+        'service_type',
+        'starting_price',
+        'currency',
+        'delivery_time',
+        'availability',
+        'country',
+        'city',
+        'latitude',
+        'longitude',
+        'service_area_radius',
+        'views',
+        'enquiries',
         'rating',
-        'reviews_count',
-        'featured',
-        'verified',
+        'review_count',
+        'status',
+        'promotion_type',
+        'promotion_expires_at',
+        'is_verified',
+        'languages',
     ];
 
     protected $casts = [
-        'base_price' => 'decimal:2',
-        'extra_fast_delivery' => 'decimal:2',
-        'is_active' => 'boolean',
-        'featured' => 'boolean',
-        'verified' => 'boolean',
-        'requirements' => 'array',
+        'starting_price' => 'decimal:2',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8',
+        'service_area_radius' => 'integer',
+        'views' => 'integer',
+        'enquiries' => 'integer',
         'rating' => 'decimal:2',
+        'review_count' => 'integer',
+        'promotion_expires_at' => 'datetime',
+        'is_verified' => 'boolean',
+        'whats_included' => 'array',
+        'whats_not_included' => 'array',
+        'availability' => 'array',
+        'languages' => 'array',
     ];
 
     public function user(): BelongsTo
@@ -50,121 +68,149 @@ class Service extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function serviceProvider(): BelongsTo
+    {
+        return $this->belongsTo(ServiceProvider::class, 'service_provider_id');
+    }
+
     public function category(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
-    }
-
-    public function orders(): HasMany
-    {
-        return $this->hasMany(ServiceOrder::class);
-    }
-
-    public function reviews(): HasMany
-    {
-        return $this->hasMany(ServiceReview::class);
+        return $this->belongsTo(ServiceCategory::class, 'category_id');
     }
 
     public function packages(): HasMany
     {
-        return $this->hasMany(ServicePackage::class);
+        return $this->hasMany(ServicePackage::class)->active()->ordered();
     }
 
-    public function galleries(): HasMany
+    public function promotions(): HasMany
     {
-        return $this->hasMany(ServiceGallery::class);
+        return $this->hasMany(ServicePromotion::class);
     }
 
-    // Scopes for filtering
-    public function scopeActive($query)
+    public function activePromotion(): HasMany
     {
-        return $query->where('is_active', true);
+        return $this->promotions()->active();
     }
 
-    public function scopeFeatured($query)
+    public function addons(): HasMany
     {
-        return $query->where('featured', true);
+        return $this->hasMany(ServiceAddon::class)->active()->ordered();
     }
 
-    public function scopeVerified($query)
+    public function media(): HasMany
     {
-        return $query->where('verified', true);
+        return $this->hasMany(ServiceMedia::class)->ordered();
     }
 
-    public function scopeByCategory($query, $categoryId)
+    public function thumbnail(): HasMany
+    {
+        return $this->media()->thumbnail()->first();
+    }
+
+    public function images(): HasMany
+    {
+        return $this->media()->images();
+    }
+
+    public function videos(): HasMany
+    {
+        return $this->media()->videos();
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->media()->documents();
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopePromoted(Builder $query): Builder
+    {
+        return $query->whereIn('promotion_type', ['promoted', 'featured', 'sponsored', 'network_boost'])
+                    ->where(function ($q) {
+                        $q->whereNull('promotion_expires_at')
+                          ->orWhere('promotion_expires_at', '>', now());
+                    });
+    }
+
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->whereIn('promotion_type', ['featured', 'sponsored', 'network_boost'])
+                    ->where(function ($q) {
+                        $q->whereNull('promotion_expires_at')
+                          ->orWhere('promotion_expires_at', '>', now());
+                    });
+    }
+
+    public function scopeByCategory(Builder $query, $categoryId): Builder
     {
         return $query->where('category_id', $categoryId);
     }
 
-    public function scopeByServiceCategory($query, $serviceCategory)
+    public function scopeByCountry(Builder $query, $country): Builder
     {
-        return $query->where('service_category', $serviceCategory);
+        return $query->where('country', $country);
     }
 
-    public function scopeByPriceRange($query, $minPrice, $maxPrice = null)
+    public function scopeByType(Builder $query, $type): Builder
     {
-        $query->where('base_price', '>=', $minPrice);
-        if ($maxPrice) {
-            $query->where('base_price', '<=', $maxPrice);
-        }
-        return $query;
+        return $query->where('service_type', $type);
     }
 
-    public function scopeByDeliveryTime($query, $deliveryTime)
+    public function scopeVerified(Builder $query): Builder
     {
-        return $query->where('delivery_time', $deliveryTime);
+        return $query->where('is_verified', true);
     }
 
-    public function scopeOrderByRating($query, $direction = 'desc')
+    public function getFormattedPriceAttribute(): string
     {
-        return $query->orderBy('rating', $direction);
+        return number_format($this->starting_price, 2);
     }
 
-    public function scopeOrderByOrders($query, $direction = 'desc')
+    public function getProviderNameAttribute(): string
     {
-        return $query->orderBy('orders_count', $direction);
+        return $this->serviceProvider?->getFullNameAttribute() ?: $this->user?->name ?: '';
     }
 
-    public function scopeOrderByPrice($query, $direction = 'asc')
+    public function getProviderPhotoAttribute(): string
     {
-        return $query->orderBy('base_price', $direction);
+        return $this->serviceProvider?->getProfilePhotoAttribute() ?: $this->user?->profile_photo_url ?: '';
     }
 
-    // Helper methods
-    public function getAverageRating(): float
+    public function getThumbnailUrlAttribute(): string
     {
-        return $this->reviews()->avg('rating') ?? 0;
-    }
-
-    public function getTotalEarnings(): float
-    {
-        return $this->orders()->where('status', 'completed')->sum('total_price');
-    }
-
-    public function getCompletionRate(): float
-    {
-        $totalOrders = $this->orders()->count();
-        if ($totalOrders === 0) return 0;
-        
-        $completedOrders = $this->orders()->where('status', 'completed')->count();
-        return ($completedOrders / $totalOrders) * 100;
+        return $this->thumbnail?->getFullUrlAttribute() ?: '';
     }
 
     public function incrementViews(): void
     {
-        $this->increment('views_count');
+        $this->increment('views');
     }
 
-    public function incrementOrders(): void
+    public function incrementEnquiries(): void
     {
-        $this->increment('orders_count');
+        $this->increment('enquiries');
     }
 
-    public function updateRating(): void
+    public function isPromoted(): bool
     {
-        $this->rating = $this->getAverageRating();
-        $this->reviews_count = $this->reviews()->count();
-        $this->save();
+        return in_array($this->promotion_type, ['promoted', 'featured', 'sponsored', 'network_boost']) &&
+               (!$this->promotion_expires_at || $this->promotion_expires_at > now());
+    }
+
+    public function getPromotionBadgeAttribute(): string
+    {
+        return match($this->promotion_type) {
+            'promoted' => 'Promoted',
+            'featured' => 'Featured',
+            'sponsored' => 'Sponsored',
+            'network_boost' => 'Top Spotlight',
+            default => '',
+        };
     }
 
     // Search functionality
@@ -173,54 +219,7 @@ class Service extends Model
         return $query->where(function ($q) use ($term) {
             $q->where('title', 'LIKE', "%{$term}%")
               ->orWhere('description', 'LIKE', "%{$term}%")
-              ->orWhere('service_category', 'LIKE', "%{$term}%");
+              ->orWhere('tagline', 'LIKE', "%{$term}%");
         });
-    }
-
-    // Get formatted price
-    public function getFormattedPrice(): string
-    {
-        return '$' . number_format($this->base_price, 2);
-    }
-
-    // Get delivery time text
-    public function getDeliveryTimeText(): string
-    {
-        $deliveryTimes = [
-            '1_day' => '1 Day',
-            '3_days' => '3 Days',
-            '1_week' => '1 Week',
-            '2_weeks' => '2 Weeks',
-            '1_month' => '1 Month',
-            'custom' => 'Custom'
-        ];
-
-        return $deliveryTimes[$this->delivery_time] ?? 'Custom';
-    }
-
-    // Get pricing model text
-    public function getPricingModelText(): string
-    {
-        $models = [
-            'fixed_price' => 'Fixed Price',
-            'hourly_rate' => 'Hourly Rate',
-            'package' => 'Service Package',
-            'quote_based' => 'Quote Based'
-        ];
-
-        return $models[$this->pricing_model] ?? 'Fixed Price';
-    }
-
-    // Get skill level text
-    public function getSkillLevelText(): string
-    {
-        $levels = [
-            'beginner' => 'Beginner',
-            'intermediate' => 'Intermediate',
-            'expert' => 'Expert',
-            'professional' => 'Professional'
-        ];
-
-        return $levels[$this->skill_level] ?? 'Intermediate';
     }
 }

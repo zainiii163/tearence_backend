@@ -10,21 +10,28 @@ class ServicePackage extends Model
 {
     use HasFactory;
 
+    protected $table = 'service_packages';
+
     protected $fillable = [
         'service_id',
         'name',
         'description',
         'price',
+        'currency',
         'delivery_time',
-        'revisions',
         'features',
-        'is_popular',
+        'revisions',
+        'is_active',
+        'sort_order',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'delivery_time' => 'integer',
+        'revisions' => 'integer',
+        'is_active' => 'boolean',
+        'sort_order' => 'integer',
         'features' => 'array',
-        'is_popular' => 'boolean',
     ];
 
     public function service(): BelongsTo
@@ -32,8 +39,18 @@ class ServicePackage extends Model
         return $this->belongsTo(Service::class);
     }
 
-    public function getFormattedPrice(): string
+    public function getFormattedPriceAttribute(): string
     {
-        return '$' . number_format($this->price, 2);
+        return number_format($this->price, 2);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('sort_order');
     }
 }

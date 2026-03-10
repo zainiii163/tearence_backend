@@ -11,7 +11,7 @@ class CandidateUpsell extends Model
     use HasFactory, SoftDeletes;
 
     protected $primaryKey = 'candidate_upsell_id';
-    protected $table = 'ea_candidate_upsells';
+    protected $table = 'candidate_upsells';
 
     protected $fillable = [
         'candidate_profile_id',

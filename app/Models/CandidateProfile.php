@@ -11,7 +11,7 @@ class CandidateProfile extends Model
     use HasFactory, SoftDeletes;
 
     protected $primaryKey = 'candidate_profile_id';
-    protected $table = 'ea_candidate_profiles';
+    protected $table = 'candidate_profiles';
 
     protected $fillable = [
         'customer_id',

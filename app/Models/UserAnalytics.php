@@ -14,7 +14,7 @@ class UserAnalytics extends Model
     /**
      * The database table used by the model.
      */
-    protected $table = 'ea_user_analytics';
+    protected $table = 'user_analytics';
     
     /**
      * The primary key associated with the table.

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('user', function (Blueprint $table) {
+        Schema::table('users', function (Blueprint $table) {
             // Posting limit fields
             $table->unsignedInteger('posts_count')->default(0)->after('kyc_rejection_reason');
             $table->unsignedInteger('posts_limit')->default(5)->after('posts_count');
@@ -31,7 +31,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('user', function (Blueprint $table) {
+        Schema::table('users', function (Blueprint $table) {
             $table->dropColumn([
                 'posts_count',
                 'posts_limit', 

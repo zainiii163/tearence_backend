@@ -96,7 +96,7 @@ class Listing extends Model
      *
      * @var string
      */
-    protected $table = 'ea_listing';
+    protected $table = 'listing';
 
     protected $casts = [
         'attachments' => 'array',

@@ -10,7 +10,7 @@ class ListingAnalytics extends Model
     use HasFactory;
 
     protected $primaryKey = 'analytics_id';
-    protected $table = 'ea_listing_analytics';
+    protected $table = 'listing_analytics';
 
     protected $fillable = [
         'listing_id',

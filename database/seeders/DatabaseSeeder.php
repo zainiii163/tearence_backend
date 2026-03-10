@@ -26,17 +26,10 @@ class DatabaseSeeder extends Seeder
             // Ad pricing plans (before content that uses them)
             AdPricingPlansSeeder::class,
             
-            // Content seeders
-            BannerSeeder::class,
-            AffiliateLinksSeeder::class,
-            BooksSeeder::class,
-            BlogSeeder::class,
-            AdvertisementSeeder::class,
-            
             // User and group seeders
             GroupSeeder::class,
             AdminUserSeeder::class,
-            DashboardPermissionSeeder::class, // Analytics permissions
+            DashboardPermissionSeeder::class,
             
             // Customer and related seeders
             CustomerSeeder::class,
@@ -48,9 +41,28 @@ class DatabaseSeeder extends Seeder
             CampaignSeeder::class,
             DonorSeeder::class,
             
+            // Content seeders
+            BannerSeeder::class,
+            AffiliateLinksSeeder::class,
+            BooksAuthorsSeeder::class,
+            BooksSeeder::class,
+            BlogSeeder::class,
+            AdvertisementSeeder::class,
+            
+            // New comprehensive seeders
+            ServiceSeeder::class,
+            VehicleSeeder::class,
+            BannerAdsSeeder::class,
+            AffiliateSeeder::class,
+            FundingSeeder::class,
+            ResortsTravelSeeder::class,
+            JobsSeeder::class,
+            PropertySeeder::class,
+            SponsoredAdvertsSeeder::class,
+            
             // Listing and job-related seeders
-            SampleListingsSeeder::class, // New comprehensive listing seeder
-            AllCategoryPostsSeeder::class, // Posts for all categories
+            SampleListingsSeeder::class,
+            AllCategoryPostsSeeder::class,
             ListingSeeder::class,
             CandidateProfileSeeder::class,
             JobAlertSeeder::class,

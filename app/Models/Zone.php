@@ -14,7 +14,7 @@ class Zone extends Model
      *
      * @var string
      */
-    protected $table = 'ea_zone';
+    protected $table = 'zone';
 
     /**
      * The primary key associated with the table.

@@ -24,6 +24,39 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
     }
 
     /**
+     * Check if user is admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin' || $this->is_admin === true || $this->email === 'admin@worldwideadverts.com';
+    }
+
+    /**
+     * Check if user is authenticated.
+     */
+    public function isAuthenticated(): bool
+    {
+        return !is_null($this);
+    }
+
+    /**
+     * Get user's promoted adverts.
+     */
+    public function promotedAdverts()
+    {
+        return $this->hasMany(PromotedAdvert::class, 'user_id');
+    }
+
+    /**
+     * Get user's favorite promoted adverts.
+     */
+    public function favoritePromotedAdverts()
+    {
+        return $this->belongsToMany(PromotedAdvert::class, 'promoted_advert_favorites', 'user_id', 'promoted_advert_id')
+                    ->withTimestamps();
+    }
+
+    /**
      * The primary key associated with the table.
      *
      * @var string
@@ -35,7 +68,19 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
      *
      * @var string
      */
-    protected $table = 'ea_user';
+    protected $table = 'users';
+
+    /**
+     * Get the database connection for the model.
+     *
+     * @return \Illuminate\Database\Connection
+     */
+    public function getConnection()
+    {
+        $connection = parent::getConnection();
+        $connection->setTablePrefix('');
+        return $connection;
+    }
 
     /**
      * The attributes that are mass assignable.

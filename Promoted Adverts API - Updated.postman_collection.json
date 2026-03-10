@@ -1,0 +1,1167 @@
+{
+	"info": {
+		"_postman_id": "wwa-promoted-adverts-api-collection-2026-updated",
+		"name": "WWA Promoted Adverts API Collection - Updated",
+		"description": "Complete API collection for WWA Promoted Adverts System - Updated with database configuration changes and optimized endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "wwa-promoted-adverts-api-v2"
+	},
+	"item": [
+		{
+			"name": "Promoted Adverts Core",
+			"item": [
+				{
+					"name": "Get Promoted Adverts List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts?page=1&per_page=12&sort_by=created_at&sort_order=desc&category=1&country=UK&advert_type=product&promotion_tier=promoted_plus&featured=1&currently_promoted=1&min_price=100&max_price=1000&search=luxury",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number for pagination"
+								},
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Number of items per page (max 50)"
+								},
+								{
+									"key": "sort_by",
+									"value": "created_at",
+									"description": "Sort field: created_at, views_count, saves_count, price, title"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order: asc, desc"
+								},
+								{
+									"key": "category",
+									"value": "1",
+									"description": "Filter by category ID"
+								},
+								{
+									"key": "country",
+									"value": "UK",
+									"description": "Filter by country name"
+								},
+								{
+									"key": "advert_type",
+									"value": "product",
+									"description": "Filter by advert type: product, service, property, vehicle, job, event, business, miscellaneous"
+								},
+								{
+									"key": "promotion_tier",
+									"value": "promoted_plus",
+									"description": "Filter by promotion tier: promoted_basic, promoted_plus, promoted_premium, network_wide_boost"
+								},
+								{
+									"key": "featured",
+									"value": "1",
+									"description": "Filter featured adverts only"
+								},
+								{
+									"key": "currently_promoted",
+									"value": "1",
+									"description": "Filter currently promoted adverts only"
+								},
+								{
+									"key": "min_price",
+									"value": "100",
+									"description": "Minimum price filter"
+								},
+								{
+									"key": "max_price",
+									"value": "1000",
+									"description": "Maximum price filter"
+								},
+								{
+									"key": "search",
+									"value": "luxury",
+									"description": "Search in title, description, tagline"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Featured Promoted Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/featured",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"featured"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Most Viewed Promoted Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/most-viewed",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"most-viewed"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Most Saved Promoted Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/most-saved",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"most-saved"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Recent Promoted Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/recent",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"recent"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Promoted Advert",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/luxury-downtown-apartment-city-views",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"luxury-downtown-apartment-city-views"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Track Advert Click",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/luxury-downtown-apartment-city-views/track-click",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"luxury-downtown-apartment-city-views",
+								"track-click"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Promotion Options",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/promotion-options",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"promotion-options"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Core promoted adverts endpoints"
+		},
+		{
+			"name": "Promoted Adverts Management",
+			"item": [
+				{
+					"name": "Create Promoted Advert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Luxury Downtown Apartment with City Views\",\n    \"tagline\": \"Modern living in the heart of the city\",\n    \"description\": \"Stunning 2-bedroom apartment in prime downtown location. Features panoramic city views, modern appliances, and premium finishes throughout.\",\n    \"key_features\": [\n        \"2 bedrooms, 2 bathrooms\",\n        \"Floor-to-ceiling windows\",\n        \"Modern kitchen with island\",\n        \"Rooftop terrace access\",\n        \"Gym and pool facilities\",\n        \"24/7 concierge service\"\n    ],\n    \"advert_type\": \"property\",\n    \"category_id\": 1,\n    \"country\": \"United Kingdom\",\n    \"city\": \"London\",\n    \"price\": 850000.00,\n    \"currency\": \"GBP\",\n    \"price_type\": \"fixed\",\n    \"condition\": \"new\",\n    \"main_image\": \"luxury-apartment.jpg\",\n    \"additional_images\": [\"apartment-1.jpg\", \"apartment-2.jpg\", \"apartment-3.jpg\"],\n    \"seller_name\": \"Premium Properties Ltd\",\n    \"business_name\": \"Premium Properties Ltd\",\n    \"phone\": \"+44 20 7123 4567\",\n    \"email\": \"info@premiumproperties.co.uk\",\n    \"website\": \"https://premiumproperties.co.uk\",\n    \"verified_seller\": true,\n    \"promotion_tier\": \"network_wide_boost\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Promoted Advert",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated Luxury Downtown Apartment\",\n    \"price\": 899999.00,\n    \"promotion_tier\": \"promoted_premium\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Promoted Advert",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Promoted Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/my-adverts?page=1&per_page=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"my-adverts"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Authenticated endpoints for managing promoted adverts"
+		},
+		{
+			"name": "File Upload",
+			"item": [
+				{
+					"name": "Upload Images",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "images[]",
+									"type": "file",
+									"src": "/path/to/image1.jpg"
+								},
+								{
+									"key": "images[]",
+									"type": "file",
+									"src": "/path/to/image2.jpg"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/upload-images",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"upload-images"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload Logo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "logo",
+									"type": "file",
+									"src": "/path/to/logo.png"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/upload-logo",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"upload-logo"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "File upload endpoints for images and logos"
+		},
+		{
+			"name": "User Interactions",
+			"item": [
+				{
+					"name": "Toggle Favorite",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-adverts/1/toggle-favorite",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-adverts",
+								"1",
+								"toggle-favorite"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "User interaction endpoints"
+		},
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "Get Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Popular Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories/popular",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories",
+								"popular"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories/property",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories",
+								"property"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category Adverts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories/property/adverts?page=1&per_page=12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories",
+								"property",
+								"adverts"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "per_page",
+									"value": "12"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Electronics\",\n    \"description\": \"Electronic devices and gadgets\",\n    \"icon\": \"heroicon-o-cpu-chip\",\n    \"color\": \"#EF4444\",\n    \"sort_order\": 5\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Category",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Electronics & Gadgets\",\n    \"color\": \"#3B82F6\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/promoted-advert-categories/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"promoted-advert-categories",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Category management endpoints"
+		},
+		{
+			"name": "Admin Endpoints",
+			"item": [
+				{
+					"name": "Admin Dashboard Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/dashboard",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"dashboard"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Advert Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/1/analytics",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"1",
+								"analytics"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Approve Adverts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"advert_ids\": [1, 2, 3, 4, 5]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/bulk-approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"bulk-approve"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Reject Adverts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"advert_ids\": [1, 2, 3],\n    \"reason\": \"Violates guidelines\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/bulk-reject",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"bulk-reject"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bulk Feature Adverts",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"advert_ids\": [1, 2, 3, 4]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/bulk-feature",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"bulk-feature"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Export Adverts Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/export?format=csv&filters[status]=active&filters[promotion_tier]=promoted_plus",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"export"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "csv",
+									"description": "Export format: csv, xlsx, json"
+								},
+								{
+									"key": "filters[status]",
+									"value": "active",
+									"description": "Filter by status"
+								},
+								{
+									"key": "filters[promotion_tier]",
+									"value": "promoted_plus",
+									"description": "Filter by promotion tier"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "System Health Check",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/system-health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"system-health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Promotion Performance Report",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/promoted-adverts/promotion-report",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"promoted-adverts",
+								"promotion-report"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Admin-only endpoints for system management"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-set auth token if available",
+					"if (!pm.environment.get('auth_token') && pm.collectionVariables.get('temp_auth_token')) {",
+					"    pm.environment.set('auth_token', pm.collectionVariables.get('temp_auth_token'));",
+					"}",
+					"",
+					"// Auto-set admin token if available",
+					"if (!pm.environment.get('admin_token') && pm.collectionVariables.get('temp_admin_token')) {",
+					"    pm.environment.set('admin_token', pm.collectionVariables.get('temp_admin_token'));",
+					"}",
+					"",
+					"// Log request details",
+					"console.log('Request:', pm.request.method.toUpperCase(), pm.request.url.getPath());",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Basic response tests",
+					"pm.test('Status code is successful', function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+					"});",
+					"",
+					"pm.test('Response has success field', function () {",
+					"    const jsonData = pm.response.json();",
+					"    pm.expect(jsonData).to.have.property('success');",
+					"});",
+					"",
+					"pm.test('Response time is less than 3000ms', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(3000);",
+					"});",
+					"",
+					"// Store auth token from login responses",
+					"if (pm.request.url.getPath().includes('login') && pm.response.code === 200) {",
+					"    const jsonData = pm.response.json();",
+					"    if (jsonData.data && jsonData.data.token) {",
+					"        pm.environment.set('auth_token', jsonData.data.token);",
+					"    }",
+					"}",
+					"",
+					"// Store admin token from admin login",
+					"if (pm.request.url.getPath().includes('admin') && pm.request.url.getPath().includes('login') && pm.response.code === 200) {",
+					"    const jsonData = pm.response.json();",
+					"    if (jsonData.data && jsonData.data.token) {",
+					"        pm.environment.set('admin_token', jsonData.data.token);",
+					"    }",
+					"}",
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

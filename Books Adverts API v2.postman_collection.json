@@ -1,0 +1,669 @@
+{
+	"info": {
+		"_postman_id": "wwa-books-adverts-api-collection-2026-updated",
+		"name": "WWA Books Adverts API Collection v2",
+		"description": "Complete API collection for WWA Books Adverts System v2 - Updated with new endpoints and premium features",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "wwa-books-api-v2"
+	},
+	"item": [
+		{
+			"name": "Books Adverts Core",
+			"item": [
+				{
+					"name": "Get Books List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts?search=mystery&genre=fiction&country=US&format=paperback&min_price=10&max_price=100&verified_only=true&promoted_only=true&sort_by=created_at&sort_order=desc&per_page=12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "mystery",
+									"description": "Search in title, author, description"
+								},
+								{
+									"key": "genre",
+									"value": "fiction",
+									"description": "Filter by genre"
+								},
+								{
+									"key": "country",
+									"value": "US",
+									"description": "Filter by country code"
+								},
+								{
+									"key": "format",
+									"value": "paperback",
+									"description": "Filter by format (paperback, hardcover, ebook, audiobook)"
+								},
+								{
+									"key": "book_type",
+									"value": "fiction",
+									"description": "Filter by book type"
+								},
+								{
+									"key": "language",
+									"value": "en",
+									"description": "Filter by language"
+								},
+								{
+									"key": "min_price",
+									"value": "10",
+									"description": "Minimum price filter"
+								},
+								{
+									"key": "max_price",
+									"value": "100",
+									"description": "Maximum price filter"
+								},
+								{
+									"key": "verified_only",
+									"value": "true",
+									"description": "Verified authors only"
+								},
+								{
+									"key": "promoted_only",
+									"value": "true",
+									"description": "Promoted books only"
+								},
+								{
+									"key": "sort_by",
+									"value": "created_at",
+									"description": "Sort field (created_at, title, price, views_count, saves_count, rating)"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order (asc, desc)"
+								},
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page (max 50)"
+								}
+							]
+						},
+						"description": "Get books with advanced filtering and search capabilities"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Book Advert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "book_type",
+									"value": "fiction",
+									"type": "text"
+								},
+								{
+									"key": "title",
+									"value": "The Great Adventure",
+									"type": "text"
+								},
+								{
+									"key": "subtitle",
+									"value": "A Journey Beyond Imagination",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Join our hero on an epic journey through mystical lands and dangerous encounters. This gripping tale will keep you on the edge of your seat from start to finish.",
+									"type": "text"
+								},
+								{
+									"key": "short_description",
+									"value": "An epic adventure story that will captivate readers of all ages.",
+									"type": "text"
+								},
+								{
+									"key": "author_name",
+									"value": "John Smith",
+									"type": "text"
+								},
+								{
+									"key": "genre",
+									"value": "Adventure",
+									"type": "text"
+								},
+								{
+									"key": "country",
+									"value": "US",
+									"type": "text"
+								},
+								{
+									"key": "language",
+									"value": "en",
+									"type": "text"
+								},
+								{
+									"key": "price",
+									"value": "19.99",
+									"type": "text"
+								},
+								{
+									"key": "currency",
+									"value": "USD",
+									"type": "text"
+								},
+								{
+									"key": "format",
+									"value": "paperback",
+									"type": "text"
+								},
+								{
+									"key": "isbn",
+									"value": "978-1234567890",
+									"type": "text"
+								},
+								{
+									"key": "publisher",
+									"value": "Adventure Books Publishing",
+									"type": "text"
+								},
+								{
+									"key": "publication_date",
+									"value": "2024-01-15",
+									"type": "text"
+								},
+								{
+									"key": "pages",
+									"value": "350",
+									"type": "text"
+								},
+								{
+									"key": "age_range",
+									"value": "12+",
+									"type": "text"
+								},
+								{
+									"key": "series_name",
+									"value": "Adventure Series",
+									"type": "text"
+								},
+								{
+									"key": "edition",
+									"value": "First Edition",
+									"type": "text"
+								},
+								{
+									"key": "author_bio",
+									"value": "John Smith is an award-winning author known for his captivating adventure novels.",
+									"type": "text"
+								},
+								{
+									"key": "trailer_video_url",
+									"value": "https://youtube.com/watch?v=example",
+									"type": "text"
+								},
+								{
+									"key": "cover_image",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "additional_images",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "author_photo",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "sample_files",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "purchase_links[0][platform]",
+									"value": "Amazon",
+									"type": "text"
+								},
+								{
+									"key": "purchase_links[0][url]",
+									"value": "https://amazon.com/dp/1234567890",
+									"type": "text"
+								},
+								{
+									"key": "purchase_links[1][platform]",
+									"value": "Apple Books",
+									"type": "text"
+								},
+								{
+									"key": "purchase_links[1][url]",
+									"value": "https://books.apple.com/book/1234567890",
+									"type": "text"
+								},
+								{
+									"key": "author_social_links[0]",
+									"value": "https://twitter.com/johnsmith",
+									"type": "text"
+								},
+								{
+									"key": "author_social_links[1]",
+									"value": "https://instagram.com/johnsmith",
+									"type": "text"
+								},
+								{
+									"key": "upsell_tier",
+									"value": "2",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts"
+							]
+						},
+						"description": "Create a new book advert with premium upsell options (requires authentication)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Book Details by Slug",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/the-great-adventure-1234567890",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"the-great-adventure-1234567890"
+							]
+						},
+						"description": "Get detailed information about a specific book using slug"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Book Advert",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "multipart/form-data"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "title",
+									"value": "The Great Adventure - Updated Edition",
+									"type": "text"
+								},
+								{
+									"key": "price",
+									"value": "24.99",
+									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "Updated edition with new chapters and expanded storyline.",
+									"type": "text"
+								},
+								{
+									"key": "cover_image",
+									"type": "file",
+									"src": []
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/123",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"123"
+							]
+						},
+						"description": "Update book details (requires authentication and ownership)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Book Advert",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/123",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"123"
+							]
+						},
+						"description": "Delete a book advert (requires authentication and ownership)"
+					},
+					"response": []
+				},
+				{
+					"name": "Save/Bookmark Book",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/123/save",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"123",
+								"save"
+							]
+						},
+						"description": "Save or unsave a book to user's favorites (requires authentication)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User's Books",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/my-books?per_page=12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"my-books"
+							],
+							"query": [
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page"
+								}
+							]
+						},
+						"description": "Get current user's books (requires authentication)"
+					},
+					"response": []
+				}
+			],
+			"description": "Core Books Adverts Management"
+		},
+		{
+			"name": "Premium Features",
+			"item": [
+				{
+					"name": "Get Featured Books",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/featured",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"featured"
+							]
+						},
+						"description": "Get featured/promoted books for homepage"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Books by Genre",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/genre/fiction?per_page=12",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"genre",
+								"fiction"
+							],
+							"query": [
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page"
+								}
+							]
+						},
+						"description": "Get books filtered by specific genre"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pricing Plans",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/pricing-plans",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"pricing-plans"
+							]
+						},
+						"description": "Get available premium upsell pricing plans and benefits"
+					},
+					"response": []
+				},
+				{
+					"name": "Process Payment for Upsell",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_method\": \"credit_card\",\n    \"transaction_id\": \"txn_1234567890_abc\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/123/payment",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"123",
+								"payment"
+							]
+						},
+						"description": "Process payment for premium upsell tier (requires authentication and ownership)"
+					},
+					"response": []
+				}
+			],
+			"description": "Premium Upsell and Payment Features"
+		},
+		{
+			"name": "Admin Analytics",
+			"item": [
+				{
+					"name": "Get Books Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_auth_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/books-adverts/statistics",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"books-adverts",
+								"statistics"
+							]
+						},
+						"description": "Get comprehensive books statistics for admin dashboard (requires admin authentication)"
+					},
+					"response": []
+				}
+			],
+			"description": "Admin Analytics and Statistics"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your_user_jwt_token_here",
+			"type": "string"
+		},
+		{
+			"key": "admin_auth_token",
+			"value": "your_admin_jwt_token_here",
+			"type": "string"
+		}
+	]
+}

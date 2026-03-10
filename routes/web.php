@@ -78,3 +78,42 @@ Route::get('/settings', function () {
     return view('settings');
 })->middleware('auth');
 
+// Books Routes
+Route::get('/books', function () {
+    return view('books.index');
+})->name('books.index');
+
+Route::get('/books/create', function () {
+    return view('books.create');
+})->middleware('auth')->name('books.create');
+
+Route::get('/books/{slug}', function ($slug) {
+    return view('books.show', ['slug' => $slug]);
+})->name('books.show');
+
+// Resorts & Travel Routes
+Route::get('/resorts-travel', function () {
+    return view('resorts-travel');
+})->name('resorts-travel.index');
+
+Route::get('/resorts-travel/create', function () {
+    return view('resorts-travel.create');
+})->middleware('auth')->name('resorts-travel.create');
+
+Route::get('/resorts-travel/{slug}', function ($slug) {
+    return view('resorts-travel.show', ['slug' => $slug]);
+})->name('resorts-travel.show');
+
+// Promoted Adverts Routes
+Route::get('/promoted-adverts', function () {
+    return view('promoted-adverts');
+})->name('promoted-adverts.index');
+
+Route::get('/promoted-adverts/create', function () {
+    return view('create-promoted-advert');
+})->middleware('auth')->name('promoted-adverts.create');
+
+Route::get('/promoted-adverts/{slug}', function ($slug) {
+    return view('promoted-advert-detail', ['slug' => $slug]);
+})->name('promoted-adverts.show');
+

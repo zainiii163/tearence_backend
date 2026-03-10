@@ -10,7 +10,7 @@ class RevenueTracking extends Model
     use HasFactory;
 
     protected $primaryKey = 'revenue_id';
-    protected $table = 'ea_revenue_tracking';
+    protected $table = 'revenue_tracking';
 
     protected $fillable = [
         'revenue_type',

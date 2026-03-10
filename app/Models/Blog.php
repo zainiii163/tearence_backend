@@ -18,7 +18,7 @@ class Blog extends Model
      *
      * @var string
      */
-    protected $table = 'ea_blog';
+    protected $table = 'blog';
 
     /**
      * The primary key associated with the table.

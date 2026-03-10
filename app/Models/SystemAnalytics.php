@@ -14,7 +14,7 @@ class SystemAnalytics extends Model
     /**
      * The database table used by the model.
      */
-    protected $table = 'ea_system_analytics';
+    protected $table = 'system_analytics';
     
     /**
      * The primary key associated with the table.

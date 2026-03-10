@@ -7,6 +7,12 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ListingUpsellController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\ServiceAnalyticsController;
+use App\Http\Controllers\Api\ServiceComparisonController;
+use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\VenueController;
+use App\Http\Controllers\Api\VenueServiceController;
+use App\Http\Controllers\Api\UpsellController;
 use App\Http\Controllers\ServiceOrderController;
 use App\Http\Controllers\StaffManagementController;
 use App\Http\Controllers\StoreController;
@@ -38,6 +44,26 @@ use App\Http\Controllers\MasterController;
 use App\Http\Controllers\KycController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\UserAnalyticsController;
+use App\Http\Controllers\Api\ResortsTravelController;
+use App\Http\Controllers\Api\ResortsTravelCategoryController;
+use App\Http\Controllers\Api\BannerAdController;
+use App\Http\Controllers\Api\BannerCategoryController;
+use App\Http\Controllers\Api\BannerUploadController;
+use App\Http\Controllers\Api\BannerMarketplaceController;
+use App\Http\Controllers\Api\BookAdvertController;
+use App\Http\Controllers\Api\AuthorController;
+use App\Http\Controllers\Api\VehicleController;
+use App\Http\Controllers\Api\VehicleCategoryController;
+use App\Http\Controllers\Api\JobController;
+use App\Http\Controllers\Api\JobCategoryController;
+use App\Http\Controllers\Api\JobSeekerController;
+use App\Http\Controllers\Api\SponsoredAdvertController;
+use App\Http\Controllers\Api\SponsoredPricingPlanController;
+use App\Http\Controllers\Api\FeaturedAdvertController;
+use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\PropertyUpsellController;
+use App\Http\Controllers\Api\PromotedAdvertController;
+use App\Http\Controllers\Api\PromotedAdvertCategoryController;
 use App\Http\Controllers\AdminAnalyticsController;
 use Illuminate\Support\Facades\Route;
 
@@ -385,8 +411,10 @@ Route::group([
         Route::get('/', [ServiceController::class, 'index']);
         Route::get('/popular', [ServiceController::class, 'getPopularServices']);
         Route::get('/featured', [ServiceController::class, 'getFeaturedServices']);
-        Route::get('/categories', [ServiceController::class, 'getServiceCategories']);
+        Route::get('/categories', [ServiceController::class, 'getCategories']);
         Route::get('/{service}', [ServiceController::class, 'show']);
+        Route::post('/{service}/enquiries', [ServiceController::class, 'incrementEnquiries']);
+        Route::get('/promotion-options', [ServiceController::class, 'getPromotionOptions']);
         
         Route::group(['middleware' => 'auth:api'], function () {
             Route::post('/', [ServiceController::class, 'store']);
@@ -394,8 +422,26 @@ Route::group([
             Route::delete('/{service}', [ServiceController::class, 'destroy']);
             Route::get('/my-services', [ServiceController::class, 'myServices']);
             Route::post('/{service}/toggle-status', [ServiceController::class, 'toggleStatus']);
-            Route::post('/{service}/gallery', [ServiceController::class, 'uploadGallery']);
+            Route::post('/{service}/media', [ServiceController::class, 'uploadMedia']);
+            Route::post('/{service}/purchase-promotion', [ServiceController::class, 'purchasePromotion']);
         });
+    });
+
+    // service analytics
+    Route::group(['prefix' => 'service-analytics'], function () {
+        Route::get('/live-activity', [ServiceAnalyticsController::class, 'getLiveActivityFeed']);
+        Route::get('/trending', [ServiceAnalyticsController::class, 'getTrendingServices']);
+        Route::get('/marketplace-stats', [ServiceAnalyticsController::class, 'getMarketplaceStats']);
+        
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::get('/service/{service}', [ServiceAnalyticsController::class, 'getServiceAnalytics']);
+        });
+    });
+
+    // service comparison
+    Route::group(['prefix' => 'service-comparison', 'middleware' => 'auth:api'], function () {
+        Route::post('/compare', [ServiceComparisonController::class, 'compare']);
+        Route::post('/save-comparison', [ServiceComparisonController::class, 'saveComparison']);
     });
 
     // service orders
@@ -432,6 +478,37 @@ Route::group([
             Route::post('/{program}/toggle-status', [AffiliateProgramController::class, 'toggleStatus']);
             Route::post('/join-our-program', [AffiliateProgramController::class, 'joinOurProgram']);
         });
+    });
+
+    // affiliate posts (new comprehensive system)
+    Route::group(['prefix' => 'affiliate-posts'], function () {
+        // Public routes
+        Route::get('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\Api\AffiliatePostController::class, 'show']);
+        Route::get('/category/{categoryId}', [App\Http\Controllers\Api\AffiliatePostController::class, 'getByCategory']);
+        Route::get('/featured', [App\Http\Controllers\Api\AffiliatePostController::class, 'getFeatured']);
+        Route::get('/sponsored', [App\Http\Controllers\Api\AffiliatePostController::class, 'getSponsored']);
+        Route::get('/promoted', [App\Http\Controllers\Api\AffiliatePostController::class, 'getPromoted']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'store']);
+            Route::put('/{id}', [App\Http\Controllers\Api\AffiliatePostController::class, 'update']);
+            Route::delete('/{id}', [App\Http\Controllers\Api\AffiliatePostController::class, 'destroy']);
+            Route::get('/my-posts', [App\Http\Controllers\Api\AffiliatePostController::class, 'myPosts']);
+        });
+    });
+
+    // affiliate upsell management
+    Route::group(['prefix' => 'affiliate-upsells', 'middleware' => 'auth:api'], function () {
+        Route::get('/plans', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getPlans']);
+        Route::get('/comparison', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getComparison']);
+        Route::get('/recommendation', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getRecommendation']);
+        Route::post('/purchase', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'purchaseUpsell']);
+        Route::get('/my-upsells', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getMyUpsells']);
+        Route::get('/post/{postId}', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getPostUpsells']);
+        Route::post('/{id}/cancel', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'cancelUpsell']);
+        Route::get('/stats', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getStats']);
     });
 
     // stores
@@ -532,4 +609,531 @@ Route::group([
 
     // Public maintenance status (no auth required)
     Route::get('/maintenance/status', [MaintenanceController::class, 'status']);
+
+    // Events & Venues System
+    Route::group(['prefix' => 'events'], function () {
+        // Public routes
+        Route::get('/', [EventController::class, 'index']);
+        Route::get('/featured', [EventController::class, 'featuredEvents']);
+        Route::get('/categories', [EventController::class, 'categories']);
+        Route::get('/{slug}', [EventController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [EventController::class, 'store']);
+            Route::put('/{id}', [EventController::class, 'update']);
+            Route::delete('/{id}', [EventController::class, 'destroy']);
+            Route::get('/my-events', [EventController::class, 'myEvents']);
+            Route::post('/upload-images', [EventController::class, 'uploadImages']);
+        });
+    });
+
+    Route::group(['prefix' => 'venues'], function () {
+        // Public routes
+        Route::get('/', [VenueController::class, 'index']);
+        Route::get('/featured', [VenueController::class, 'featuredVenues']);
+        Route::get('/types', [VenueController::class, 'venueTypes']);
+        Route::get('/amenities', [VenueController::class, 'amenities']);
+        Route::get('/{slug}', [VenueController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [VenueController::class, 'store']);
+            Route::put('/{id}', [VenueController::class, 'update']);
+            Route::delete('/{id}', [VenueController::class, 'destroy']);
+            Route::get('/my-venues', [VenueController::class, 'myVenues']);
+            Route::post('/upload-images', [VenueController::class, 'uploadImages']);
+            Route::post('/upload-floor-plan', [VenueController::class, 'uploadFloorPlan']);
+        });
+    });
+
+    Route::group(['prefix' => 'venue-services'], function () {
+        // Public routes
+        Route::get('/', [VenueServiceController::class, 'index']);
+        Route::get('/featured', [VenueServiceController::class, 'featuredServices']);
+        Route::get('/categories', [VenueServiceController::class, 'serviceCategories']);
+        Route::get('/{slug}', [VenueServiceController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [VenueServiceController::class, 'store']);
+            Route::put('/{id}', [VenueServiceController::class, 'update']);
+            Route::delete('/{id}', [VenueServiceController::class, 'destroy']);
+            Route::get('/my-services', [VenueServiceController::class, 'myServices']);
+            Route::post('/upload-portfolio-images', [VenueServiceController::class, 'uploadPortfolioImages']);
+            Route::post('/event/{eventId}/add-service', [VenueServiceController::class, 'addToEvent']);
+            Route::delete('/event/{eventId}/service/{serviceId}', [VenueServiceController::class, 'removeFromEvent']);
+            Route::put('/event/{eventId}/service/{serviceId}/status', [VenueServiceController::class, 'updateEventServiceStatus']);
+        });
+    });
+
+    // Upsell/Promotion System
+    Route::group(['prefix' => 'upsells', 'middleware' => 'auth:api'], function () {
+        Route::get('/promotion-tiers', [UpsellController::class, 'getPromotionTiers']);
+        Route::get('/network-wide-boost', [UpsellController::class, 'getNetworkWideBoost']);
+        Route::post('/network-wide-boost/purchase', [UpsellController::class, 'purchaseNetworkWideBoost']);
+        
+        // Event upgrades
+        Route::post('/event/{eventId}/upgrade', [UpsellController::class, 'upgradeEvent']);
+        Route::get('/event/{eventId}/stats', [UpsellController::class, 'getPromotionStats']);
+        
+        // Venue upgrades
+        Route::post('/venue/{venueId}/upgrade', [UpsellController::class, 'upgradeVenue']);
+        Route::get('/venue/{venueId}/stats', [UpsellController::class, 'getPromotionStats']);
+        
+        // Venue service upgrades
+        Route::post('/venue-service/{serviceId}/upgrade', [UpsellController::class, 'upgradeVenueService']);
+        Route::get('/venue-service/{serviceId}/stats', [UpsellController::class, 'getPromotionStats']);
+    });
+
+    // Resorts & Travel System
+    Route::group(['prefix' => 'resorts-travel'], function () {
+        // Public routes
+        Route::get('/', [ResortsTravelController::class, 'index']);
+        Route::get('/featured', [ResortsTravelController::class, 'featuredAdverts']);
+        Route::get('/advert-types', [ResortsTravelController::class, 'advertTypes']);
+        Route::get('/amenities', [ResortsTravelController::class, 'amenities']);
+        Route::get('/promotion-tiers', [ResortsTravelController::class, 'promotionTiers']);
+        Route::get('/categories', [ResortsTravelCategoryController::class, 'index']);
+        Route::get('/{slug}', [ResortsTravelController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [ResortsTravelController::class, 'store']);
+            Route::put('/{id}', [ResortsTravelController::class, 'update']);
+            Route::delete('/{id}', [ResortsTravelController::class, 'destroy']);
+            Route::get('/my-adverts', [ResortsTravelController::class, 'myAdverts']);
+            Route::post('/upload-images', [ResortsTravelController::class, 'uploadImages']);
+            Route::post('/upload-logo', [ResortsTravelController::class, 'uploadLogo']);
+        });
+    });
+
+    // Resorts & Travel Categories
+    Route::group(['prefix' => 'resorts-travel-categories'], function () {
+        // Public routes
+        Route::get('/', [ResortsTravelCategoryController::class, 'index']);
+        Route::get('/types', [ResortsTravelCategoryController::class, 'categoryTypes']);
+        Route::get('/popular', [ResortsTravelCategoryController::class, 'popularCategories']);
+        Route::get('/{slug}', [ResortsTravelCategoryController::class, 'show']);
+        Route::get('/{slug}/adverts', [ResortsTravelCategoryController::class, 'categoryAdverts']);
+        
+        // Admin routes (require auth)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [ResortsTravelCategoryController::class, 'store']);
+            Route::put('/{id}', [ResortsTravelCategoryController::class, 'update']);
+            Route::delete('/{id}', [ResortsTravelCategoryController::class, 'destroy']);
+        });
+    });
+
+    // Banner Adverts System
+    Route::group(['prefix' => 'banner-ads'], function () {
+        // Public routes
+        Route::get('/', [BannerAdController::class, 'index']);
+        Route::get('/featured', [BannerAdController::class, 'featured']);
+        Route::get('/most-viewed', [BannerAdController::class, 'mostViewed']);
+        Route::get('/recent', [BannerAdController::class, 'recent']);
+        Route::get('/{slug}', [BannerAdController::class, 'show']);
+        Route::post('/{slug}/track-click', [BannerAdController::class, 'trackClick']);
+        Route::get('/promotion-options', [BannerAdController::class, 'promotionOptions']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [BannerAdController::class, 'store']);
+            Route::put('/{id}', [BannerAdController::class, 'update']);
+            Route::delete('/{id}', [BannerAdController::class, 'destroy']);
+            Route::get('/my-banners', [BannerAdController::class, 'myBanners']);
+        });
+    });
+
+    // Banner Upload System
+    Route::group(['prefix' => 'banner-upload', 'middleware' => 'auth:api'], function () {
+        Route::post('/banner-image', [BannerUploadController::class, 'uploadBannerImage']);
+        Route::post('/business-logo', [BannerUploadController::class, 'uploadBusinessLogo']);
+        Route::post('/animated-banner', [BannerUploadController::class, 'uploadAnimatedBanner']);
+        Route::post('/html5-banner', [BannerUploadController::class, 'uploadHtml5Banner']);
+        Route::post('/video-banner', [BannerUploadController::class, 'uploadVideoBanner']);
+        Route::delete('/file', [BannerUploadController::class, 'deleteFile']);
+    });
+
+    // Banner Categories
+    Route::group(['prefix' => 'banner-categories'], function () {
+        // Public routes
+        Route::get('/', [BannerCategoryController::class, 'index']);
+        Route::get('/trending', [BannerCategoryController::class, 'trending']);
+        Route::get('/{slug}', [BannerCategoryController::class, 'show']);
+        Route::get('/{slug}/banner-ads', [BannerCategoryController::class, 'bannerAds']);
+        
+        // Admin routes (require auth and permissions)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [BannerCategoryController::class, 'store']);
+            Route::put('/{id}', [BannerCategoryController::class, 'update']);
+            Route::delete('/{id}', [BannerCategoryController::class, 'destroy']);
+            Route::post('/update-banner-counts', [BannerCategoryController::class, 'updateBannerCounts']);
+        });
+    });
+
+    // Banner Marketplace
+    Route::group(['prefix' => 'banner-marketplace'], function () {
+        Route::get('/homepage', [BannerMarketplaceController::class, 'homepage']);
+        Route::get('/carousel', [BannerMarketplaceController::class, 'carousel']);
+        Route::get('/categories', [BannerMarketplaceController::class, 'categories']);
+        Route::get('/analytics', [BannerMarketplaceController::class, 'analytics']);
+    });
+
+    // Promoted Adverts System
+    Route::group(['prefix' => 'promoted-adverts'], function () {
+        // Public routes
+        Route::get('/', [PromotedAdvertController::class, 'index']);
+        Route::get('/featured', [PromotedAdvertController::class, 'featured']);
+        Route::get('/most-viewed', [PromotedAdvertController::class, 'mostViewed']);
+        Route::get('/most-saved', [PromotedAdvertController::class, 'mostSaved']);
+        Route::get('/recent', [PromotedAdvertController::class, 'recent']);
+        Route::get('/{slug}', [PromotedAdvertController::class, 'show']);
+        Route::post('/{slug}/track-click', [PromotedAdvertController::class, 'trackClick']);
+        Route::get('/promotion-options', [PromotedAdvertController::class, 'promotionOptions']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [PromotedAdvertController::class, 'store']);
+            Route::put('/{id}', [PromotedAdvertController::class, 'update']);
+            Route::delete('/{id}', [PromotedAdvertController::class, 'destroy']);
+            Route::get('/my-adverts', [PromotedAdvertController::class, 'myAdverts']);
+            Route::post('/upload-images', [PromotedAdvertController::class, 'uploadImages']);
+            Route::post('/upload-logo', [PromotedAdvertController::class, 'uploadLogo']);
+            Route::post('/{id}/toggle-favorite', [PromotedAdvertController::class, 'toggleFavorite']);
+        });
+    });
+
+    // Promoted Advert Categories
+    Route::group(['prefix' => 'promoted-advert-categories'], function () {
+        // Public routes
+        Route::get('/', [PromotedAdvertCategoryController::class, 'index']);
+        Route::get('/popular', [PromotedAdvertCategoryController::class, 'popular']);
+        Route::get('/{slug}', [PromotedAdvertCategoryController::class, 'show']);
+        Route::get('/{slug}/adverts', [PromotedAdvertCategoryController::class, 'categoryAdverts']);
+        
+        // Admin routes (require auth)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [PromotedAdvertCategoryController::class, 'store']);
+            Route::put('/{id}', [PromotedAdvertCategoryController::class, 'update']);
+            Route::delete('/{id}', [PromotedAdvertCategoryController::class, 'destroy']);
+        });
+    });
+
+    // Books Adverts System
+    Route::group(['prefix' => 'books-adverts'], function () {
+        // Public routes
+        Route::get('/', [BookAdvertController::class, 'index']);
+        Route::get('/featured', [BookAdvertController::class, 'getFeaturedBooks']);
+        Route::get('/genre/{genre}', [BookAdvertController::class, 'getBooksByGenre']);
+        Route::get('/pricing-plans', [BookAdvertController::class, 'getPricingPlans']);
+        Route::get('/{slug}', [BookAdvertController::class, 'show']);
+        
+        // Authenticated user routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [BookAdvertController::class, 'store']);
+            Route::put('/{book}', [BookAdvertController::class, 'update']);
+            Route::delete('/{book}', [BookAdvertController::class, 'destroy']);
+            Route::post('/{book}/save', [BookAdvertController::class, 'saveBook']);
+            Route::get('/my-books', [BookAdvertController::class, 'myBooks']);
+            Route::post('/{book}/payment', [BookAdvertController::class, 'processPayment']);
+            Route::get('/statistics', [BookAdvertController::class, 'getStatistics']);
+        });
+    });
+
+    // Authors Management
+    Route::group(['prefix' => 'authors'], function () {
+        // Public routes
+        Route::get('/', [AuthorController::class, 'index']);
+        Route::get('/spotlight', [AuthorController::class, 'spotlight']);
+        Route::get('/search', [AuthorController::class, 'search']);
+        Route::get('/{id}', [AuthorController::class, 'show']);
+        Route::get('/{id}/books', [AuthorController::class, 'books']);
+        
+        // Admin routes (require auth and permissions)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [AuthorController::class, 'store']);
+            Route::put('/{id}', [AuthorController::class, 'update']);
+            Route::delete('/{id}', [AuthorController::class, 'destroy']);
+        });
+    });
+
+    // Vehicles Adverts System
+    Route::group(['prefix' => 'vehicles'], function () {
+        // Public routes
+        Route::get('/', [VehicleController::class, 'index']);
+        Route::get('/featured', [VehicleController::class, 'getFeaturedVehicles']);
+        Route::get('/promoted', [VehicleController::class, 'index'])->defaults('promoted', true);
+        Route::get('/sponsored', [VehicleController::class, 'index'])->defaults('sponsored', true);
+        Route::get('/recent', [VehicleController::class, 'getRecentVehicles']);
+        Route::get('/{id}', [VehicleController::class, 'show']);
+        Route::get('/{id}/related', [VehicleController::class, 'getRelatedVehicles']);
+        
+        // Data endpoints
+        Route::get('/makes', [VehicleController::class, 'getMakes']);
+        Route::get('/models/{makeId}', [VehicleController::class, 'getModels']);
+        Route::get('/categories', [VehicleController::class, 'getCategories']);
+        
+        // Authenticated user routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [VehicleController::class, 'store']);
+            Route::put('/{id}', [VehicleController::class, 'update']);
+            Route::delete('/{id}', [VehicleController::class, 'destroy']);
+            Route::get('/my-vehicles', [VehicleController::class, 'myVehicles']);
+            Route::get('/saved', [VehicleController::class, 'savedVehicles']);
+            Route::post('/{id}/save', [VehicleController::class, 'saveVehicle']);
+            Route::post('/{id}/toggle-status', [VehicleController::class, 'toggleStatus']);
+            Route::post('/{id}/mark-sold', [VehicleController::class, 'markAsSold']);
+            Route::post('/{id}/enquiry', [VehicleController::class, 'createEnquiry']);
+        });
+    });
+
+    // Vehicle Categories
+    Route::group(['prefix' => 'vehicle-categories'], function () {
+        // Public routes
+        Route::get('/', [VehicleCategoryController::class, 'index']);
+        Route::get('/popular', [VehicleCategoryController::class, 'popularCategories']);
+        Route::get('/{id}', [VehicleCategoryController::class, 'show']);
+        Route::get('/{id}/vehicles', [VehicleController::class, 'index'])->defaults('category', request()->id);
+        
+        // Admin routes (require auth and permissions)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [VehicleCategoryController::class, 'store']);
+            Route::put('/{id}', [VehicleCategoryController::class, 'update']);
+            Route::delete('/{id}', [VehicleCategoryController::class, 'destroy']);
+            Route::post('/{id}/toggle-status', [VehicleCategoryController::class, 'toggleStatus']);
+        });
+    });
+
+    // Jobs System
+    Route::group(['prefix' => 'jobs'], function () {
+        // Public routes
+        Route::get('/', [JobController::class, 'index']);
+        Route::get('/featured', [JobController::class, 'featuredJobs']);
+        Route::get('/sponsored', [JobController::class, 'sponsoredJobs']);
+        Route::get('/urgent', [JobController::class, 'urgentJobs']);
+        Route::get('/remote', [JobController::class, 'remoteJobs']);
+        Route::get('/trending', [JobController::class, 'trendingJobs']);
+        Route::get('/live-activity', [JobController::class, 'liveActivityFeed']);
+        Route::get('/{slug}', [JobController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [JobController::class, 'store']);
+            Route::put('/{id}', [JobController::class, 'update']);
+            Route::delete('/{id}', [JobController::class, 'destroy']);
+            Route::get('/my-jobs', [JobController::class, 'myJobs']);
+            Route::get('/statistics', [JobController::class, 'statistics']);
+            Route::post('/{jobId}/apply', [JobController::class, 'apply']);
+            Route::get('/my-applications', [JobController::class, 'myApplications']);
+            Route::get('/{jobId}/applications', [JobController::class, 'jobApplications']);
+            Route::put('/applications/{applicationId}/status', [JobController::class, 'updateApplicationStatus']);
+        });
+    });
+
+    // Job Categories
+    Route::group(['prefix' => 'job-categories'], function () {
+        // Public routes
+        Route::get('/', [JobCategoryController::class, 'index']);
+        Route::get('/popular', [JobCategoryController::class, 'popularCategories']);
+        Route::get('/{slug}', [JobCategoryController::class, 'show']);
+        Route::get('/{slug}/jobs', [JobCategoryController::class, 'categoryWithJobs']);
+        
+        // Admin routes (require auth and permissions)
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [JobCategoryController::class, 'store']);
+            Route::put('/{id}', [JobCategoryController::class, 'update']);
+            Route::delete('/{id}', [JobCategoryController::class, 'destroy']);
+        });
+    });
+
+    // Job Seekers
+    Route::group(['prefix' => 'job-seekers'], function () {
+        // Public routes
+        Route::get('/', [JobSeekerController::class, 'index']);
+        Route::get('/featured', [JobSeekerController::class, 'featuredProfiles']);
+        Route::get('/sponsored', [JobSeekerController::class, 'sponsoredProfiles']);
+        Route::get('/{id}', [JobSeekerController::class, 'show']);
+        Route::post('/{id}/contact', [JobSeekerController::class, 'contactProfile']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [JobSeekerController::class, 'store']);
+            Route::put('/{id}', [JobSeekerController::class, 'update']);
+            Route::delete('/{id}', [JobSeekerController::class, 'destroy']);
+            Route::get('/my-profile', [JobSeekerController::class, 'myProfile']);
+            Route::get('/statistics', [JobSeekerController::class, 'statistics']);
+        });
+    });
+
+    // Sponsored Adverts System
+    Route::group(['prefix' => 'sponsored-adverts'], function () {
+        // Public routes
+        Route::get('/', [SponsoredAdvertController::class, 'index']);
+        Route::get('/featured', [SponsoredAdvertController::class, 'featured']);
+        Route::get('/trending', [SponsoredAdvertController::class, 'trending']);
+        Route::get('/statistics', [SponsoredAdvertController::class, 'statistics']);
+        Route::get('/category/{categoryId}', [SponsoredAdvertController::class, 'byCategory']);
+        Route::get('/country/{country}', [SponsoredAdvertController::class, 'byCountry']);
+        Route::get('/{slug}', [SponsoredAdvertController::class, 'show']);
+        
+        // Public interaction routes
+        Route::post('/{id}/inquiry', [SponsoredAdvertController::class, 'submitInquiry']);
+        Route::post('/{id}/rating', [SponsoredAdvertController::class, 'submitRating']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [SponsoredAdvertController::class, 'store']);
+            Route::put('/{id}', [SponsoredAdvertController::class, 'update']);
+            Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
+        });
+    });
+
+    // Sponsored Pricing Plans
+    Route::group(['prefix' => 'sponsored-pricing-plans'], function () {
+        // Public routes
+        Route::get('/', [SponsoredPricingPlanController::class, 'index']);
+        Route::get('/featured', [SponsoredPricingPlanController::class, 'featured']);
+        Route::get('/comparison', [SponsoredPricingPlanController::class, 'comparison']);
+        Route::get('/recommendation', [SponsoredPricingPlanController::class, 'recommendation']);
+        Route::get('/tier/{tier}', [SponsoredPricingPlanController::class, 'byTier']);
+        Route::get('/{id}', [SponsoredPricingPlanController::class, 'show']);
+    });
+
+    // Properties System
+    Route::group(['prefix' => 'properties'], function () {
+        // Public routes
+        Route::get('/', [PropertyController::class, 'index']);
+        Route::get('/featured', [PropertyController::class, 'featured']);
+        Route::get('/promoted', [PropertyController::class, 'promoted']);
+        Route::get('/sponsored', [PropertyController::class, 'sponsored']);
+        Route::get('/{slug}', [PropertyController::class, 'show']);
+        
+        // Public data routes
+        Route::get('/data/property-types', [PropertyController::class, 'getPropertyTypes']);
+        Route::get('/data/categories', [PropertyController::class, 'getCategories']);
+        Route::get('/data/commercial-types', [PropertyController::class, 'getCommercialTypes']);
+        Route::get('/data/land-types', [PropertyController::class, 'getLandTypes']);
+        Route::get('/data/planning-permissions', [PropertyController::class, 'getPlanningPermissions']);
+        Route::get('/data/view-types', [PropertyController::class, 'getViewTypes']);
+        
+        // Public interaction routes
+        Route::post('/{id}/contact-agent', [PropertyController::class, 'contactAgent']);
+        Route::post('/{id}/track-event', [PropertyController::class, 'trackEvent']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [PropertyController::class, 'store']);
+            Route::put('/{id}', [PropertyController::class, 'update']);
+            Route::delete('/{id}', [PropertyController::class, 'destroy']);
+            Route::get('/my-properties', [PropertyController::class, 'myProperties']);
+            Route::post('/{id}/save', [PropertyController::class, 'saveProperty']);
+            Route::get('/saved-properties', [PropertyController::class, 'savedProperties']);
+        });
+    });
+
+    // Property Upsells System
+    Route::group(['prefix' => 'property-upsells', 'middleware' => 'auth:api'], function () {
+        Route::get('/', [PropertyUpsellController::class, 'index']);
+        Route::post('/', [PropertyUpsellController::class, 'store']);
+        Route::get('/options', [PropertyUpsellController::class, 'getUpsellOptions']);
+        Route::get('/stats', [PropertyUpsellController::class, 'getStats']);
+        Route::get('/{id}', [PropertyUpsellController::class, 'show']);
+        Route::post('/{id}/complete-payment', [PropertyUpsellController::class, 'completePayment']);
+        Route::post('/{id}/cancel', [PropertyUpsellController::class, 'cancel']);
+        Route::get('/property/{propertyId}', [PropertyUpsellController::class, 'getPropertyUpsells']);
+    });
+
+    // Featured Adverts System
+    Route::group(['prefix' => 'featured-adverts'], function () {
+        // Public routes
+        Route::get('/', [FeaturedAdvertController::class, 'index']);
+        Route::get('/carousel', [FeaturedAdvertController::class, 'carousel']);
+        Route::get('/category-grid', [FeaturedAdvertController::class, 'categoryGrid']);
+        Route::get('/trending-countries', [FeaturedAdvertController::class, 'trendingCountries']);
+        Route::get('/trending-categories', [FeaturedAdvertController::class, 'trendingCategories']);
+        Route::get('/pricing', [FeaturedAdvertController::class, 'getPricing']);
+        Route::get('/home', [FeaturedAdvertController::class, 'homeListing']);
+        Route::get('/category/{categoryId}', [FeaturedAdvertController::class, 'byCategory']);
+        Route::get('/country/{country}', [FeaturedAdvertController::class, 'byCountry']);
+        Route::get('/type/{type}', [FeaturedAdvertController::class, 'byType']);
+        Route::get('/{id}/related', [FeaturedAdvertController::class, 'related']);
+        Route::get('/search', [FeaturedAdvertController::class, 'advancedSearch']);
+        Route::get('/statistics', [FeaturedAdvertController::class, 'statistics']);
+        Route::get('/live-activity', [FeaturedAdvertController::class, 'liveActivity']);
+        Route::get('/analytics', [FeaturedAdvertController::class, 'analytics']);
+        Route::get('/{id}', [FeaturedAdvertController::class, 'show']);
+        Route::post('/{id}/save', [FeaturedAdvertController::class, 'saveAdvert']);
+        Route::post('/{id}/contact', [FeaturedAdvertController::class, 'contactSeller']);
+        
+        // Authenticated routes (customer)
+        Route::group(['middleware' => 'auth:customer'], function () {
+            Route::post('/', [FeaturedAdvertController::class, 'store']);
+            Route::put('/{id}', [FeaturedAdvertController::class, 'update']);
+            Route::delete('/{id}', [FeaturedAdvertController::class, 'destroy']);
+            Route::get('/my-adverts', [FeaturedAdvertController::class, 'myFeaturedAdverts']);
+        });
+    });
+
+    // Funding Projects System
+    Route::group(['prefix' => 'funding'], function () {
+        // Public routes
+        Route::get('/', [App\Http\Controllers\Api\FundingProjectController::class, 'index']);
+        Route::get('/categories', [App\Http\Controllers\Api\FundingProjectController::class, 'getCategories']);
+        Route::get('/featured', [App\Http\Controllers\Api\FundingProjectController::class, 'getFeaturedProjects']);
+        Route::get('/trending', [App\Http\Controllers\Api\FundingProjectController::class, 'getTrendingProjects']);
+        Route::get('/ending-soon', [App\Http\Controllers\Api\FundingProjectController::class, 'getEndingSoonProjects']);
+        Route::get('/{slug}', [App\Http\Controllers\Api\FundingProjectController::class, 'show']);
+        
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [App\Http\Controllers\Api\FundingProjectController::class, 'store']);
+            Route::put('/{id}', [App\Http\Controllers\Api\FundingProjectController::class, 'update']);
+            Route::delete('/{id}', [App\Http\Controllers\Api\FundingProjectController::class, 'destroy']);
+            Route::get('/my-projects', [App\Http\Controllers\Api\FundingProjectController::class, 'myProjects']);
+            Route::post('/{id}/publish', [App\Http\Controllers\Api\FundingProjectController::class, 'publish']);
+            Route::post('/{id}/back', [App\Http\Controllers\Api\FundingProjectController::class, 'backProject']);
+        });
+    });
+
+    // Funding Upsells System
+    Route::group(['prefix' => 'funding-upsells', 'middleware' => 'auth:api'], function () {
+        Route::get('/plans', [App\Http\Controllers\Api\FundingUpsellController::class, 'getPlans']);
+        Route::get('/comparison', [App\Http\Controllers\Api\FundingUpsellController::class, 'getComparison']);
+        Route::get('/recommendation', [App\Http\Controllers\Api\FundingUpsellController::class, 'getRecommendation']);
+        Route::post('/purchase', [App\Http\Controllers\Api\FundingUpsellController::class, 'purchaseUpsell']);
+        Route::get('/my-upsells', [App\Http\Controllers\Api\FundingUpsellController::class, 'getMyUpsells']);
+        Route::get('/post/{projectId}', [App\Http\Controllers\Api\FundingUpsellController::class, 'getPostUpsells']);
+        Route::post('/{id}/cancel', [App\Http\Controllers\Api\FundingUpsellController::class, 'cancelUpsell']);
+        Route::get('/stats', [App\Http\Controllers\Api\FundingUpsellController::class, 'getStats']);
+    });
+
+    // Admin Service Management
+    Route::group(['prefix' => 'admin/services', 'middleware' => ['auth:api', 'admin']], function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Admin\ServiceManagementController::class, 'dashboard']);
+        
+        // Services Management
+        Route::get('/', [App\Http\Controllers\Admin\ServiceManagementController::class, 'index']);
+        Route::get('/{service}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'show']);
+        Route::put('/{service}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'update']);
+        Route::delete('/{service}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'destroy']);
+        Route::post('/bulk-action', [App\Http\Controllers\Admin\ServiceManagementController::class, 'bulkAction']);
+        
+        // Categories Management
+        Route::get('/categories', [App\Http\Controllers\Admin\ServiceManagementController::class, 'categoriesIndex']);
+        Route::post('/categories', [App\Http\Controllers\Admin\ServiceManagementController::class, 'categoriesStore']);
+        Route::put('/categories/{category}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'categoriesUpdate']);
+        Route::delete('/categories/{category}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'categoriesDestroy']);
+        
+        // Promotions Management
+        Route::get('/promotions', [App\Http\Controllers\Admin\ServiceManagementController::class, 'promotionsIndex']);
+        Route::post('/promotions', [App\Http\Controllers\Admin\ServiceManagementController::class, 'promotionsStore']);
+        Route::put('/promotions/{promotion}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'promotionsUpdate']);
+        Route::delete('/promotions/{promotion}', [App\Http\Controllers\Admin\ServiceManagementController::class, 'promotionsDestroy']);
+        Route::get('/promotions/pricing', [App\Http\Controllers\Admin\ServiceManagementController::class, 'promotionPricing']);
+        
+        // Analytics
+        Route::get('/analytics', [App\Http\Controllers\Admin\ServiceManagementController::class, 'analytics']);
+    });
 });

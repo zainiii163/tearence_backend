@@ -5,21 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Service;
 use App\Models\ServicePackage;
-use App\Models\ServiceOrder;
-use App\Models\ServiceReview;
-use App\Models\Category;
+use App\Models\ServiceCategory;
+use App\Models\ServiceProvider;
+use App\Models\ServiceMedia;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::with(['user', 'category', 'packages', 'reviews'])
+        $query = Service::with(['user', 'serviceProvider', 'category', 'packages', 'addons', 'promotions', 'media'])
             ->active();
 
         // Search
@@ -32,29 +31,36 @@ class ServiceController extends Controller
             $query->byCategory($request->category_id);
         }
 
-        // Filter by service category
-        if ($request->service_category) {
-            $query->byServiceCategory($request->service_category);
+        // Filter by country
+        if ($request->country) {
+            $query->byCountry($request->country);
+        }
+
+        // Filter by service type
+        if ($request->service_type) {
+            $query->byType($request->service_type);
         }
 
         // Filter by price range
         if ($request->min_price) {
-            $query->byPriceRange($request->min_price, $request->max_price);
+            $query->where('starting_price', '>=', $request->min_price);
+        }
+        if ($request->max_price) {
+            $query->where('starting_price', '<=', $request->max_price);
         }
 
-        // Filter by delivery time
-        if ($request->delivery_time) {
-            $query->byDeliveryTime($request->delivery_time);
+        // Filter by verified providers only
+        if ($request->verified_only) {
+            $query->verified();
         }
 
-        // Filter by skill level
-        if ($request->skill_level) {
-            $query->where('skill_level', $request->skill_level);
-        }
-
-        // Filter by pricing model
-        if ($request->pricing_model) {
-            $query->where('pricing_model', $request->pricing_model);
+        // Filter by promotion type
+        if ($request->promotion_type) {
+            if ($request->promotion_type === 'promoted') {
+                $query->promoted();
+            } elseif ($request->promotion_type === 'featured') {
+                $query->featured();
+            }
         }
 
         // Sorting
@@ -63,19 +69,25 @@ class ServiceController extends Controller
 
         switch ($sortBy) {
             case 'rating':
-                $query->orderByRating($sortOrder);
+                $query->orderBy('rating', $sortOrder);
                 break;
-            case 'orders':
-                $query->orderByOrders($sortOrder);
+            case 'price_low':
+                $query->orderBy('starting_price', 'asc');
                 break;
-            case 'price':
-                $query->orderByPrice($sortOrder);
+            case 'price_high':
+                $query->orderBy('starting_price', 'desc');
+                break;
+            case 'views':
+                $query->orderBy('views', $sortOrder);
+                break;
+            case 'enquiries':
+                $query->orderBy('enquiries', $sortOrder);
                 break;
             case 'featured':
                 $query->featured()->orderBy('created_at', 'desc');
                 break;
-            case 'verified':
-                $query->verified()->orderBy('created_at', 'desc');
+            case 'trending':
+                $query->orderBy('views', 'desc')->orderBy('enquiries', 'desc');
                 break;
             default:
                 $query->orderBy($sortBy, $sortOrder);
@@ -91,11 +103,20 @@ class ServiceController extends Controller
 
     public function show(Service $service): JsonResponse
     {
-        $service->load(['user', 'category', 'packages', 'galleries' => function ($query) {
-            $query->ordered();
-        }, 'reviews' => function ($query) {
-            $query->with('buyer')->latest();
-        }]);
+        $service->load([
+            'user', 
+            'serviceProvider', 
+            'category', 
+            'packages' => function ($query) {
+                $query->active()->ordered();
+            }, 
+            'addons' => function ($query) {
+                $query->active()->ordered();
+            },
+            'media' => function ($query) {
+                $query->ordered();
+            }
+        ]);
 
         // Increment views
         $service->incrementViews();
@@ -109,59 +130,112 @@ class ServiceController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'category_id' => 'required|exists:categories,category_id',
+            'category_id' => 'required|exists:service_categories,id',
             'title' => 'required|string|max:255',
+            'tagline' => 'nullable|string|max:255',
             'description' => 'required|string',
-            'service_type' => 'required|in:freelance,consulting,digital_service,local_service,online_service',
-            'pricing_model' => 'required|in:fixed_price,hourly_rate,package,quote_based',
-            'base_price' => 'required|numeric|min:0',
-            'delivery_time' => 'required|in:1_day,3_days,1_week,2_weeks,1_month,custom',
-            'skill_level' => 'required|in:beginner,intermediate,expert,professional',
-            'service_category' => 'required|in:design,writing,programming,marketing,business,video,audio,other',
-            'portfolio_link' => 'nullable|url',
-            'requirements' => 'nullable|array',
-            'revisions_included' => 'nullable|integer|min:0',
-            'extra_fast_delivery' => 'nullable|numeric|min:0',
+            'whats_included' => 'nullable|array',
+            'whats_not_included' => 'nullable|array',
+            'requirements' => 'nullable|string',
+            'service_type' => 'required|in:freelance,local,business',
+            'starting_price' => 'required|numeric|min:0',
+            'currency' => 'required|string|size:3',
+            'delivery_time' => 'nullable|integer|min:1',
+            'availability' => 'nullable|array',
+            'country' => 'required|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'service_area_radius' => 'nullable|integer|min:0',
+            'languages' => 'nullable|array',
             'packages' => 'nullable|array',
             'packages.*.name' => 'required|string|max:255',
             'packages.*.description' => 'required|string',
             'packages.*.price' => 'required|numeric|min:0',
-            'packages.*.delivery_time' => 'required|string',
-            'packages.*.revisions' => 'nullable|integer|min:0',
+            'packages.*.delivery_time' => 'required|integer|min:1',
             'packages.*.features' => 'nullable|array',
-            'packages.*.is_popular' => 'boolean',
+            'packages.*.revisions' => 'nullable|integer|min:0',
+            'packages.*.sort_order' => 'nullable|integer|min:0',
+            'addons' => 'nullable|array',
+            'addons.*.title' => 'required|string|max:255',
+            'addons.*.description' => 'nullable|string',
+            'addons.*.price' => 'required|numeric|min:0',
+            'addons.*.delivery_time' => 'nullable|integer|min:0',
+            'addons.*.features' => 'nullable|array',
+            'addons.*.sort_order' => 'nullable|integer|min:0',
+            'promotion_type' => 'nullable|in:standard,promoted,featured,sponsored,network_boost',
         ]);
+
+        // Create or update service provider
+        $serviceProvider = ServiceProvider::firstOrCreate(
+            ['user_id' => Auth::id()],
+            [
+                'country' => $request->country,
+                'city' => $request->city,
+                'is_verified' => false,
+                'rating' => 0,
+                'review_count' => 0,
+            ]
+        );
 
         $service = Service::create([
             'user_id' => Auth::id(),
+            'service_provider_id' => $serviceProvider->id,
             'category_id' => $request->category_id,
             'title' => $request->title,
+            'slug' => Str::slug($request->title) . '-' . time(),
+            'tagline' => $request->tagline,
             'description' => $request->description,
-            'service_type' => $request->service_type,
-            'pricing_model' => $request->pricing_model,
-            'base_price' => $request->base_price,
-            'delivery_time' => $request->delivery_time,
-            'skill_level' => $request->skill_level,
-            'service_category' => $request->service_category,
-            'portfolio_link' => $request->portfolio_link,
+            'whats_included' => $request->whats_included,
+            'whats_not_included' => $request->whats_not_included,
             'requirements' => $request->requirements,
-            'revisions_included' => $request->revisions_included ?? 0,
-            'extra_fast_delivery' => $request->extra_fast_delivery,
-            'is_active' => true,
+            'service_type' => $request->service_type,
+            'starting_price' => $request->starting_price,
+            'currency' => $request->currency,
+            'delivery_time' => $request->delivery_time,
+            'availability' => $request->availability,
+            'country' => $request->country,
+            'city' => $request->city,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'service_area_radius' => $request->service_area_radius,
+            'languages' => $request->languages,
+            'status' => 'draft',
+            'promotion_type' => $request->promotion_type ?? 'standard',
+            'is_verified' => false,
         ]);
 
         // Create packages if provided
         if ($request->packages) {
-            foreach ($request->packages as $packageData) {
+            foreach ($request->packages as $index => $packageData) {
                 ServicePackage::create([
                     'service_id' => $service->id,
                     'name' => $packageData['name'],
                     'description' => $packageData['description'],
                     'price' => $packageData['price'],
+                    'currency' => $request->currency,
                     'delivery_time' => $packageData['delivery_time'],
-                    'revisions' => $packageData['revisions'] ?? 0,
                     'features' => $packageData['features'] ?? [],
-                    'is_popular' => $packageData['is_popular'] ?? false,
+                    'revisions' => $packageData['revisions'] ?? 1,
+                    'sort_order' => $packageData['sort_order'] ?? $index,
+                    'is_active' => true,
+                ]);
+            }
+        }
+
+        // Create addons if provided
+        if ($request->addons) {
+            foreach ($request->addons as $index => $addonData) {
+                ServiceAddon::create([
+                    'service_id' => $service->id,
+                    'title' => $addonData['title'],
+                    'description' => $addonData['description'] ?? null,
+                    'price' => $addonData['price'],
+                    'currency' => $request->currency,
+                    'delivery_time' => $addonData['delivery_time'] ?? null,
+                    'features' => $addonData['features'] ?? [],
+                    'sort_order' => $addonData['sort_order'] ?? $index,
+                    'is_active' => true,
                 ]);
             }
         }
@@ -169,7 +243,7 @@ class ServiceController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Service created successfully',
-            'data' => $service->load('packages'),
+            'data' => $service->load(['category', 'packages', 'addons']),
         ], 201);
     }
 
@@ -184,15 +258,20 @@ class ServiceController extends Controller
 
         $request->validate([
             'title' => 'sometimes|required|string|max:255',
+            'tagline' => 'nullable|string|max:255',
             'description' => 'sometimes|required|string',
-            'base_price' => 'sometimes|required|numeric|min:0',
-            'delivery_time' => 'sometimes|required|in:1_day,3_days,1_week,2_weeks,1_month,custom',
-            'skill_level' => 'sometimes|required|in:beginner,intermediate,expert,professional',
-            'service_category' => 'sometimes|required|in:design,writing,programming,marketing,business,video,audio,other',
-            'portfolio_link' => 'nullable|url',
-            'requirements' => 'nullable|array',
-            'revisions_included' => 'nullable|integer|min:0',
-            'extra_fast_delivery' => 'nullable|numeric|min:0',
+            'whats_included' => 'nullable|array',
+            'whats_not_included' => 'nullable|array',
+            'requirements' => 'nullable|string',
+            'starting_price' => 'sometimes|required|numeric|min:0',
+            'delivery_time' => 'nullable|integer|min:1',
+            'availability' => 'nullable|array',
+            'country' => 'sometimes|required|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+            'service_area_radius' => 'nullable|integer|min:0',
+            'languages' => 'nullable|array',
         ]);
 
         $service->update($request->all());
@@ -223,7 +302,7 @@ class ServiceController extends Controller
 
     public function myServices(Request $request): JsonResponse
     {
-        $services = Service::with(['category', 'packages', 'orders'])
+        $services = Service::with(['category', 'packages'])
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 10);
@@ -243,17 +322,18 @@ class ServiceController extends Controller
             ], 403);
         }
 
-        $service->is_active = !$service->is_active;
+        $newStatus = $service->status === 'active' ? 'paused' : 'active';
+        $service->status = $newStatus;
         $service->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Service status updated successfully',
+            'message' => "Service status updated to {$newStatus}",
             'data' => $service,
         ]);
     }
 
-    public function uploadGallery(Request $request, Service $service): JsonResponse
+    public function uploadMedia(Request $request, Service $service): JsonResponse
     {
         if ($service->user_id !== Auth::id()) {
             return response()->json([
@@ -263,50 +343,51 @@ class ServiceController extends Controller
         }
 
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120',
-            'title' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'is_video' => 'boolean',
-            'video_url' => 'nullable|url',
+            'file' => 'required|file|max:10240', // 10MB max
+            'type' => 'required|in:image,video,document',
+            'caption' => 'nullable|string|max:255',
+            'is_thumbnail' => 'boolean',
         ]);
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('services/gallery', 'public');
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $path = $file->store('services/media', 'public');
             
-            $gallery = $service->galleries()->create([
-                'image_path' => $path,
-                'title' => $request->title,
-                'description' => $request->description,
-                'is_video' => $request->is_video ?? false,
-                'video_url' => $request->video_url,
-                'sort_order' => $service->galleries()->count() + 1,
+            // If this is set as thumbnail, unset other thumbnails
+            if ($request->is_thumbnail) {
+                $service->media()->where('is_thumbnail', true)->update(['is_thumbnail' => false]);
+            }
+            
+            $media = $service->media()->create([
+                'type' => $request->type,
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'caption' => $request->caption,
+                'sort_order' => $service->media()->count() + 1,
+                'is_thumbnail' => $request->is_thumbnail ?? false,
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Gallery item uploaded successfully',
-                'data' => $gallery,
+                'message' => 'Media uploaded successfully',
+                'data' => $media,
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => 'No image provided',
+            'message' => 'No file provided',
         ], 400);
     }
 
-    public function getServiceCategories(): JsonResponse
+    public function getCategories(): JsonResponse
     {
-        $categories = [
-            'design' => 'Design & Creative',
-            'writing' => 'Writing & Translation',
-            'programming' => 'Programming & Tech',
-            'marketing' => 'Marketing & Sales',
-            'business' => 'Business & Finance',
-            'video' => 'Video & Animation',
-            'audio' => 'Audio & Music',
-            'other' => 'Other',
-        ];
+        $categories = ServiceCategory::where('is_active', true)
+            ->orderBy('sort_order')
+            ->withCount('activeServices')
+            ->get();
 
         return response()->json([
             'success' => true,
@@ -314,11 +395,26 @@ class ServiceController extends Controller
         ]);
     }
 
+    public function getFeaturedServices(): JsonResponse
+    {
+        $services = Service::with(['user', 'serviceProvider', 'category', 'media'])
+            ->active()
+            ->featured()
+            ->orderBy('created_at', 'desc')
+            ->limit(12)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $services,
+        ]);
+    }
+
     public function getPopularServices(): JsonResponse
     {
-        $services = Service::with(['user', 'category'])
+        $services = Service::with(['user', 'serviceProvider', 'category', 'media'])
             ->active()
-            ->orderBy('orders_count', 'desc')
+            ->orderBy('enquiries', 'desc')
             ->orderBy('rating', 'desc')
             ->limit(12)
             ->get();
@@ -329,18 +425,113 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function getFeaturedServices(): JsonResponse
+    public function incrementEnquiries(Service $service): JsonResponse
     {
-        $services = Service::with(['user', 'category'])
-            ->active()
-            ->featured()
-            ->orderBy('created_at', 'desc')
-            ->limit(12)
-            ->get();
+        $service->incrementEnquiries();
 
         return response()->json([
             'success' => true,
-            'data' => $services,
+            'message' => 'Enquiry count incremented',
+        ]);
+    }
+
+    public function getPromotionOptions(): JsonResponse
+    {
+        $options = [
+            'promoted' => [
+                'name' => 'Promoted Listing',
+                'price' => 29.99,
+                'duration_days' => 30,
+                'benefits' => [
+                    'Highlighted listing',
+                    'Appears above standard services',
+                    'Promoted badge',
+                    '2× more visibility',
+                ]
+            ],
+            'featured' => [
+                'name' => 'Featured Listing',
+                'price' => 49.99,
+                'duration_days' => 30,
+                'benefits' => [
+                    'Top of category pages',
+                    'Larger service card',
+                    'Priority in search results',
+                    'Included in weekly Featured Services email',
+                    'Featured badge',
+                ]
+            ],
+            'sponsored' => [
+                'name' => 'Sponsored Listing',
+                'price' => 79.99,
+                'duration_days' => 30,
+                'benefits' => [
+                    'Homepage placement',
+                    'Category top placement',
+                    'Included in homepage slider',
+                    'Included in social media promotion',
+                    'Sponsored badge',
+                ]
+            ],
+            'network_boost' => [
+                'name' => 'Network-Wide Boost',
+                'price' => 149.99,
+                'duration_days' => 30,
+                'benefits' => [
+                    'Appears across multiple pages',
+                    'Services page placement',
+                    'Homepage placement',
+                    'Category pages placement',
+                    'Included in newsletters',
+                    'Included in push notifications',
+                    'Top Spotlight badge',
+                ]
+            ],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $options,
+        ]);
+    }
+
+    public function purchasePromotion(Request $request, Service $service): JsonResponse
+    {
+        $request->validate([
+            'promotion_type' => 'required|in:promoted,featured,sponsored,network_boost',
+        ]);
+
+        if ($service->user_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $options = $this->getPromotionOptions()->getData(true)->data;
+        $promotionData = $options[$request->promotion_type] ?? null;
+
+        if (!$promotionData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid promotion type',
+            ], 400);
+        }
+
+        // Update service promotion
+        $service->update([
+            'promotion_type' => $request->promotion_type,
+            'promotion_expires_at' => now()->addDays($promotionData['duration_days']),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Promotion purchased successfully',
+            'data' => [
+                'promotion_type' => $request->promotion_type,
+                'expires_at' => $service->promotion_expires_at,
+                'price' => $promotionData['price'],
+            ],
         ]);
     }
 }

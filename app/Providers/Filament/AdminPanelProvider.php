@@ -38,14 +38,23 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
+                \App\Filament\Widgets\BannerOverviewWidget::class,
+                \App\Filament\Widgets\RecentBannersWidget::class,
                 \App\Filament\Widgets\JobsOverviewWidget::class,
                 \App\Filament\Widgets\RevenueOverviewWidget::class,
                 \App\Filament\Widgets\CandidatesOverviewWidget::class,
                 \App\Filament\Widgets\UpsellsOverviewWidget::class,
+                \App\Filament\Widgets\ServicesOverviewWidget::class,
+                \App\Filament\Widgets\PromotedAdvertsOverviewWidget::class,
+                \App\Filament\Widgets\RecentPromotedAdvertsWidget::class,
+                \App\Filament\Widgets\PromotedAdvertsStatsWidget::class,
                 \App\Filament\Widgets\RevenueChartWidget::class,
                 \App\Filament\Widgets\JobsChartWidget::class,
+                \App\Filament\Widgets\ServicesChartWidget::class,
                 \App\Filament\Widgets\RecentJobsWidget::class,
                 \App\Filament\Widgets\RecentUpsellsWidget::class,
+                \App\Filament\Widgets\RecentServicesWidget::class,
+                \App\Filament\Widgets\RecentPromotionsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

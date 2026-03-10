@@ -24,25 +24,8 @@ class AdminMiddleware
             ], 401);
         }
 
-        // Check if user has admin role (adjust based on your user structure)
-        // Option 1: Check role field
-        if (isset($user->role) && $user->role === 'admin') {
-            return $next($request);
-        }
-
-        // Option 2: Check is_admin field
-        if (isset($user->is_admin) && $user->is_admin == 1) {
-            return $next($request);
-        }
-
-        // Option 3: Check email for super admin (temporary solution)
-        $adminEmails = [
-            'admin@example.com',
-            'superadmin@example.com',
-            'test@example.com', // For testing
-        ];
-
-        if (in_array($user->email, $adminEmails)) {
+        // Check if user has admin role using the User model's isAdmin method
+        if ($user->isAdmin()) {
             return $next($request);
         }
 

@@ -16,7 +16,7 @@ class Group extends Model
      *
      * @var string
      */
-    protected $table = 'ea_group';
+    protected $table = 'group';
     
     /**
      * The primary key associated with the table.

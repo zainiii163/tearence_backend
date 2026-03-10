@@ -41,7 +41,7 @@ return new class extends Migration
 
             // Foreign keys
             $table->foreign('user_id')
-                ->references('user_id')->on('user')
+                ->references('user_id')->on('users')
                 ->onDelete('cascade');
 
             // Indexes
@@ -99,7 +99,7 @@ return new class extends Migration
                 ->onDelete('cascade');
             
             $table->foreign('user_id')
-                ->references('user_id')->on('user')
+                ->references('user_id')->on('users')
                 ->onDelete('cascade');
 
             // Indexes
@@ -130,7 +130,7 @@ return new class extends Migration
 
             // Foreign keys
             $table->foreign('created_by')
-                ->references('user_id')->on('user')
+                ->references('user_id')->on('users')
                 ->onDelete('cascade');
 
             // Indexes

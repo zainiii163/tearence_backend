@@ -11,7 +11,7 @@ class JobAlert extends Model
     use HasFactory, SoftDeletes;
 
     protected $primaryKey = 'job_alert_id';
-    protected $table = 'ea_job_alerts';
+    protected $table = 'job_alerts';
 
     protected $fillable = [
         'customer_id',

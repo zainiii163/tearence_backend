@@ -10,7 +10,7 @@ class Campaign extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'ea_campaign';
+    protected $table = 'campaign';
 
     protected $fillable = [
         'code',
