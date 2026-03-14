@@ -13,13 +13,15 @@ return new class extends Migration
     {
         Schema::create('promoted_advert_analytics', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('promoted_advert_id');
+            $table->foreignId('promoted_advert_id')->constrained()->onDelete('cascade');
             $table->string('event_type'); // view, click, save, inquiry, share
             $table->string('ip_address')->nullable();
             $table->string('user_agent')->nullable();
             $table->string('country')->nullable();
             $table->string('city')->nullable();
             $table->unsignedInteger('user_id')->nullable();
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
             $table->json('metadata')->nullable(); // additional event data
             $table->timestamps();
             

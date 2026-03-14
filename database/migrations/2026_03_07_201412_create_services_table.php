@@ -13,9 +13,14 @@ return new class extends Migration
     {
         Schema::create('services', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedInteger('user_id');
             $table->unsignedBigInteger('service_provider_id')->nullable();
-            $table->unsignedBigInteger('category_id');
+            $table->unsignedBigInteger('service_category_id');
+            
+            // Foreign keys
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            $table->foreign('service_provider_id')->references('id')->on('service_providers')->onDelete('set null');
+            $table->foreign('service_category_id')->references('id')->on('service_categories')->onDelete('cascade');
             $table->string('title');
             $table->string('slug')->unique();
             $table->text('tagline')->nullable();
@@ -45,7 +50,7 @@ return new class extends Migration
             $table->timestamps();
             
             $table->index(['status', 'promotion_type']);
-            $table->index(['category_id', 'country']);
+            $table->index(['service_category_id', 'country']);
             $table->index(['service_type', 'status']);
         });
     }

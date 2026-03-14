@@ -4,150 +4,82 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FundingProject extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'customer_id',
+        'user_id',
         'title',
-        'slug',
         'tagline',
         'project_type',
         'category',
         'description',
-        'problem_solved',
+        'problem_solving',
         'vision_mission',
-        'why_matters_now',
-        'funding_goal',
-        'minimum_contribution',
-        'funding_model',
-        'current_funded',
-        'backers_count',
-        'funding_deadline',
-        'status',
-        'risk_level',
-        'is_verified',
-        'is_featured',
-        'is_promoted',
-        'is_sponsored',
-        'country',
-        'region',
+        'why_now',
         'cover_image',
         'additional_images',
-        'pitch_video_url',
-        'team_members',
+        'country',
+        'city',
+        'funding_goal',
+        'currency',
+        'minimum_contribution',
+        'funding_model',
         'use_of_funds',
         'milestones',
-        'social_links',
-        'revenue_model',
-        'forecasts',
-        'risk_disclosures',
+        'team_members',
+        'identity_verification',
         'business_registration_number',
+        'business_registration_document',
         'website',
-        'verification_documents',
-        'published_at',
+        'social_links',
+        'pitch_video',
+        'documents',
+        'is_verified',
+        'is_active',
+        'is_featured',
+        'is_sponsored',
+        'is_promoted',
+        'amount_raised',
+        'backer_count',
+        'views_count',
+        'shares_count',
+        'funding_starts_at',
+        'funding_ends_at',
     ];
 
     protected $casts = [
-        'funding_goal' => 'decimal:2',
-        'minimum_contribution' => 'decimal:2',
-        'current_funded' => 'decimal:2',
-        'funding_deadline' => 'date',
-        'published_at' => 'datetime',
         'additional_images' => 'array',
-        'team_members' => 'array',
         'use_of_funds' => 'array',
         'milestones' => 'array',
+        'team_members' => 'array',
         'social_links' => 'array',
-        'verification_documents' => 'array',
+        'documents' => 'array',
         'is_verified' => 'boolean',
+        'is_active' => 'boolean',
         'is_featured' => 'boolean',
-        'is_promoted' => 'boolean',
         'is_sponsored' => 'boolean',
+        'is_promoted' => 'boolean',
+        'funding_goal' => 'decimal:2',
+        'minimum_contribution' => 'decimal:2',
+        'amount_raised' => 'decimal:2',
+        'funding_starts_at' => 'datetime',
+        'funding_ends_at' => 'datetime',
     ];
 
-    public static function getProjectTypes(): array
+    public function user(): BelongsTo
     {
-        return [
-            'personal' => 'Personal Project',
-            'startup' => 'Startup / Business Project',
-            'community' => 'Community / Charity Project',
-            'creative' => 'Creative / Innovation Project',
-        ];
+        return $this->belongsTo(User::class);
     }
 
-    public static function getCategories(): array
+    public function pledges(): HasMany
     {
-        return [
-            'technology' => 'Technology & Innovation',
-            'creative_arts' => 'Creative Arts',
-            'community_social_impact' => 'Community & Social Impact',
-            'health_wellness' => 'Health & Wellness',
-            'education' => 'Education',
-            'real_estate' => 'Real Estate & Construction',
-            'environment' => 'Environment & Sustainability',
-            'startups_business' => 'Startups & Small Business',
-            'other' => 'Other',
-        ];
-    }
-
-    public static function getFundingModels(): array
-    {
-        return [
-            'donation' => 'Donation-Based',
-            'reward_based' => 'Reward-Based',
-            'equity' => 'Equity-Based',
-            'loan_based' => 'Loan-Based',
-        ];
-    }
-
-    public static function getStatuses(): array
-    {
-        return [
-            'draft' => 'Draft',
-            'pending' => 'Pending Approval',
-            'active' => 'Active',
-            'funded' => 'Funded',
-            'failed' => 'Failed',
-            'cancelled' => 'Cancelled',
-        ];
-    }
-
-    public static function getRiskLevels(): array
-    {
-        return [
-            'low' => 'Low',
-            'medium' => 'Medium',
-            'high' => 'High',
-        ];
-    }
-
-    public function getFundingProgressAttribute(): float
-    {
-        if ($this->funding_goal == 0) return 0;
-        return min(($this->current_funded / $this->funding_goal) * 100, 100);
-    }
-
-    public function getDaysRemainingAttribute(): int
-    {
-        return max(0, now()->diffInDays($this->funding_deadline, false));
-    }
-
-    public function getIsFundingActiveAttribute(): bool
-    {
-        return $this->status === 'active' && 
-               $this->funding_deadline->isFuture() && 
-               $this->current_funded < $this->funding_goal;
-    }
-
-    public function customer(): BelongsTo
-    {
-        return $this->belongsTo(Customer::class);
+        return $this->hasMany(FundingPledge::class);
     }
 
     public function rewards(): HasMany
@@ -155,92 +87,66 @@ class FundingProject extends Model
         return $this->hasMany(FundingReward::class);
     }
 
-    public function backers(): HasMany
-    {
-        return $this->hasMany(FundingBacker::class);
-    }
-
-    public function updates(): HasMany
-    {
-        return $this->hasMany(FundingUpdate::class);
-    }
-
     public function upsells(): HasMany
     {
         return $this->hasMany(FundingUpsell::class);
     }
 
-    public function successfulBackers(): HasMany
+    public function analytics(): HasMany
     {
-        return $this->backers()->where('status', 'completed');
+        return $this->hasMany(FundingAnalytic::class);
     }
 
-    public function scopeActive($query)
+    public function favoritedBy(): BelongsToMany
     {
-        return $query->where('status', 'active')
-                    ->where('published_at', '<=', now())
-                    ->where('funding_deadline', '>', now());
+        return $this->belongsToMany(User::class, 'funding_favorites');
     }
 
-    public function scopeFeatured($query)
+    public function backers(): BelongsToMany
     {
-        return $query->where('is_featured', true);
+        return $this->belongsToMany(User::class, 'funding_pledges', 'funding_project_id', 'user_id');
     }
 
-    public function scopePromoted($query)
+    public function getFundingPercentageAttribute(): float
     {
-        return $query->where('is_promoted', true);
+        if ($this->funding_goal == 0) {
+            return 0;
+        }
+        return round(($this->amount_raised / $this->funding_goal) * 100, 2);
     }
 
-    public function scopeSponsored($query)
+    public function isFunded(): bool
     {
-        return $query->where('is_sponsored', true);
+        return $this->amount_raised >= $this->funding_goal;
     }
 
-    public function scopeByCategory($query, $category)
+    public function getDaysRemainingAttribute(): ?int
     {
-        return $query->where('category', $category);
+        if (!$this->funding_ends_at) {
+            return null;
+        }
+        $days = now()->diffInDays($this->funding_ends_at, false);
+        return max(0, (int)$days);
     }
 
-    public function scopeByCountry($query, $country)
+    public function isActive(): bool
     {
-        return $query->where('country', $country);
+        return $this->is_active
+            && (!$this->funding_ends_at || $this->funding_ends_at->isFuture())
+            && (!$this->funding_starts_at || $this->funding_starts_at->isPast());
     }
 
-    public function scopeTrending($query)
+    public function getCompletedPledgesAmount(): float
     {
-        return $query->where('created_at', '>=', now()->subDays(30))
-                    ->orderBy('current_funded', 'desc')
-                    ->orderBy('backers_count', 'desc');
+        return $this->pledges()
+            ->where('status', 'completed')
+            ->sum('amount');
     }
 
-    public function scopeEndingSoon($query)
+    public function getCompletedPledgesCount(): int
     {
-        return $query->where('funding_deadline', '<=', now()->addDays(7))
-                    ->where('funding_deadline', '>', now())
-                    ->orderBy('funding_deadline', 'asc');
-    }
-
-    public function scopeNearlyFunded($query)
-    {
-        return $query->whereRaw('(current_funded / funding_goal) >= 0.75')
-                    ->whereRaw('(current_funded / funding_goal) < 1');
-    }
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($project) {
-            if (empty($project->slug)) {
-                $project->slug = Str::slug($project->title);
-            }
-        });
-
-        static::updating(function ($project) {
-            if ($project->isDirty('title') && empty($project->slug)) {
-                $project->slug = Str::slug($project->title);
-            }
-        });
+        return $this->pledges()
+            ->where('status', 'completed')
+            ->count();
     }
 }

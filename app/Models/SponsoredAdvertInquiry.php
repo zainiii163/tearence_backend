@@ -16,7 +16,7 @@ class SponsoredAdvertInquiry extends Model
      */
     protected $table = 'sponsored_advert_inquiries';
 
-    protected $primaryKey = 'inquiry_id';
+    protected $primaryKey = 'id';
 
     /**
      * The attributes that are mass assignable.
@@ -25,14 +25,15 @@ class SponsoredAdvertInquiry extends Model
      */
     protected $fillable = [
         'sponsored_advert_id',
+        'user_id',
         'name',
         'email',
         'phone',
         'message',
+        'inquiry_type',
         'status',
         'admin_response',
-        'ip_address',
-        'user_agent',
+        'responded_at',
     ];
 
     /**
@@ -41,7 +42,9 @@ class SponsoredAdvertInquiry extends Model
      * @var array
      */
     protected $casts = [
+        'inquiry_type' => 'string',
         'status' => 'string',
+        'responded_at' => 'datetime',
     ];
 
     /**
@@ -50,6 +53,14 @@ class SponsoredAdvertInquiry extends Model
     public function sponsoredAdvert()
     {
         return $this->belongsTo(SponsoredAdvert::class, 'sponsored_advert_id');
+    }
+
+    /**
+     * Get the user that made this inquiry.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**

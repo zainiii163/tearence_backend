@@ -19,7 +19,7 @@ class SponsoredAdvert extends Model
      */
     protected $table = 'sponsored_adverts';
 
-    protected $primaryKey = 'sponsored_advert_id';
+    protected $primaryKey = 'id';
 
     /**
      * The attributes that are mass assignable.
@@ -27,54 +27,27 @@ class SponsoredAdvert extends Model
      * @var array
      */
     protected $fillable = [
+        'user_id',
         'title',
-        'tagline',
         'description',
-        'overview',
-        'key_features',
-        'what_makes_special',
-        'why_sponsored',
-        'additional_notes',
-        'advert_type',
+        'price',
+        'currency',
         'category_id',
         'country',
         'city',
-        'latitude',
-        'longitude',
-        'location_precision',
-        'price',
-        'currency',
-        'condition',
-        'main_image',
-        'additional_images',
-        'video_link',
-        'seller_name',
-        'business_name',
-        'phone',
-        'email',
-        'website',
-        'social_links',
-        'logo',
-        'verified_seller',
-        'sponsorship_tier',
-        'sponsorship_price',
-        'payment_status',
-        'payment_transaction_id',
-        'sponsorship_start_date',
-        'sponsorship_end_date',
-        'views_count',
-        'saves_count',
-        'inquiries_count',
+        'images',
+        'video_url',
+        'seller_info',
+        'location',
+        'views',
         'rating',
-        'rating_count',
-        'is_active',
-        'is_featured',
-        'sort_order',
-        'slug',
-        'tags',
-        'seo_meta',
-        'created_by',
-        'updated_by',
+        'reviews_count',
+        'featured',
+        'promoted',
+        'sponsored',
+        'status',
+        'promotion_plan',
+        'promotion_expires_at',
     ];
 
     /**
@@ -84,24 +57,16 @@ class SponsoredAdvert extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
-        'sponsorship_price' => 'decimal:2',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
-        'additional_images' => 'array',
-        'social_links' => 'array',
-        'tags' => 'array',
-        'seo_meta' => 'array',
-        'verified_seller' => 'boolean',
-        'is_active' => 'boolean',
-        'is_featured' => 'boolean',
-        'sponsorship_start_date' => 'datetime',
-        'sponsorship_end_date' => 'datetime',
-        'views_count' => 'integer',
-        'saves_count' => 'integer',
-        'inquiries_count' => 'integer',
-        'rating' => 'float',
-        'rating_count' => 'integer',
-        'sort_order' => 'integer',
+        'images' => 'array',
+        'seller_info' => 'array',
+        'location' => 'array',
+        'views' => 'integer',
+        'rating' => 'decimal:2',
+        'reviews_count' => 'integer',
+        'featured' => 'boolean',
+        'promoted' => 'boolean',
+        'sponsored' => 'boolean',
+        'promotion_expires_at' => 'datetime',
     ];
 
     /**
@@ -110,49 +75,14 @@ class SponsoredAdvert extends Model
     protected static function boot()
     {
         parent::boot();
-
-        static::creating(function ($advert) {
-            $advert->slug = static::generateUniqueSlug($advert->title);
-        });
-
-        static::updating(function ($advert) {
-            if ($advert->isDirty('title')) {
-                $advert->slug = static::generateUniqueSlug($advert->title);
-            }
-        });
-    }
-
-    /**
-     * Generate a unique slug.
-     */
-    public static function generateUniqueSlug($title)
-    {
-        $slug = Str::slug($title);
-        $originalSlug = $slug;
-        $counter = 1;
-
-        while (static::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter;
-            $counter++;
-        }
-
-        return $slug;
     }
 
     /**
      * Get the user who created the advert.
      */
-    public function creator()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Get the user who updated the advert.
-     */
-    public function updater()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(User::class);
     }
 
     /**
@@ -160,7 +90,15 @@ class SponsoredAdvert extends Model
      */
     public function category()
     {
-        return $this->belongsTo(Category::class, 'category_id');
+        return $this->belongsTo(SponsoredCategory::class);
+    }
+
+    /**
+     * Get the analytics for this advert.
+     */
+    public function analytics()
+    {
+        return $this->hasMany(SponsoredAnalytic::class, 'advert_id');
     }
 
     /**
@@ -168,31 +106,7 @@ class SponsoredAdvert extends Model
      */
     public function saves()
     {
-        return $this->morphMany(Save::class, 'savable');
-    }
-
-    /**
-     * Get the views for this advert.
-     */
-    public function views()
-    {
-        return $this->morphMany(View::class, 'viewable');
-    }
-
-    /**
-     * Get the inquiries for this advert.
-     */
-    public function inquiries()
-    {
-        return $this->hasMany(SponsoredAdvertInquiry::class, 'sponsored_advert_id');
-    }
-
-    /**
-     * Get the ratings for this advert.
-     */
-    public function ratings()
-    {
-        return $this->hasMany(SponsoredAdvertRating::class, 'sponsored_advert_id');
+        return $this->hasMany(SavedAdvert::class, 'advert_id');
     }
 
     /**
@@ -200,31 +114,15 @@ class SponsoredAdvert extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('status', 'active');
     }
 
     /**
-     * Scope a query to only include featured adverts.
+     * Scope a query to filter by category.
      */
-    public function scopeFeatured($query)
+    public function scopeByCategory($query, $categoryId)
     {
-        return $query->where('is_featured', true);
-    }
-
-    /**
-     * Scope a query to filter by sponsorship tier.
-     */
-    public function scopeByTier($query, $tier)
-    {
-        return $query->where('sponsorship_tier', $tier);
-    }
-
-    /**
-     * Scope a query to filter by advert type.
-     */
-    public function scopeByType($query, $type)
-    {
-        return $query->where('advert_type', $type);
+        return $query->where('category_id', $categoryId);
     }
 
     /**
@@ -244,26 +142,27 @@ class SponsoredAdvert extends Model
     }
 
     /**
-     * Scope a query to only include currently sponsored adverts.
+     * Scope a query to only include sponsored adverts.
      */
-    public function scopeCurrentlySponsored($query)
+    public function scopeSponsored($query)
     {
-        $now = Carbon::now();
-        return $query->where(function ($q) use ($now) {
-            $q->whereNull('sponsorship_start_date')
-              ->orWhere('sponsorship_start_date', '<=', $now);
-        })->where(function ($q) use ($now) {
-            $q->whereNull('sponsorship_end_date')
-              ->orWhere('sponsorship_end_date', '>=', $now);
-        });
+        return $query->where('sponsored', true);
     }
 
     /**
-     * Scope a query to order by sponsorship tier (premium first).
+     * Scope a query to only include featured adverts.
      */
-    public function scopeOrderByTier($query)
+    public function scopeFeatured($query)
     {
-        return $query->orderByRaw("FIELD(sponsorship_tier, 'premium', 'plus', 'basic')");
+        return $query->where('featured', true);
+    }
+
+    /**
+     * Scope a query to only include promoted adverts.
+     */
+    public function scopePromoted($query)
+    {
+        return $query->where('promoted', true);
     }
 
     /**
@@ -271,7 +170,7 @@ class SponsoredAdvert extends Model
      */
     public function scopeOrderByPopularity($query)
     {
-        return $query->orderByRaw('(views_count * 0.3 + saves_count * 0.4 + rating * rating_count * 0.3) DESC');
+        return $query->orderBy('views', 'desc');
     }
 
     /**
@@ -283,74 +182,27 @@ class SponsoredAdvert extends Model
             return 'Free';
         }
 
-        $symbol = $this->getCurrencySymbol();
-        return $symbol . number_format($this->price, 2);
+        return '$' . number_format($this->price, 2);
     }
 
     /**
-     * Get the currency symbol.
+     * Get the first image URL.
      */
-    public function getCurrencySymbolAttribute()
+    public function getFirstImageUrlAttribute()
     {
-        $symbols = [
-            'GBP' => '£',
-            'USD' => '$',
-            'EUR' => '€',
-            'JPY' => '¥',
-        ];
-
-        return $symbols[$this->currency] ?? $this->currency;
-    }
-
-    /**
-     * Get the main image URL.
-     */
-    public function getMainImageUrlAttribute()
-    {
-        if (!$this->main_image) {
+        if (!$this->images || empty($this->images)) {
             return asset('placeholder.png');
         }
 
-        return asset($this->main_image);
+        return $this->images[0];
     }
 
     /**
-     * Get the additional images URLs.
+     * Check if the advert is currently promoted.
      */
-    public function getAdditionalImagesUrlsAttribute()
+    public function getIsCurrentlyPromotedAttribute()
     {
-        if (!$this->additional_images) {
-            return [];
-        }
-
-        return collect($this->additional_images)->map(function ($image) {
-            return asset($image);
-        })->toArray();
-    }
-
-    /**
-     * Get the logo URL.
-     */
-    public function getLogoUrlAttribute()
-    {
-        if (!$this->logo) {
-            return null;
-        }
-
-        return asset($this->logo);
-    }
-
-    /**
-     * Check if the advert is currently sponsored.
-     */
-    public function getIsCurrentlySponsoredAttribute()
-    {
-        $now = Carbon::now();
-        
-        $startDateValid = !$this->sponsorship_start_date || $this->sponsorship_start_date <= $now;
-        $endDateValid = !$this->sponsorship_end_date || $this->sponsorship_end_date >= $now;
-        
-        return $this->is_active && $startDateValid && $endDateValid;
+        return $this->promotion_expires_at && $this->promotion_expires_at > now();
     }
 
     /**
@@ -358,59 +210,21 @@ class SponsoredAdvert extends Model
      */
     public function incrementViews()
     {
-        $this->increment('views_count');
+        $this->increment('views');
     }
 
     /**
-     * Increment saves count.
+     * Track analytics event.
      */
-    public function incrementSaves()
+    public function trackEvent($eventType, $metadata = [], $userId = null)
     {
-        $this->increment('saves_count');
-    }
-
-    /**
-     * Increment inquiries count.
-     */
-    public function incrementInquiries()
-    {
-        $this->increment('inquiries_count');
-    }
-
-    /**
-     * Update rating.
-     */
-    public function updateRating()
-    {
-        $ratings = $this->ratings()->where('is_approved', true);
-        $count = $ratings->count();
-        
-        if ($count > 0) {
-            $average = $ratings->avg('rating');
-            $this->update([
-                'rating' => round($average, 2),
-                'rating_count' => $count,
-            ]);
-        } else {
-            $this->update([
-                'rating' => 0,
-                'rating_count' => 0,
-            ]);
-        }
-    }
-
-    /**
-     * Get the sponsorship tier display name.
-     */
-    public function getSponsorshipTierDisplayAttribute()
-    {
-        $tiers = [
-            'basic' => 'Sponsored',
-            'plus' => 'Sponsored Plus',
-            'premium' => 'Sponsored Premium',
-        ];
-
-        return $tiers[$this->sponsorship_tier] ?? ucfirst($this->sponsorship_tier);
+        return $this->analytics()->create([
+            'event_type' => $eventType,
+            'metadata' => $metadata,
+            'user_id' => $userId,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
     }
 
     /**

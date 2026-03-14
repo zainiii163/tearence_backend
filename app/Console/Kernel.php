@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use App\Console\Commands\SendJobAlerts;
 
 class Kernel extends ConsoleKernel
 {
@@ -25,6 +26,13 @@ class Kernel extends ConsoleKernel
         // Moderate harmful content - runs every 6 hours
         $schedule->command('ads:moderate-harmful --delete')
                 ->everySixHours()
+                ->withoutOverlapping()
+                ->runInBackground();
+
+        // Send job alerts - runs daily at 9 AM
+        $schedule->command('jobs:send-alerts')
+                ->daily()
+                ->at('09:00')
                 ->withoutOverlapping()
                 ->runInBackground();
     }

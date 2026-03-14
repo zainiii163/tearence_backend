@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Book;
-use App\Models\Author;
-use App\Models\BookCategory;
-use App\Models\BookUpsell;
+use App\Models\BookAdvert;
 use App\Models\BookSave;
+use App\Models\BookView;
+use App\Models\PricingPlan;
+use App\Models\BookPayment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -23,183 +23,219 @@ class BooksAdvertController extends Controller
     public function index(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'search' => 'nullable|string',
             'genre' => 'nullable|string',
-            'book_type' => 'nullable|string|in:fiction,non-fiction,children,poetry,academic,self-help,business,other',
-            'country' => 'nullable|string|size:2',
-            'language' => 'nullable|string|max:10',
+            'country' => 'nullable|string',
             'format' => 'nullable|string|in:paperback,hardcover,ebook,audiobook',
-            'author' => 'nullable|string',
+            'book_type' => 'nullable|string',
+            'language' => 'nullable|string',
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
-            'search' => 'nullable|string',
-            'sort' => 'nullable|string|in:newest,oldest,price_low,price_high,relevance,author_az,title_az,most_viewed,trending',
-            'advert_type' => 'nullable|string|in:standard,promoted,featured,sponsored,top_category',
+            'verified_only' => 'nullable|boolean',
+            'promoted_only' => 'nullable|boolean',
+            'sort_by' => 'nullable|string|in:created_at,title,price,views_count,saves_count,rating',
+            'sort_order' => 'nullable|string|in:asc,desc',
             'per_page' => 'nullable|integer|min:1|max:50',
-            'verified_author' => 'nullable|boolean'
+            'page' => 'nullable|integer|min:1'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $query = Book::with(['author', 'user', 'upsells' => function($q) {
-            $q->active();
-        }])->active();
+        $query = BookAdvert::active();
 
         // Apply filters
-        if ($request->genre) {
-            $query->byGenre($request->genre);
+        if ($request->search) {
+            $query->search($request->search);
         }
 
-        if ($request->book_type) {
-            $query->where('book_type', $request->book_type);
+        if ($request->genre) {
+            $query->byGenre($request->genre);
         }
 
         if ($request->country) {
             $query->byCountry($request->country);
         }
 
-        if ($request->language) {
-            $query->where('language', $request->language);
-        }
-
         if ($request->format) {
-            $query->where('format', $request->format);
+            $query->byFormat($request->format);
         }
 
-        if ($request->author) {
-            $query->where('author_name', 'LIKE', '%' . $request->author . '%');
+        if ($request->book_type) {
+            $query->byBookType($request->book_type);
         }
 
-        if ($request->verified_author) {
-            $query->where('verified_author', $request->verified_author);
+        if ($request->language) {
+            $query->byLanguage($request->language);
         }
 
-        if ($request->min_price) {
-            $query->where('price', '>=', $request->min_price);
+        if ($request->min_price || $request->max_price) {
+            $query->priceRange($request->min_price, $request->max_price);
         }
 
-        if ($request->max_price) {
-            $query->where('price', '<=', $request->max_price);
+        if ($request->verified_only) {
+            $query->verifiedAuthor();
         }
 
-        if ($request->advert_type) {
-            $query->where('advert_type', $request->advert_type);
-        }
-
-        if ($request->search) {
-            $query->where(function($q) use ($request) {
-                $q->where('title', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('description', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('author_name', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('isbn', 'LIKE', '%' . $request->search . '%');
-            });
+        if ($request->promoted_only) {
+            $query->promoted();
         }
 
         // Apply sorting
-        switch ($request->sort) {
-            case 'oldest':
-                $query->orderBy('created_at', 'asc');
-                break;
-            case 'price_low':
-                $query->orderBy('price', 'asc');
-                break;
-            case 'price_high':
-                $query->orderBy('price', 'desc');
-                break;
-            case 'author_az':
-                $query->orderBy('author_name', 'asc');
-                break;
-            case 'title_az':
-                $query->orderBy('title', 'asc');
-                break;
-            case 'most_viewed':
-                $query->orderBy('views_count', 'desc');
-                break;
-            case 'trending':
-                $query->orderBy('saves_count', 'desc')->orderBy('views_count', 'desc');
-                break;
-            case 'newest':
-            default:
-                $query->orderBy('created_at', 'desc');
-                break;
+        $sortBy = $request->sort_by ?? 'created_at';
+        $sortOrder = $request->sort_order ?? 'desc';
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Prioritize promoted books
+        if (!$request->promoted_only) {
+            $query->orderByRaw("FIELD(advert_type, 'sponsored', 'featured', 'promoted', 'basic') ASC");
         }
 
-        // Prioritize promoted books if no specific advert_type is requested
-        if (!$request->advert_type) {
-            $query->orderByRaw("FIELD(advert_type, 'top_category', 'sponsored', 'featured', 'promoted', 'standard') ASC");
-        }
+        $perPage = $request->per_page ?? 12;
+        $books = $query->paginate($perPage, ['*'], 'page', $request->page ?? 1);
 
-        $perPage = $request->per_page ?? 20;
-        $books = $query->paginate($perPage);
+        // Get available filters
+        $filters = $this->getAvailableFilters();
 
         return response()->json([
-            'data' => $books->items(),
-            'meta' => [
+            'success' => true,
+            'data' => [
+                'data' => $books->items(),
                 'current_page' => $books->currentPage(),
                 'last_page' => $books->lastPage(),
                 'per_page' => $books->perPage(),
                 'total' => $books->total(),
-                'filters' => $this->getAvailableFilters()
+                'filters' => $filters
             ]
         ]);
     }
 
     /**
-     * Store a new book advert
+     * Get single book details by slug
+     */
+    public function show($slug)
+    {
+        $book = BookAdvert::active()->where('slug', $slug)->first();
+
+        if (!$book) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found'
+            ], 404);
+        }
+
+        // Increment view count
+        $book->incrementViews();
+
+        // Check if current user has saved this book
+        $isSaved = false;
+        if (auth('user')->check()) {
+            $isSaved = $book->isSavedByUser(auth('user')->id());
+        }
+
+        $bookData = $book->toArray();
+        $bookData['is_saved'] = $isSaved;
+
+        return response()->json([
+            'success' => true,
+            'data' => $bookData
+        ]);
+    }
+
+    /**
+     * Create new book advert
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'book_type' => 'required|string',
             'title' => 'required|string|max:255',
-            'subtitle' => 'nullable|string|max:500',
+            'subtitle' => 'nullable|string',
             'description' => 'required|string',
             'short_description' => 'nullable|string|max:500',
-            'price' => 'nullable|numeric|min:0',
-            'currency' => 'nullable|string|size:3',
-            'book_type' => 'required|string|in:fiction,non-fiction,children,poetry,academic,self-help,business,other',
-            'genre' => 'required|string|max:100',
             'author_name' => 'required|string|max:255',
-            'author_id' => 'nullable|integer|exists:authors,id',
-            'country' => 'required|string|size:2',
-            'language' => 'required|string|max:10',
-            'format' => 'required|string|in:paperback,hardcover,ebook,audiobook',
-            'isbn' => 'nullable|string|max:20',
+            'author_bio' => 'nullable|string',
+            'author_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'author_social_links' => 'nullable|array',
+            'author_social_links.*' => 'url',
             'publisher' => 'nullable|string|max:255',
             'publication_date' => 'nullable|date',
+            'isbn' => 'nullable|string|max:20',
             'pages' => 'nullable|integer|min:1',
-            'age_range' => 'nullable|string|max:50',
+            'language' => 'required|string|max:10',
+            'genre' => 'required|string|max:100',
+            'format' => 'required|string|in:paperback,hardcover,ebook,audiobook',
+            'price' => 'required|numeric|min:0',
+            'currency' => 'nullable|string|size:3',
+            'age_range' => 'nullable|string|max:20',
             'series_name' => 'nullable|string|max:255',
             'edition' => 'nullable|string|max:100',
-            'purchase_links' => 'nullable|array',
-            'purchase_links.*.platform' => 'required|string',
-            'purchase_links.*.url' => 'required|url',
-            'trailer_video_url' => 'nullable|url',
             'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'additional_images' => 'nullable|array',
             'additional_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'trailer_video_url' => 'nullable|url',
             'sample_files' => 'nullable|array',
-            'sample_files.*' => 'file|mimes:pdf,mp3,m4a,wav|max:10240', // 10MB max
-            'upsell_type' => 'nullable|string|in:promoted,featured,sponsored,top_category',
-            'verified_author_badge' => 'nullable|boolean'
+            'sample_files.*' => 'file|mimes:pdf,mp3,m4a,wav|max:10240',
+            'purchase_links' => 'nullable|array',
+            'purchase_links.*.platform' => 'required|string',
+            'purchase_links.*.url' => 'required|url',
+            'country' => 'required|string|max:100',
+            'location_address' => 'nullable|string',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'upsell_tier' => 'nullable|integer|in:1,2,3,4',
+            'agreed_to_terms' => 'required|boolean',
+            'verified_author' => 'nullable|boolean'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $data = $request->except(['cover_image', 'additional_images', 'sample_files']);
+        if (!auth('user')->check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $data = $request->except([
+            'cover_image', 'additional_images', 'sample_files', 'author_photo'
+        ]);
+        
         $data['user_id'] = auth('user')->id();
-        $data['slug'] = Str::slug($request->title) . '-' . Str::random(6);
+        $data['slug'] = BookAdvert::createUniqueSlug($request->title);
         $data['currency'] = $data['currency'] ?? 'USD';
-        $data['verified_author'] = $data['verified_author_badge'] ?? false;
+        $data['verified_author'] = $data['verified_author'] ?? false;
+        $data['upsell_tier'] = $data['upsell_tier'] ?? 1;
+
+        // Map upsell_tier to advert_type
+        $advertTypeMap = [1 => 'basic', 2 => 'promoted', 3 => 'featured', 4 => 'sponsored'];
+        $data['advert_type'] = $advertTypeMap[$data['upsell_tier']] ?? 'basic';
 
         // Handle cover image upload
         if ($request->hasFile('cover_image')) {
             $image = $request->file('cover_image');
             $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs('books/covers', $imageName, 'public');
-            $data['cover_image'] = $imagePath;
+            $imagePath = $image->storeAs('books/covers/' . auth('user')->id(), $imageName, 'public');
+            $data['cover_image_url'] = asset('storage/' . $imagePath);
+        }
+
+        // Handle author photo upload
+        if ($request->hasFile('author_photo')) {
+            $image = $request->file('author_photo');
+            $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+            $imagePath = $image->storeAs('books/authors', $imageName, 'public');
+            $data['author_photo_url'] = asset('storage/' . $imagePath);
         }
 
         // Handle additional images
@@ -207,8 +243,8 @@ class BooksAdvertController extends Controller
             $additionalImages = [];
             foreach ($request->file('additional_images') as $image) {
                 $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-                $imagePath = $image->storeAs('books/additional', $imageName, 'public');
-                $additionalImages[] = $imagePath;
+                $imagePath = $image->storeAs('books/images/' . auth('user')->id(), $imageName, 'public');
+                $additionalImages[] = asset('storage/' . $imagePath);
             }
             $data['additional_images'] = $additionalImages;
         }
@@ -218,57 +254,32 @@ class BooksAdvertController extends Controller
             $sampleFiles = [];
             foreach ($request->file('sample_files') as $file) {
                 $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-                $filePath = $file->storeAs('books/samples', $fileName, 'public');
-                $sampleFiles[] = [
-                    'file' => $filePath,
-                    'type' => $file->getClientOriginalExtension(),
-                    'size' => $file->getSize()
-                ];
+                $filePath = $file->storeAs('books/samples/' . auth('user')->id(), $fileName, 'public');
+                $sampleFiles[] = asset('storage/' . $filePath);
             }
             $data['sample_files'] = $sampleFiles;
         }
 
-        $book = Book::create($data);
+        $book = BookAdvert::create($data);
 
-        // Handle upsell if selected
-        if ($request->upsell_type) {
-            $this->createUpsell($book, $request->upsell_type);
+        // Set promotion expiry if not basic
+        if ($data['upsell_tier'] > 1) {
+            $durationDays = [2 => 30, 3 => 60, 4 => 90][$data['upsell_tier']] ?? 30;
+            $book->update(['promoted_until' => now()->addDays($durationDays)]);
         }
+
+        $responseData = [
+            'id' => $book->id,
+            'slug' => $book->slug,
+            'payment_required' => $data['upsell_tier'] > 1,
+            'amount' => $this->getUpsellPrice($data['upsell_tier'])
+        ];
 
         return response()->json([
-            'message' => 'Book advert created successfully',
-            'data' => $book->load(['author', 'user', 'upsells'])
+            'success' => true,
+            'message' => 'Book created successfully',
+            'data' => $responseData
         ], 201);
-    }
-
-    /**
-     * Get book details
-     */
-    public function show($id)
-    {
-        $book = Book::with(['author', 'user', 'upsells' => function($q) {
-            $q->active();
-        }])->find($id);
-
-        if (!$book) {
-            return response()->json(['message' => 'Book not found'], 404);
-        }
-
-        // Increment view count
-        $book->incrementViews();
-
-        // Check if current user has saved this book
-        $isSaved = false;
-        if (auth('user')->check()) {
-            $isSaved = BookSave::where('book_id', $book->id)
-                ->where('user_id', auth('user')->id())
-                ->exists();
-        }
-
-        $book->is_saved = $isSaved;
-        $book->cover_image_url = $book->cover_image_url;
-
-        return response()->json(['data' => $book]);
     }
 
     /**
@@ -276,71 +287,107 @@ class BooksAdvertController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $book = Book::where('user_id', auth('user')->id())->find($id);
+        $book = BookAdvert::where('user_id', auth('user')->id())->find($id);
 
         if (!$book) {
-            return response()->json(['message' => 'Book not found or unauthorized'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found or unauthorized'
+            ], 404);
         }
 
         $validator = Validator::make($request->all(), [
+            'book_type' => 'nullable|string',
             'title' => 'nullable|string|max:255',
-            'subtitle' => 'nullable|string|max:500',
+            'subtitle' => 'nullable|string',
             'description' => 'nullable|string',
             'short_description' => 'nullable|string|max:500',
-            'price' => 'nullable|numeric|min:0',
-            'currency' => 'nullable|string|size:3',
-            'book_type' => 'nullable|string|in:fiction,non-fiction,children,poetry,academic,self-help,business,other',
-            'genre' => 'nullable|string|max:100',
             'author_name' => 'nullable|string|max:255',
-            'author_id' => 'nullable|integer|exists:authors,id',
-            'country' => 'nullable|string|size:2',
-            'language' => 'nullable|string|max:10',
-            'format' => 'nullable|string|in:paperback,hardcover,ebook,audiobook',
-            'isbn' => 'nullable|string|max:20',
+            'author_bio' => 'nullable|string',
+            'author_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'author_social_links' => 'nullable|array',
+            'author_social_links.*' => 'url',
             'publisher' => 'nullable|string|max:255',
             'publication_date' => 'nullable|date',
+            'isbn' => 'nullable|string|max:20',
             'pages' => 'nullable|integer|min:1',
-            'age_range' => 'nullable|string|max:50',
+            'language' => 'nullable|string|max:10',
+            'genre' => 'nullable|string|max:100',
+            'format' => 'nullable|string|in:paperback,hardcover,ebook,audiobook',
+            'price' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string|size:3',
+            'age_range' => 'nullable|string|max:20',
             'series_name' => 'nullable|string|max:255',
             'edition' => 'nullable|string|max:100',
-            'purchase_links' => 'nullable|array',
-            'purchase_links.*.platform' => 'required|string',
-            'purchase_links.*.url' => 'required|url',
-            'trailer_video_url' => 'nullable|url',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'additional_images' => 'nullable|array',
             'additional_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'trailer_video_url' => 'nullable|url',
             'sample_files' => 'nullable|array',
-            'sample_files.*' => 'file|mimes:pdf,mp3,m4a,wav|max:10240'
+            'sample_files.*' => 'file|mimes:pdf,mp3,m4a,wav|max:10240',
+            'purchase_links' => 'nullable|array',
+            'purchase_links.*.platform' => 'required|string',
+            'purchase_links.*.url' => 'required|url',
+            'country' => 'nullable|string|max:100',
+            'location_address' => 'nullable|string',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $data = $request->except(['cover_image', 'additional_images', 'sample_files']);
+        $data = $request->except([
+            'cover_image', 'additional_images', 'sample_files', 'author_photo'
+        ]);
 
         // Handle file uploads similar to store method
         if ($request->hasFile('cover_image')) {
-            // Delete old cover image
-            if ($book->cover_image) {
-                Storage::disk('public')->delete($book->cover_image);
-            }
-            
             $image = $request->file('cover_image');
             $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-            $imagePath = $image->storeAs('books/covers', $imageName, 'public');
-            $data['cover_image'] = $imagePath;
+            $imagePath = $image->storeAs('books/covers/' . auth('user')->id(), $imageName, 'public');
+            $data['cover_image_url'] = asset('storage/' . $imagePath);
+        }
+
+        if ($request->hasFile('author_photo')) {
+            $image = $request->file('author_photo');
+            $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+            $imagePath = $image->storeAs('books/authors', $imageName, 'public');
+            $data['author_photo_url'] = asset('storage/' . $imagePath);
         }
 
         // Handle additional images and sample files similarly
-        // ... (implementation would be similar to store method)
+        if ($request->hasFile('additional_images')) {
+            $additionalImages = [];
+            foreach ($request->file('additional_images') as $image) {
+                $imageName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+                $imagePath = $image->storeAs('books/images/' . auth('user')->id(), $imageName, 'public');
+                $additionalImages[] = asset('storage/' . $imagePath);
+            }
+            $data['additional_images'] = $additionalImages;
+        }
+
+        if ($request->hasFile('sample_files')) {
+            $sampleFiles = [];
+            foreach ($request->file('sample_files') as $file) {
+                $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+                $filePath = $file->storeAs('books/samples/' . auth('user')->id(), $fileName, 'public');
+                $sampleFiles[] = asset('storage/' . $filePath);
+            }
+            $data['sample_files'] = $sampleFiles;
+        }
 
         $book->update($data);
 
         return response()->json([
+            'success' => true,
             'message' => 'Book advert updated successfully',
-            'data' => $book->load(['author', 'user', 'upsells'])
+            'data' => $book
         ]);
     }
 
@@ -349,331 +396,345 @@ class BooksAdvertController extends Controller
      */
     public function destroy($id)
     {
-        $book = Book::where('user_id', auth('user')->id())->find($id);
+        $book = BookAdvert::where('user_id', auth('user')->id())->find($id);
 
         if (!$book) {
-            return response()->json(['message' => 'Book not found or unauthorized'], 404);
-        }
-
-        // Delete associated files
-        if ($book->cover_image) {
-            Storage::disk('public')->delete($book->cover_image);
-        }
-
-        if ($book->additional_images) {
-            foreach ($book->additional_images as $image) {
-                Storage::disk('public')->delete($image);
-            }
-        }
-
-        if ($book->sample_files) {
-            foreach ($book->sample_files as $file) {
-                Storage::disk('public')->delete($file['file']);
-            }
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found or unauthorized'
+            ], 404);
         }
 
         $book->delete();
 
-        return response()->json(['message' => 'Book advert deleted successfully']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Book advert deleted successfully'
+        ]);
     }
 
     /**
-     * Save/unsave a book
+     * Save/bookmark a book
      */
-    public function toggleSave($id)
+    public function save($id)
     {
         if (!auth('user')->check()) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
-        $book = Book::active()->find($id);
+        $book = BookAdvert::active()->find($id);
         if (!$book) {
-            return response()->json(['message' => 'Book not found'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found'
+            ], 404);
         }
 
         $userId = auth('user')->id();
-        $existingSave = BookSave::where('book_id', $book->id)
-            ->where('user_id', $userId)
-            ->first();
-
-        if ($existingSave) {
-            $existingSave->delete();
-            $book->decrement('saves_count');
-            $message = 'Book removed from saved items';
-        } else {
-            BookSave::create([
-                'book_id' => $book->id,
-                'user_id' => $userId,
-                'saved_at' => now()
-            ]);
-            $book->increment('saves_count');
-            $message = 'Book saved successfully';
-        }
-
-        return response()->json(['message' => $message]);
-    }
-
-    /**
-     * Get user's saved books
-     */
-    public function savedBooks(Request $request)
-    {
-        $savedBooks = BookSave::with(['book.author', 'book.user'])
-            ->where('user_id', auth('user')->id())
-            ->orderBy('saved_at', 'desc')
-            ->paginate(20);
+        $isSaved = $book->toggleSave($userId);
 
         return response()->json([
-            'data' => $savedBooks->items(),
-            'meta' => [
-                'current_page' => $savedBooks->currentPage(),
-                'last_page' => $savedBooks->lastPage(),
-                'per_page' => $savedBooks->perPage(),
-                'total' => $savedBooks->total(),
+            'success' => true,
+            'message' => $isSaved ? 'Book saved successfully' : 'Book removed from saved items',
+            'data' => [
+                'is_saved' => $isSaved,
+                'saves_count' => $book->saves_count
             ]
         ]);
     }
 
     /**
-     * Get book categories/genres
+     * Increment book view count
      */
-    public function categories()
+    public function view($id)
     {
-        $categories = BookCategory::active()
-            ->ordered()
-            ->withCount(['books' => function($q) {
-                $q->active();
-            }])
-            ->get();
+        $book = BookAdvert::active()->find($id);
+        if (!$book) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found'
+            ], 404);
+        }
 
-        return response()->json(['data' => $categories]);
+        $book->incrementViews();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'View count incremented'
+        ]);
     }
 
     /**
-     * Get featured authors
+     * Get featured books
      */
-    public function featuredAuthors()
+    public function featured(Request $request)
     {
-        $authors = Author::verified()
-            ->withCount(['books' => function($q) {
-                $q->active();
-            }])
-            ->orderBy('books_count', 'desc')
-            ->take(20)
-            ->get();
+        $perPage = $request->per_page ?? 12;
+        $page = $request->page ?? 1;
 
-        return response()->json(['data' => $authors]);
+        $books = BookAdvert::active()
+            ->featured()
+            ->withActivePromotion()
+            ->orderBy('advert_type', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'success' => true,
+            'data' => $books->items()
+        ]);
     }
 
     /**
-     * Get upsell pricing and options
+     * Get user's books
      */
-    public function upsellOptions()
+    public function myBooks(Request $request)
     {
-        $options = [
-            'promoted' => [
+        if (!auth('user')->check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $perPage = $request->per_page ?? 12;
+        $page = $request->page ?? 1;
+
+        $books = BookAdvert::where('user_id', auth('user')->id())
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'success' => true,
+            'data' => $books->items()
+        ]);
+    }
+
+    /**
+     * Get books by genre
+     */
+    public function byGenre($genre, Request $request)
+    {
+        $perPage = $request->per_page ?? 12;
+        $page = $request->page ?? 1;
+
+        $books = BookAdvert::active()
+            ->byGenre($genre)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'success' => true,
+            'data' => $books->items()
+        ]);
+    }
+
+    /**
+     * Get pricing plans
+     */
+    public function pricingPlans()
+    {
+        $plans = [
+            [
+                'id' => 1,
+                'name' => 'Basic Listing',
+                'price' => 0,
+                'features' => [
+                    'Standard visibility',
+                    '7 days listing',
+                    'Basic support'
+                ],
+                'recommended' => false
+            ],
+            [
+                'id' => 2,
                 'name' => 'Promoted',
-                'price' => 29.99,
-                'currency' => 'USD',
-                'duration_days' => 30,
-                'benefits' => BookUpsell::getDefaultBenefits('promoted'),
-                'description' => 'Get highlighted listing and 2× more visibility'
+                'price' => 29,
+                'features' => [
+                    'Enhanced visibility',
+                    '30 days listing',
+                    'Priority support',
+                    'Promoted badge'
+                ],
+                'recommended' => false
             ],
-            'featured' => [
+            [
+                'id' => 3,
                 'name' => 'Featured',
-                'price' => 59.99,
-                'currency' => 'USD',
-                'duration_days' => 30,
-                'benefits' => BookUpsell::getDefaultBenefits('featured'),
-                'description' => 'Top placement in categories and priority search results',
-                'is_popular' => true
+                'price' => 79,
+                'features' => [
+                    'Premium placement',
+                    '60 days listing',
+                    'Featured badge',
+                    'Analytics access'
+                ],
+                'recommended' => true
             ],
-            'sponsored' => [
+            [
+                'id' => 4,
                 'name' => 'Sponsored',
-                'price' => 99.99,
-                'currency' => 'USD',
-                'duration_days' => 30,
-                'benefits' => BookUpsell::getDefaultBenefits('sponsored'),
-                'description' => 'Homepage placement and maximum visibility'
-            ],
-            'top_category' => [
-                'name' => 'Top of Category',
-                'price' => 199.99,
-                'currency' => 'USD',
-                'duration_days' => 30,
-                'benefits' => BookUpsell::getDefaultBenefits('top_category'),
-                'description' => 'Always pinned at the top of your chosen genre'
+                'price' => 149,
+                'features' => [
+                    'Homepage placement',
+                    '90 days listing',
+                    'Sponsored badge',
+                    'Advanced analytics',
+                    'Social media promotion'
+                ],
+                'recommended' => false
             ]
         ];
 
-        return response()->json(['data' => $options]);
+        return response()->json([
+            'success' => true,
+            'data' => $plans
+        ]);
     }
 
     /**
-     * Purchase upsell for a book
+     * Process payment for book promotion
      */
-    public function purchaseUpsell(Request $request, $id)
+    public function payment(Request $request, $id)
     {
+        if (!auth('user')->check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
         $validator = Validator::make($request->all(), [
-            'upsell_type' => 'required|string|in:promoted,featured,sponsored,top_category',
-            'payment_method' => 'required|string'
+            'plan_id' => 'required|integer|in:1,2,3,4',
+            'payment_method' => 'required|string',
+            'payment_token' => 'nullable|string'
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $book = Book::where('user_id', auth('user')->id())->find($id);
+        $book = BookAdvert::where('user_id', auth('user')->id())->find($id);
         if (!$book) {
-            return response()->json(['message' => 'Book not found or unauthorized'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found or unauthorized'
+            ], 404);
         }
 
-        // Check if there's already an active upsell of this type
-        $existingUpsell = BookUpsell::where('book_id', $book->id)
-            ->where('upsell_type', $request->upsell_type)
-            ->active()
-            ->first();
-
-        if ($existingUpsell) {
-            return response()->json(['message' => 'This upsell is already active for this book'], 400);
+        // Get pricing plan
+        $plan = $this->getPricingPlan($request->plan_id);
+        if (!$plan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid pricing plan'
+            ], 400);
         }
 
-        $this->createUpsell($book, $request->upsell_type, $request->payment_method);
-
-        return response()->json(['message' => 'Upsell purchased successfully']);
-    }
-
-    /**
-     * Get analytics for user's books
-     */
-    public function myAnalytics()
-    {
-        $userId = auth('user')->id();
-        $books = Book::where('user_id', $userId)->get();
-
-        $analytics = [
-            'total_books' => $books->count(),
-            'active_books' => $books->where('status', 'active')->count(),
-            'total_views' => $books->sum('views_count'),
-            'total_saves' => $books->sum('saves_count'),
-            'books_by_genre' => $books->groupBy('genre')->map->count(),
-            'books_by_type' => $books->groupBy('book_type')->map->count(),
-            'recent_views' => $books->sortByDesc('created_at')->take(10)->values(),
-            'top_performing' => $books->sortByDesc('views_count')->take(5)->values()
-        ];
-
-        return response()->json(['data' => $analytics]);
-    }
-
-    /**
-     * Get trending books
-     */
-    public function trending()
-    {
-        $trendingBooks = Book::active()
-            ->with(['author'])
-            ->orderBy('saves_count', 'desc')
-            ->orderBy('views_count', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->take(20)
-            ->get();
-
-        return response()->json(['data' => $trendingBooks]);
-    }
-
-    /**
-     * Get live activity feed
-     */
-    public function activityFeed()
-    {
-        $activities = [
-            'recent_views' => Book::active()
-                ->with(['author'])
-                ->orderBy('updated_at', 'desc')
-                ->take(10)
-                ->get(['id', 'title', 'author_name', 'country', 'updated_at'])
-                ->map(function($book) {
-                    return [
-                        'type' => 'view',
-                        'message' => "A user viewed \"{$book->title}\" from {$book->country}",
-                        'timestamp' => $book->updated_at,
-                        'book_id' => $book->id
-                    ];
-                }),
-            'new_books' => Book::active()
-                ->with(['author'])
-                ->orderBy('created_at', 'desc')
-                ->take(5)
-                ->get(['id', 'title', 'author_name', 'country', 'created_at'])
-                ->map(function($book) {
-                    return [
-                        'type' => 'new_book',
-                        'message' => "New book \"{$book->title}\" added from {$book->country}",
-                        'timestamp' => $book->created_at,
-                        'book_id' => $book->id
-                    ];
-                }),
-            'popular_saves' => BookSave::with(['book.author'])
-                ->orderBy('saved_at', 'desc')
-                ->take(10)
-                ->get()
-                ->map(function($save) {
-                    return [
-                        'type' => 'save',
-                        'message' => "\"{$save->book->title}\" was saved",
-                        'timestamp' => $save->saved_at,
-                        'book_id' => $save->book_id
-                    ];
-                })
-        ];
-
-        return response()->json(['data' => $activities]);
-    }
-
-    private function createUpsell(Book $book, string $upsellType, ?string $paymentMethod = null)
-    {
-        $pricing = $this->getUpsellPricing($upsellType);
-        
-        BookUpsell::create([
+        // Create payment record
+        $payment = BookPayment::create([
             'book_id' => $book->id,
-            'upsell_type' => $upsellType,
-            'price' => $pricing['price'],
-            'currency' => $pricing['currency'],
-            'duration_days' => $pricing['duration_days'],
-            'starts_at' => now(),
-            'expires_at' => now()->addDays($pricing['duration_days']),
-            'status' => 'active',
-            'benefits' => BookUpsell::getDefaultBenefits($upsellType),
-            'payment_reference' => $paymentMethod,
-            'payment_date' => now(),
-            'user_id' => auth('user')->id()
+            'user_id' => auth('user')->id(),
+            'plan_id' => $request->plan_id,
+            'amount' => $plan['price'],
+            'currency' => 'USD',
+            'payment_method' => $request->payment_method,
+            'payment_id' => $request->payment_token,
+            'status' => 'completed',
+            'paid_at' => now(),
+            'expires_at' => now()->addDays($plan['duration_days'] ?? 30)
         ]);
 
-        // Update book advert type
-        $book->update(['advert_type' => $upsellType]);
+        // Update book promotion status
+        $advertTypeMap = [1 => 'basic', 2 => 'promoted', 3 => 'featured', 4 => 'sponsored'];
+        $book->update([
+            'advert_type' => $advertTypeMap[$request->plan_id],
+            'upsell_tier' => $request->plan_id,
+            'promoted_until' => $payment->expires_at,
+            'status' => 'active'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment processed successfully',
+            'data' => [
+                'payment_id' => $payment->id,
+                'status' => 'completed',
+                'expires_at' => $payment->expires_at
+            ]
+        ]);
     }
 
-    private function getUpsellPricing(string $upsellType): array
+    /**
+     * Get platform statistics
+     */
+    public function statistics()
     {
-        $pricing = [
-            'promoted' => ['price' => 29.99, 'currency' => 'USD', 'duration_days' => 30],
-            'featured' => ['price' => 59.99, 'currency' => 'USD', 'duration_days' => 30],
-            'sponsored' => ['price' => 99.99, 'currency' => 'USD', 'duration_days' => 30],
-            'top_category' => ['price' => 199.99, 'currency' => 'USD', 'duration_days' => 30]
+        $stats = [
+            'totalBooks' => BookAdvert::count(),
+            'totalAuthors' => BookAdvert::distinct('user_id')->count('user_id'),
+            'totalViews' => BookAdvert::sum('views_count'),
+            'totalSaves' => BookAdvert::sum('saves_count'),
+            'activeCountries' => BookAdvert::distinct('country')->count('country'),
+            'topGenres' => BookAdvert::selectRaw('genre as name, COUNT(*) as count')
+                ->whereNotNull('genre')
+                ->groupBy('genre')
+                ->orderBy('count', 'desc')
+                ->take(10)
+                ->get(),
+            'trendingBooks' => BookAdvert::active()
+                ->orderBy('views_count', 'desc')
+                ->take(10)
+                ->get(['title', 'views_count'])
         ];
 
-        return $pricing[$upsellType] ?? ['price' => 0, 'currency' => 'USD', 'duration_days' => 30];
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
     }
 
+    /**
+     * Get available filters
+     */
     private function getAvailableFilters(): array
     {
         return [
-            'genres' => BookCategory::active()->pluck('name'),
-            'book_types' => ['fiction', 'non-fiction', 'children', 'poetry', 'academic', 'self-help', 'business', 'other'],
+            'genres' => BookAdvert::active()->whereNotNull('genre')->distinct()->pluck('genre'),
             'formats' => ['paperback', 'hardcover', 'ebook', 'audiobook'],
-            'countries' => Book::active()->distinct()->pluck('country'),
-            'languages' => Book::active()->distinct()->pluck('language'),
-            'advert_types' => ['standard', 'promoted', 'featured', 'sponsored', 'top_category']
+            'book_types' => ['fiction', 'non-fiction', 'children', 'academic', 'poetry', 'business', 'self-help'],
+            'languages' => BookAdvert::active()->distinct()->pluck('language'),
+            'countries' => BookAdvert::active()->distinct()->pluck('country')
         ];
+    }
+
+    /**
+     * Get upsell price by tier
+     */
+    private function getUpsellPrice($tier): float
+    {
+        $prices = [1 => 0, 2 => 29, 3 => 79, 4 => 149];
+        return $prices[$tier] ?? 0;
+    }
+
+    /**
+     * Get pricing plan by ID
+     */
+    private function getPricingPlan($planId): ?array
+    {
+        $plans = [
+            1 => ['price' => 0, 'duration_days' => 7],
+            2 => ['price' => 29, 'duration_days' => 30],
+            3 => ['price' => 79, 'duration_days' => 60],
+            4 => ['price' => 149, 'duration_days' => 90]
+        ];
+
+        return $plans[$planId] ?? null;
     }
 }

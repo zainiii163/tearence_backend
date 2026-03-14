@@ -19,6 +19,7 @@ return new class extends Migration
             $table->increments('rating_id');
             $table->unsignedInteger('sponsored_advert_id');
             $table->unsignedInteger('user_id')->nullable();
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
             $table->string('name', 255);
             $table->string('email', 255);
             $table->integer('rating'); // 1-5 stars

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Filament\Resources\AdPricingPlanResource;
 use App\Filament\Resources\BannerResource;
 use App\Filament\Resources\AffiliateResource;
+use App\Filament\Resources\PropertyResource;
 use App\Filament\Resources\RevenueTrackingResource;
 use App\Filament\Widgets\MonetizationOverviewWidget;
 use App\Filament\Widgets\RevenueChartWidget;
@@ -62,6 +63,7 @@ class AdminPanelProvider extends PanelProvider
             ], web: true)
             ->navigationGroups([
                 'Content Management',
+                'Property Hub',
                 'Monetization',
                 'Analytics',
                 'Settings',

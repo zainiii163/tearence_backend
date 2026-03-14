@@ -3,7 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\BookAdvertResource\Pages;
-use App\Models\Book;
+use App\Filament\Resources\BookAdvertResource\RelationManagers;
+use App\Models\BookAdvert;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
 
 class BookAdvertResource extends Resource
 {
-    protected static ?string $model = Book::class;
+    protected static ?string $model = BookAdvert::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
 
@@ -24,9 +25,9 @@ class BookAdvertResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Books Adverts';
 
-    protected static ?string $navigationGroup = 'Content Management';
+    protected static ?string $navigationGroup = 'Books Marketplace';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -44,7 +45,7 @@ class BookAdvertResource extends Resource
                         Forms\Components\TextInput::make('slug')
                             ->required()
                             ->maxLength(255)
-                            ->unique(Book::class, 'slug', ignoreRecord: true)
+                            ->unique(BookAdvert::class, 'slug', ignoreRecord: true)
                             ->disabled(),
 
                         Forms\Components\TextInput::make('subtitle')
@@ -83,11 +84,6 @@ class BookAdvertResource extends Resource
                         Forms\Components\TextInput::make('author_name')
                             ->required()
                             ->maxLength(255),
-
-                        Forms\Components\Select::make('author_id')
-                            ->relationship('author', 'name')
-                            ->searchable()
-                            ->nullable(),
 
                         Forms\Components\Select::make('format')
                             ->required()

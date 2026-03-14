@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('book_upsells', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('book_id');
+            $table->foreignId('book_id')->constrained()->onDelete('cascade');
             $table->enum('upsell_type', ['promoted', 'featured', 'sponsored', 'top_category']);
             $table->decimal('price', 10, 2);
             $table->string('currency', 3)->default('USD');
@@ -26,7 +26,8 @@ return new class extends Migration
             $table->json('benefits')->nullable(); // Store benefits as JSON
             $table->string('payment_reference')->nullable(); // Payment transaction reference
             $table->timestamp('payment_date')->nullable();
-            $table->unsignedBigInteger('user_id'); // Who purchased the upsell
+            $table->unsignedInteger('user_id');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade'); // Who purchased the upsell
             $table->timestamps();
             
             $table->index(['upsell_type', 'status']);

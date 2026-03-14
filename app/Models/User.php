@@ -8,6 +8,10 @@ use Filament\Models\Contracts\HasName;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Models\BuySellAdvert;
+use App\Models\BuySellSavedAdvert;
+use App\Models\BuySellAdvertView;
+use App\Models\BuySellAdvertReport;
 
 class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
 {
@@ -376,5 +380,51 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         $this->kyc_status = 'rejected';
         $this->kyc_rejection_reason = $reason;
         $this->save();
+    }
+
+    /**
+     * Get user's Buy & Sell adverts
+     */
+    public function buySellAdverts()
+    {
+        return $this->hasMany(BuySellAdvert::class, 'user_id');
+    }
+
+    /**
+     * Get user's saved Buy & Sell adverts
+     */
+    public function savedBuySellAdverts()
+    {
+        return $this->hasManyThrough(
+            BuySellAdvert::class,
+            BuySellSavedAdvert::class,
+            'user_id',
+            'advert_id',
+            'id'
+        );
+    }
+
+    /**
+     * Get user's Buy & Sell saved adverts relationship
+     */
+    public function buySellSavedAdverts()
+    {
+        return $this->hasMany(BuySellSavedAdvert::class, 'user_id');
+    }
+
+    /**
+     * Get user's Buy & Sell views
+     */
+    public function buySellAdvertViews()
+    {
+        return $this->hasMany(BuySellAdvertView::class, 'user_id');
+    }
+
+    /**
+     * Get user's Buy & Sell reports
+     */
+    public function buySellAdvertReports()
+    {
+        return $this->hasMany(BuySellAdvertReport::class, 'reporter_id');
     }
 }

@@ -1,0 +1,3472 @@
+{
+	"info": {
+		"_postman_id": "wwa-api-collection-2024-complete",
+		"name": "WWA API Collection - Complete Backend",
+		"description": "Complete API collection for WWA (World Wide Ads) API v1 with all backend responses",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "wwa-api"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user account"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/register",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"register"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Success\",\n    \"message\": \"Register success\",\n    \"data\": {\n        \"customer_id\": 1,\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"email\": \"user@example.com\",\n        \"customer_uid\": \"abc123xyz\",\n        \"created_at\": \"2024-01-01 12:00:00\",\n        \"updated_at\": \"2024-01-01 12:00:00\"\n    }\n}"
+						},
+						{
+							"name": "Error Response - Validation Error",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"first_name\": \"\",\n    \"email\": \"invalid-email\",\n    \"password\": \"123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/register",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"register"
+									]
+								}
+							},
+							"status": "Unprocessable Entity",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Error\",\n    \"message\": \"Validation errors\",\n    \"data\": {\n        \"first_name\": [\"The first name field is required.\"],\n        \"email\": [\"The email must be a valid email address.\"],\n        \"password\": [\"The password must be at least 6 characters.\"]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Login user and get access token"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"login"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Success\",\n    \"message\": \"Login successful\",\n    \"data\": {\n        \"access_token\": \"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...\",\n        \"token_type\": \"bearer\",\n        \"expires_in\": 3600,\n        \"user\": {\n            \"id\": 1,\n            \"first_name\": \"John\",\n            \"last_name\": \"Doe\",\n            \"email\": \"user@example.com\",\n            \"customer_uid\": \"abc123xyz\"\n        }\n    }\n}"
+						},
+						{
+							"name": "Error Response - Invalid Credentials",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"wrongpassword\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"login"
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Error\",\n    \"message\": \"Invalid credentials\",\n    \"data\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Logout user and invalidate token"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/logout",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"logout"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Success\",\n    \"message\": \"Successfully logged out\",\n    \"data\": null\n}"
+						}
+					]
+				},
+				{
+					"name": "User Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/user-profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"user-profile"
+							]
+						},
+						"description": "Get current user profile"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/auth/user-profile",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"auth",
+										"user-profile"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"Success\",\n    \"message\": \"User profile retrieved successfully\",\n    \"data\": {\n        \"id\": 1,\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"email\": \"user@example.com\",\n        \"customer_uid\": \"abc123xyz\",\n        \"phone\": \"+1234567890\",\n        \"avatar\": \"https://example.com/avatar.jpg\",\n        \"created_at\": \"2024-01-01 12:00:00\",\n        \"updated_at\": \"2024-01-01 12:00:00\"\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Books Adverts",
+			"item": [
+				{
+					"name": "Get Books",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts?search=fiction&genre=romance&format=paperback&min_price=10&max_price=50&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "fiction",
+									"description": "Search in title, author, description"
+								},
+								{
+									"key": "genre",
+									"value": "romance",
+									"description": "Filter by genre"
+								},
+								{
+									"key": "format",
+									"value": "paperback",
+									"description": "Filter by format (paperback,hardcover,ebook,audiobook)"
+								},
+								{
+									"key": "min_price",
+									"value": "10",
+									"description": "Minimum price filter"
+								},
+								{
+									"key": "max_price",
+									"value": "50",
+									"description": "Maximum price filter"
+								},
+								{
+									"key": "sort_by",
+									"value": "created_at",
+									"description": "Sort field (created_at,title,price,views_count,saves_count,rating)"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order (asc,desc)"
+								},
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page (1-50)"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								}
+							]
+						},
+						"description": "Get books with filtering and search"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts?search=fiction&genre=romance&format=paperback&min_price=10&max_price=50&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts"
+									],
+									"query": [
+										{
+											"key": "search",
+											"value": "fiction"
+										},
+										{
+											"key": "genre",
+											"value": "romance"
+										},
+										{
+											"key": "format",
+											"value": "paperback"
+										},
+										{
+											"key": "min_price",
+											"value": "10"
+										},
+										{
+											"key": "max_price",
+											"value": "50"
+										},
+										{
+											"key": "sort_by",
+											"value": "created_at"
+										},
+										{
+											"key": "sort_order",
+											"value": "desc"
+										},
+										{
+											"key": "per_page",
+											"value": "12"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Romance Novel\",\n                \"author\": \"Jane Smith\",\n                \"slug\": \"romance-novel-1\",\n                \"genre\": \"romance\",\n                \"format\": \"paperback\",\n                \"price\": 25.99,\n                \"currency\": \"USD\",\n                \"description\": \"A beautiful romance story\",\n                \"cover_image\": \"https://example.com/covers/romance1.jpg\",\n                \"author_photo\": \"https://example.com/authors/jane.jpg\",\n                \"verified_author\": true,\n                \"advert_type\": \"featured\",\n                \"views_count\": 150,\n                \"saves_count\": 45,\n                \"rating\": 4.5,\n                \"created_at\": \"2024-01-15T10:30:00.000000Z\",\n                \"updated_at\": \"2024-01-15T10:30:00.000000Z\"\n            },\n            {\n                \"id\": 2,\n                \"title\": \"Love Story\",\n                \"author\": \"John Doe\",\n                \"slug\": \"love-story-2\",\n                \"genre\": \"romance\",\n                \"format\": \"paperback\",\n                \"price\": 19.99,\n                \"currency\": \"USD\",\n                \"description\": \"An inspiring love story\",\n                \"cover_image\": \"https://example.com/covers/love2.jpg\",\n                \"author_photo\": \"https://example.com/authors/john.jpg\",\n                \"verified_author\": false,\n                \"advert_type\": \"basic\",\n                \"views_count\": 89,\n                \"saves_count\": 23,\n                \"rating\": 4.2,\n                \"created_at\": \"2024-01-14T15:45:00.000000Z\",\n                \"updated_at\": \"2024-01-14T15:45:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 3,\n        \"per_page\": 12,\n        \"total\": 25,\n        \"filters\": {\n            \"genres\": [\"romance\", \"fiction\", \"mystery\", \"thriller\"],\n            \"formats\": [\"paperback\", \"hardcover\", \"ebook\", \"audiobook\"],\n            \"languages\": [\"english\", \"spanish\", \"french\"],\n            \"countries\": [\"USA\", \"UK\", \"Canada\"]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Book Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/romance-novel-1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"romance-novel-1"
+							]
+						},
+						"description": "Get single book details by slug"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/romance-novel-1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"romance-novel-1"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"id\": 1,\n        \"title\": \"Romance Novel\",\n        \"author\": \"Jane Smith\",\n        \"slug\": \"romance-novel-1\",\n        \"genre\": \"romance\",\n        \"format\": \"paperback\",\n        \"price\": 25.99,\n        \"currency\": \"USD\",\n        \"description\": \"A beautiful romance story that will touch your heart. Follow the journey of two souls destined to be together against all odds.\",\n        \"cover_image\": \"https://example.com/covers/romance1.jpg\",\n        \"author_photo\": \"https://example.com/authors/jane.jpg\",\n        \"verified_author\": true,\n        \"advert_type\": \"featured\",\n        \"views_count\": 151,\n        \"saves_count\": 45,\n        \"rating\": 4.5,\n        \"is_saved\": false,\n        \"book_type\": \"fiction\",\n        \"language\": \"english\",\n        \"pages\": 320,\n        \"publisher\": \"Romance Publishing\",\n        \"publication_date\": \"2024-01-01\",\n        \"isbn\": \"978-1234567890\",\n        \"sample_file\": \"https://example.com/samples/romance1.pdf\",\n        \"purchase_links\": {\n            \"amazon\": \"https://amazon.com/dp/1234567890\",\n            \"barnes_noble\": \"https://barnesandnoble.com/w/1234567890\"\n        },\n        \"location\": {\n            \"address\": \"123 Main St, New York, NY 10001\",\n            \"city\": \"New York\",\n            \"country\": \"USA\",\n            \"latitude\": 40.7128,\n            \"longitude\": -74.0060\n        },\n        \"contact\": {\n            \"email\": \"author@example.com\",\n            \"phone\": \"+1234567890\",\n            \"website\": \"https://janesmith.com\"\n        },\n        \"created_at\": \"2024-01-15T10:30:00.000000Z\",\n        \"updated_at\": \"2024-01-15T10:30:00.000000Z\"\n    }\n}"
+						},
+						{
+							"name": "Book Not Found",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/nonexistent-book",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"nonexistent-book"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": false,\n    \"message\": \"Book not found\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Book",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"My New Book\",\n    \"author\": \"Author Name\",\n    \"genre\": \"fiction\",\n    \"format\": \"paperback\",\n    \"price\": 29.99,\n    \"currency\": \"USD\",\n    \"description\": \"An amazing book that everyone should read.\",\n    \"book_type\": \"fiction\",\n    \"language\": \"english\",\n    \"pages\": 350,\n    \"publisher\": \"My Publisher\",\n    \"publication_date\": \"2024-02-01\",\n    \"isbn\": \"978-0987654321\",\n    \"verified_author\": false,\n    \"advert_type\": \"basic\",\n    \"contact\": {\n        \"email\": \"author@example.com\",\n        \"phone\": \"+1234567890\",\n        \"website\": \"https://authorwebsite.com\"\n    },\n    \"location\": {\n        \"address\": \"456 Book St, Literary City, LC 12345\",\n        \"city\": \"Literary City\",\n        \"country\": \"USA\",\n        \"latitude\": 40.7128,\n        \"longitude\": -74.0060\n    },\n    \"purchase_links\": {\n        \"amazon\": \"https://amazon.com/dp/0987654321\",\n        \"barnes_noble\": \"https://barnesandnoble.com/w/0987654321\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts"
+							]
+						},
+						"description": "Create a new book advert (requires authentication)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"My New Book\",\n    \"author\": \"Author Name\",\n    \"genre\": \"fiction\",\n    \"format\": \"paperback\",\n    \"price\": 29.99,\n    \"currency\": \"USD\",\n    \"description\": \"An amazing book that everyone should read.\",\n    \"book_type\": \"fiction\",\n    \"language\": \"english\",\n    \"pages\": 350,\n    \"publisher\": \"My Publisher\",\n    \"publication_date\": \"2024-02-01\",\n    \"isbn\": \"978-0987654321\",\n    \"verified_author\": false,\n    \"advert_type\": \"basic\",\n    \"contact\": {\n        \"email\": \"author@example.com\",\n        \"phone\": \"+1234567890\",\n        \"website\": \"https://authorwebsite.com\"\n    },\n    \"location\": {\n        \"address\": \"456 Book St, Literary City, LC 12345\",\n        \"city\": \"Literary City\",\n        \"country\": \"USA\",\n        \"latitude\": 40.7128,\n        \"longitude\": -74.0060\n    },\n    \"purchase_links\": {\n        \"amazon\": \"https://amazon.com/dp/0987654321\",\n        \"barnes_noble\": \"https://barnesandnoble.com/w/0987654321\"\n    }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Book advert created successfully\",\n    \"data\": {\n        \"id\": 3,\n        \"title\": \"My New Book\",\n        \"author\": \"Author Name\",\n        \"slug\": \"my-new-book-3\",\n        \"genre\": \"fiction\",\n        \"format\": \"paperback\",\n        \"price\": 29.99,\n        \"currency\": \"USD\",\n        \"description\": \"An amazing book that everyone should read.\",\n        \"book_type\": \"fiction\",\n        \"language\": \"english\",\n        \"pages\": 350,\n        \"publisher\": \"My Publisher\",\n        \"publication_date\": \"2024-02-01\",\n        \"isbn\": \"978-0987654321\",\n        \"verified_author\": false,\n        \"advert_type\": \"basic\",\n        \"views_count\": 0,\n        \"saves_count\": 0,\n        \"rating\": 0,\n        \"cover_image\": null,\n        \"author_photo\": null,\n        \"sample_file\": null,\n        \"contact\": {\n            \"email\": \"author@example.com\",\n            \"phone\": \"+1234567890\",\n            \"website\": \"https://authorwebsite.com\"\n        },\n        \"location\": {\n            \"address\": \"456 Book St, Literary City, LC 12345\",\n            \"city\": \"Literary City\",\n            \"country\": \"USA\",\n            \"latitude\": 40.7128,\n            \"longitude\": -74.0060\n        },\n        \"purchase_links\": {\n            \"amazon\": \"https://amazon.com/dp/0987654321\",\n            \"barnes_noble\": \"https://barnesandnoble.com/w/0987654321\"\n        },\n        \"user_id\": 1,\n        \"created_at\": \"2024-01-16T12:00:00.000000Z\",\n        \"updated_at\": \"2024-01-16T12:00:00.000000Z\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Featured Books",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/featured",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"featured"
+							]
+						},
+						"description": "Get featured books"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/featured",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"featured"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Romance Novel\",\n                \"author\": \"Jane Smith\",\n                \"slug\": \"romance-novel-1\",\n                \"genre\": \"romance\",\n                \"format\": \"paperback\",\n                \"price\": 25.99,\n                \"currency\": \"USD\",\n                \"description\": \"A beautiful romance story\",\n                \"cover_image\": \"https://example.com/covers/romance1.jpg\",\n                \"verified_author\": true,\n                \"advert_type\": \"featured\",\n                \"views_count\": 150,\n                \"saves_count\": 45,\n                \"rating\": 4.5,\n                \"created_at\": \"2024-01-15T10:30:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 10,\n        \"total\": 1\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Books by Genre",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/genre/romance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"genre",
+								"romance"
+							]
+						},
+						"description": "Get books by specific genre"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/genre/romance",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"genre",
+										"romance"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Romance Novel\",\n                \"author\": \"Jane Smith\",\n                \"slug\": \"romance-novel-1\",\n                \"genre\": \"romance\",\n                \"format\": \"paperback\",\n                \"price\": 25.99,\n                \"currency\": \"USD\",\n                \"description\": \"A beautiful romance story\",\n                \"cover_image\": \"https://example.com/covers/romance1.jpg\",\n                \"verified_author\": true,\n                \"advert_type\": \"featured\",\n                \"views_count\": 150,\n                \"saves_count\": 45,\n                \"rating\": 4.5,\n                \"created_at\": \"2024-01-15T10:30:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 12,\n        \"total\": 1\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Pricing Plans",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/pricing-plans",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"pricing-plans"
+							]
+						},
+						"description": "Get available pricing plans for book promotions"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/pricing-plans",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"pricing-plans"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"name\": \"Basic\",\n                \"slug\": \"basic\",\n                \"price\": 0.00,\n                \"currency\": \"USD\",\n                \"duration_days\": 30,\n                \"features\": {\n                    \"visibility\": \"Standard listing\",\n                    \"priority\": \"Normal\",\n                    \"media_limit\": \"1 cover image\",\n                    \"support\": \"Basic support\"\n                },\n                \"is_active\": true,\n                \"is_recommended\": false,\n                \"sort_order\": 1,\n                \"created_at\": \"2024-01-01T00:00:00.000000Z\",\n                \"updated_at\": \"2024-01-01T00:00:00.000000Z\"\n            },\n            {\n                \"id\": 2,\n                \"name\": \"Promoted\",\n                \"slug\": \"promoted\",\n                \"price\": 19.99,\n                \"currency\": \"USD\",\n                \"duration_days\": 30,\n                \"features\": {\n                    \"visibility\": \"Enhanced visibility\",\n                    \"priority\": \"High priority in search\",\n                    \"media_limit\": \"3 images\",\n                    \"support\": \"Priority support\",\n                    \"analytics\": \"Basic analytics\"\n                },\n                \"is_active\": true,\n                \"is_recommended\": true,\n                \"sort_order\": 2,\n                \"created_at\": \"2024-01-01T00:00:00.000000Z\",\n                \"updated_at\": \"2024-01-01T00:00:00.000000Z\"\n            },\n            {\n                \"id\": 3,\n                \"name\": \"Featured\",\n                \"slug\": \"featured\",\n                \"price\": 49.99,\n                \"currency\": \"USD\",\n                \"duration_days\": 30,\n                \"features\": {\n                    \"visibility\": \"Homepage featured\",\n                    \"priority\": \"Top priority\",\n                    \"media_limit\": \"5 images + author photo\",\n                    \"support\": \"Premium support\",\n                    \"analytics\": \"Advanced analytics\",\n                    \"badge\": \"Featured badge\"\n                },\n                \"is_active\": true,\n                \"is_recommended\": false,\n                \"sort_order\": 3,\n                \"created_at\": \"2024-01-01T00:00:00.000000Z\",\n                \"updated_at\": \"2024-01-01T00:00:00.000000Z\"\n            },\n            {\n                \"id\": 4,\n                \"name\": \"Sponsored\",\n                \"slug\": \"sponsored\",\n                \"price\": 99.99,\n                \"currency\": \"USD\",\n                \"duration_days\": 30,\n                \"features\": {\n                    \"visibility\": \"Premium placement\",\n                    \"priority\": \"Highest priority\",\n                    \"media_limit\": \"Unlimited images + video\",\n                    \"support\": \"Dedicated support\",\n                    \"analytics\": \"Real-time analytics\",\n                    \"badge\": \"Sponsored badge\",\n                    \"promotion\": \"Social media promotion\"\n                },\n                \"is_active\": true,\n                \"is_recommended\": false,\n                \"sort_order\": 4,\n                \"created_at\": \"2024-01-01T00:00:00.000000Z\",\n                \"updated_at\": \"2024-01-01T00:00:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 10,\n        \"total\": 4\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get My Books",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/my-books",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"my-books"
+							]
+						},
+						"description": "Get current user's books (requires authentication)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/my-books",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"my-books"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 3,\n                \"title\": \"My New Book\",\n                \"author\": \"Author Name\",\n                \"slug\": \"my-new-book-3\",\n                \"genre\": \"fiction\",\n                \"format\": \"paperback\",\n                \"price\": 29.99,\n                \"currency\": \"USD\",\n                \"description\": \"An amazing book that everyone should read.\",\n                \"advert_type\": \"basic\",\n                \"views_count\": 0,\n                \"saves_count\": 0,\n                \"rating\": 0,\n                \"created_at\": \"2024-01-16T12:00:00.000000Z\",\n                \"updated_at\": \"2024-01-16T12:00:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 10,\n        \"total\": 1\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Save Book",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/1/save",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"1",
+								"save"
+							]
+						},
+						"description": "Save/bookmark a book (requires authentication)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/1/save",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"1",
+										"save"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Book saved successfully\",\n    \"data\": {\n        \"id\": 1,\n        \"book_id\": 1,\n        \"user_id\": 1,\n        \"created_at\": \"2024-01-16T12:30:00.000000Z\",\n        \"updated_at\": \"2024-01-16T12:30:00.000000Z\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Track Book View",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/books-adverts/1/views",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"books-adverts",
+								"1",
+								"views"
+							]
+						},
+						"description": "Track book view (public endpoint)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/books-adverts/1/views",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"books-adverts",
+										"1",
+										"views"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Book view tracked successfully\",\n    \"data\": {\n        \"book_id\": 1,\n        \"views_count\": 152,\n        \"ip_address\": \"192.168.1.1\",\n        \"user_agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36\",\n        \"created_at\": \"2024-01-16T12:35:00.000000Z\"\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Jobs",
+			"item": [
+				{
+					"name": "Get Jobs Public",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/jobs/public?search=developer&location=remote&work_type=full_time&experience_level=mid&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"jobs",
+								"public"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "developer",
+									"description": "Search in title, description, company"
+								},
+								{
+									"key": "location",
+									"value": "remote",
+									"description": "Filter by location"
+								},
+								{
+									"key": "work_type",
+									"value": "full_time",
+									"description": "Filter by work type (full_time,part_time,contract,freelance,internship)"
+								},
+								{
+									"key": "experience_level",
+									"value": "mid",
+									"description": "Filter by experience level (entry,mid,senior,executive)"
+								},
+								{
+									"key": "sort_by",
+									"value": "created_at",
+									"description": "Sort field (created_at,title,salary,views_count,applications_count)"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order (asc,desc)"
+								},
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page (1-50)"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								}
+							]
+						},
+						"description": "Get public jobs with filtering and search"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/jobs/public?search=developer&location=remote&work_type=full_time&experience_level=mid&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"jobs",
+										"public"
+									],
+									"query": [
+										{
+											"key": "search",
+											"value": "developer"
+										},
+										{
+											"key": "location",
+											"value": "remote"
+										},
+										{
+											"key": "work_type",
+											"value": "full_time"
+										},
+										{
+											"key": "experience_level",
+											"value": "mid"
+										},
+										{
+											"key": "sort_by",
+											"value": "created_at"
+										},
+										{
+											"key": "sort_order",
+											"value": "desc"
+										},
+										{
+											"key": "per_page",
+											"value": "12"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Senior Full Stack Developer\",\n                \"company\": \"Tech Company Inc\",\n                \"slug\": \"senior-full-stack-developer-1\",\n                \"location\": \"Remote\",\n                \"work_type\": \"full_time\",\n                \"experience_level\": \"senior\",\n                \"salary_min\": 80000,\n                \"salary_max\": 120000,\n                \"currency\": \"USD\",\n                \"description\": \"We are looking for an experienced full stack developer...\",\n                \"requirements\": \"5+ years of experience, React, Node.js, AWS\",\n                \"benefits\": \"Health insurance, 401k, remote work\",\n                \"category\": \"engineering\",\n                \"is_remote\": true,\n                \"is_featured\": true,\n                \"views_count\": 250,\n                \"applications_count\": 15,\n                \"created_at\": \"2024-01-15T09:00:00.000000Z\",\n                \"updated_at\": \"2024-01-15T09:00:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 5,\n        \"per_page\": 12,\n        \"total\": 58,\n        \"filters\": {\n            \"locations\": [\"Remote\", \"New York\", \"San Francisco\", \"London\"],\n            \"work_types\": [\"full_time\", \"part_time\", \"contract\", \"freelance\"],\n            \"experience_levels\": [\"entry\", \"mid\", \"senior\", \"executive\"],\n            \"categories\": [\"engineering\", \"design\", \"marketing\", \"sales\"]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Job Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/jobs/public/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"jobs",
+								"public",
+								"1"
+							]
+						},
+						"description": "Get single job details"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/jobs/public/1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"jobs",
+										"public",
+										"1"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"id\": 1,\n        \"title\": \"Senior Full Stack Developer\",\n        \"company\": \"Tech Company Inc\",\n        \"slug\": \"senior-full-stack-developer-1\",\n        \"location\": \"Remote\",\n        \"work_type\": \"full_time\",\n        \"experience_level\": \"senior\",\n        \"salary_min\": 80000,\n        \"salary_max\": 120000,\n        \"currency\": \"USD\",\n        \"description\": \"We are looking for an experienced full stack developer to join our growing team. You will be responsible for developing and maintaining web applications using modern technologies.\",\n        \"requirements\": \"5+ years of experience in web development\\nStrong knowledge of React, Node.js, and AWS\\nExperience with microservices architecture\\nExcellent problem-solving skills\\nStrong communication skills\",\n        \"benefits\": \"Competitive salary and equity\\nHealth, dental, and vision insurance\\n401k with company match\\nFlexible work hours\\nRemote work option\\nProfessional development budget\",\n        \"application_method\": \"email\",\n        \"application_email\": \"careers@techcompany.com\",\n        \"company_website\": \"https://techcompany.com\",\n        \"company_logo\": \"https://example.com/logos/techcompany.jpg\",\n        \"category\": \"engineering\",\n        \"skills\": [\"React\", \"Node.js\", \"AWS\", \"Docker\", \"PostgreSQL\"],\n        \"is_remote\": true,\n        \"is_featured\": true,\n        \"is_active\": true,\n        \"expires_at\": \"2024-02-15T23:59:59.000000Z\",\n        \"views_count\": 251,\n        \"applications_count\": 15,\n        \"is_saved\": false,\n        \"created_at\": \"2024-01-15T09:00:00.000000Z\",\n        \"updated_at\": \"2024-01-15T09:00:00.000000Z\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Job",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Frontend Developer\",\n    \"company\": \"My Startup\",\n    \"location\": \"San Francisco, CA\",\n    \"work_type\": \"full_time\",\n    \"experience_level\": \"mid\",\n    \"salary_min\": 70000,\n    \"salary_max\": 90000,\n    \"currency\": \"USD\",\n    \"description\": \"We are looking for a talented frontend developer...\",\n    \"requirements\": \"3+ years of experience with React and modern JavaScript\",\n    \"benefits\": \"Health insurance, flexible hours, remote work options\",\n    \"application_method\": \"email\",\n    \"application_email\": \"jobs@mystartup.com\",\n    \"company_website\": \"https://mystartup.com\",\n    \"category\": \"engineering\",\n    \"skills\": [\"React\", \"JavaScript\", \"CSS\", \"HTML\", \"TypeScript\"],\n    \"is_remote\": false,\n    \"is_featured\": false,\n    \"expires_at\": \"2024-03-01\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/jobs",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"jobs"
+							]
+						},
+						"description": "Create a new job posting (requires authentication)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"Frontend Developer\",\n    \"company\": \"My Startup\",\n    \"location\": \"San Francisco, CA\",\n    \"work_type\": \"full_time\",\n    \"experience_level\": \"mid\",\n    \"salary_min\": 70000,\n    \"salary_max\": 90000,\n    \"currency\": \"USD\",\n    \"description\": \"We are looking for a talented frontend developer...\",\n    \"requirements\": \"3+ years of experience with React and modern JavaScript\",\n    \"benefits\": \"Health insurance, flexible hours, remote work options\",\n    \"application_method\": \"email\",\n    \"application_email\": \"jobs@mystartup.com\",\n    \"company_website\": \"https://mystartup.com\",\n    \"category\": \"engineering\",\n    \"skills\": [\"React\", \"JavaScript\", \"CSS\", \"HTML\", \"TypeScript\"],\n    \"is_remote\": false,\n    \"is_featured\": false,\n    \"expires_at\": \"2024-03-01\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/jobs",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"jobs"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Job created successfully\",\n    \"data\": {\n        \"id\": 2,\n        \"title\": \"Frontend Developer\",\n        \"company\": \"My Startup\",\n        \"slug\": \"frontend-developer-2\",\n        \"location\": \"San Francisco, CA\",\n        \"work_type\": \"full_time\",\n        \"experience_level\": \"mid\",\n        \"salary_min\": 70000,\n        \"salary_max\": 90000,\n        \"currency\": \"USD\",\n        \"description\": \"We are looking for a talented frontend developer...\",\n        \"requirements\": \"3+ years of experience with React and modern JavaScript\",\n        \"benefits\": \"Health insurance, flexible hours, remote work options\",\n        \"application_method\": \"email\",\n        \"application_email\": \"jobs@mystartup.com\",\n        \"company_website\": \"https://mystartup.com\",\n        \"category\": \"engineering\",\n        \"skills\": [\"React\", \"JavaScript\", \"CSS\", \"HTML\", \"TypeScript\"],\n        \"is_remote\": false,\n        \"is_featured\": false,\n        \"is_active\": true,\n        \"expires_at\": \"2024-03-01T23:59:59.000000Z\",\n        \"views_count\": 0,\n        \"applications_count\": 0,\n        \"user_id\": 1,\n        \"created_at\": \"2024-01-16T14:00:00.000000Z\",\n        \"updated_at\": \"2024-01-16T14:00:00.000000Z\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Apply for Job",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cover_letter\": \"I am very interested in this position because...\",\n    \"resume_file\": \"resume.pdf\",\n    \"portfolio_links\": [\"https://myportfolio.com\", \"https://github.com/myusername\"],\n    \"expected_salary\": 85000,\n    \"available_start_date\": \"2024-02-01\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/jobs/1/apply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"jobs",
+								"1",
+								"apply"
+							]
+						},
+						"description": "Apply for a job (requires authentication)"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{auth_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"cover_letter\": \"I am very interested in this position because...\",\n    \"resume_file\": \"resume.pdf\",\n    \"portfolio_links\": [\"https://myportfolio.com\", \"https://github.com/myusername\"],\n    \"expected_salary\": 85000,\n    \"available_start_date\": \"2024-02-01\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/v1/jobs/1/apply",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"jobs",
+										"1",
+										"apply"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Job application submitted successfully\",\n    \"data\": {\n        \"id\": 1,\n        \"job_id\": 1,\n        \"user_id\": 1,\n        \"cover_letter\": \"I am very interested in this position because...\",\n        \"resume_file\": \"resume.pdf\",\n        \"portfolio_links\": [\"https://myportfolio.com\", \"https://github.com/myusername\"],\n        \"expected_salary\": 85000,\n        \"available_start_date\": \"2024-02-01\",\n        \"status\": \"pending\",\n        \"created_at\": \"2024-01-16T14:30:00.000000Z\",\n        \"updated_at\": \"2024-01-16T14:30:00.000000Z\"\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Vehicles",
+			"item": [
+				{
+					"name": "Get Vehicles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/vehicles?search=toyota&make=toyota&model=camry&year=2020&vehicle_type=cars&condition=used&price_min=5000&price_max=20000&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"vehicles"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "toyota",
+									"description": "Search in title, description"
+								},
+								{
+									"key": "make",
+									"value": "toyota",
+									"description": "Filter by make"
+								},
+								{
+									"key": "model",
+									"value": "camry",
+									"description": "Filter by model"
+								},
+								{
+									"key": "year",
+									"value": "2020",
+									"description": "Filter by year"
+								},
+								{
+									"key": "vehicle_type",
+									"value": "cars",
+									"description": "Filter by vehicle type (cars,motorcycles,trucks,boats,commercial)"
+								},
+								{
+									"key": "condition",
+									"value": "used",
+									"description": "Filter by condition (new,used,refurbished)"
+								},
+								{
+									"key": "price_min",
+									"value": "5000",
+									"description": "Minimum price filter"
+								},
+								{
+									"key": "price_max",
+									"value": "20000",
+									"description": "Maximum price filter"
+								},
+								{
+									"key": "sort_by",
+									"value": "created_at",
+									"description": "Sort field (created_at,price,year,mileage,views_count)"
+								},
+								{
+									"key": "sort_order",
+									"value": "desc",
+									"description": "Sort order (asc,desc)"
+								},
+								{
+									"key": "per_page",
+									"value": "12",
+									"description": "Items per page (1-50)"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								}
+							]
+						},
+						"description": "Get vehicles with filtering and search"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/vehicles?search=toyota&make=toyota&model=camry&year=2020&vehicle_type=cars&condition=used&price_min=5000&price_max=20000&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles"
+									],
+									"query": [
+										{
+											"key": "search",
+											"value": "toyota"
+										},
+										{
+											"key": "make",
+											"value": "toyota"
+										},
+										{
+											"key": "model",
+											"value": "camry"
+										},
+										{
+											"key": "year",
+											"value": "2020"
+										},
+										{
+											"key": "vehicle_type",
+											"value": "cars"
+										},
+										{
+											"key": "condition",
+											"value": "used"
+										},
+										{
+											"key": "price_min",
+											"value": "5000"
+										},
+										{
+											"key": "price_max",
+											"value": "20000"
+										},
+										{
+											"key": "sort_by",
+											"value": "created_at"
+										},
+										{
+											"key": "sort_order",
+											"value": "desc"
+										},
+										{
+											"key": "per_page",
+											"value": "12"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"2020 Toyota Camry SE\",\n                \"make\": \"Toyota\",\n                \"model\": \"Camry\",\n                \"year\": 2020,\n                \"slug\": \"2020-toyota-camry-se-1\",\n                \"vehicle_type\": \"cars\",\n                \"condition\": \"used\",\n                \"price\": 18500,\n                \"currency\": \"USD\",\n                \"mileage\": 35000,\n                \"transmission\": \"automatic\",\n                \"fuel_type\": \"gasoline\",\n                \"engine_size\": \"2.5L\",\n                \"description\": \"Excellent condition 2020 Toyota Camry SE with low mileage...\",\n                \"main_image\": \"https://example.com/vehicles/camry1.jpg\",\n                \"additional_images\": [\n                    \"https://example.com/vehicles/camry1-2.jpg\",\n                    \"https://example.com/vehicles/camry1-3.jpg\"\n                ],\n                \"advert_type\": \"featured\",\n                \"views_count\": 120,\n                \"favourites_count\": 8,\n                \"enquiries_count\": 3,\n                \"location\": {\n                    \"address\": \"123 Auto St, Car City, CC 12345\",\n                    \"city\": \"Car City\",\n                    \"country\": \"USA\",\n                    \"latitude\": 40.7128,\n                    \"longitude\": -74.0060\n                },\n                \"created_at\": \"2024-01-15T11:00:00.000000Z\",\n                \"updated_at\": \"2024-01-15T11:00:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 2,\n        \"per_page\": 12,\n        \"total\": 15,\n        \"filters\": {\n            \"makes\": [\"Toyota\", \"Honda\", \"Ford\", \"BMW\", \"Mercedes\"],\n            \"models\": [\"Camry\", \"Accord\", \"F-150\", \"3 Series\", \"C-Class\"],\n            \"vehicle_types\": [\"cars\", \"motorcycles\", \"trucks\", \"boats\", \"commercial\"],\n            \"conditions\": [\"new\", \"used\", \"refurbished\"],\n            \"transmissions\": [\"automatic\", \"manual\", \"cvt\"],\n            \"fuel_types\": [\"gasoline\", \"diesel\", \"electric\", \"hybrid\"]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Vehicle Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/vehicles/2020-toyota-camry-se-1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"vehicles",
+								"2020-toyota-camry-se-1"
+							]
+						},
+						"description": "Get single vehicle details by slug"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/vehicles/2020-toyota-camry-se-1",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"vehicles",
+										"2020-toyota-camry-se-1"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"data\": {\n        \"id\": 1,\n        \"title\": \"2020 Toyota Camry SE\",\n        \"make\": \"Toyota\",\n        \"model\": \"Camry\",\n        \"year\": 2020,\n        \"slug\": \"2020-toyota-camry-se-1\",\n        \"vehicle_type\": \"cars\",\n        \"condition\": \"used\",\n        \"price\": 18500,\n        \"currency\": \"USD\",\n        \"mileage\": 35000,\n        \"transmission\": \"automatic\",\n        \"fuel_type\": \"gasoline\",\n        \"engine_size\": \"2.5L\",\n        \"description\": \"Excellent condition 2020 Toyota Camry SE with low mileage. This vehicle has been well-maintained with regular service records available. Features include: backup camera, Bluetooth connectivity, cruise control, and more.\",\n        \"main_image\": \"https://example.com/vehicles/camry1.jpg\",\n        \"additional_images\": [\n            \"https://example.com/vehicles/camry1-2.jpg\",\n            \"https://example.com/vehicles/camry1-3.jpg\",\n            \"https://example.com/vehicles/camry1-4.jpg\"\n        ],\n        \"video_link\": \"https://youtube.com/watch?v=example123\",\n        \"specifications\": {\n            \"doors\": 4,\n            \"seats\": 5,\n            \"color\": \"Silver\",\n            \"interior_color\": \"Black\",\n            \"vin\": \"1HGBH41JXMN109186\",\n            \"drive_type\": \"FWD\",\n            \"fuel_efficiency\": \"32 MPG combined\"\n        },\n        \"features\": [\n            \"Backup Camera\",\n            \"Bluetooth\",\n            \"Cruise Control\",\n            \"Lane Departure Warning\",\n            \"Adaptive Cruise Control\",\n            \"Apple CarPlay\",\n            \"Android Auto\"\n        ],\n        \"safety_features\": [\n            \"Anti-lock Brakes\",\n            \"Airbags\",\n            \"Stability Control\",\n            \"Traction Control\"\n        ],\n        \"advert_type\": \"featured\",\n        \"views_count\": 121,\n        \"favourites_count\": 8,\n        \"enquiries_count\": 3,\n        \"is_favourited\": false,\n        \"location\": {\n            \"address\": \"123 Auto St, Car City, CC 12345\",\n            \"city\": \"Car City\",\n            \"country\": \"USA\",\n            \"latitude\": 40.7128,\n            \"longitude\": -74.0060\n        },\n        \"contact\": {\n            \"name\": \"John Seller\",\n            \"email\": \"seller@example.com\",\n            \"phone\": \"+1234567890\",\n            \"preferred_contact\": \"phone\"\n        },\n        \"created_at\": \"2024-01-15T11:00:00.000000Z\",\n        \"updated_at\": \"2024-01-15T11:00:00.000000Z\"\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"health"
+							]
+						},
+						"description": "API health check endpoint"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/health",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"health"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"OK\",\n    \"message\": \"API is working\",\n    \"timestamp\": \"2024-01-16T15:00:00.000000Z\",\n    \"app_url\": \"http://localhost:8000\",\n    \"environment\": \"local\"\n}"
+						}
+					]
+				},
+				{
+					"name": "CORS Test",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/cors-test",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"cors-test"
+							]
+						},
+						"description": "CORS test endpoint"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/v1/cors-test",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"cors-test"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"message\": \"CORS test successful\",\n    \"timestamp\": \"2024-01-16T15:05:00.000000Z\",\n    \"origin\": \"http://localhost:3000\"\n}"
+						}
+					]
+				}
+			]
+		}
+	},
+	{
+		"name": "Sponsored Adverts",
+		"item": [
+			{
+				"name": "Get Categories",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/categories",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"categories"
+						]
+					},
+					"description": "Get all sponsored categories with icons and colors"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/categories",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"categories"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": [\n        {\n            \"id\": 1,\n            \"name\": \"Real Estate\",\n            \"slug\": \"real-estate\",\n            \"icon\": \"🏠\",\n            \"color\": \"from-blue-500 to-blue-600\",\n            \"description\": \"Properties, houses, apartments, and commercial real estate\",\n            \"adverts_count\": 45,\n            \"created_at\": \"2024-01-01T00:00:00.000000Z\"\n        }\n    ]\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Adverts",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts?category=1&country=USA&min_price=100&max_price=5000&featured=true&promoted=true&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts"
+						],
+						"query": [
+							{
+								"key": "category",
+								"value": "1",
+								"description": "Filter by category ID"
+							},
+							{
+								"key": "country",
+								"value": "USA",
+								"description": "Filter by country"
+							},
+							{
+								"key": "min_price",
+								"value": "100",
+								"description": "Minimum price filter"
+							},
+							{
+								"key": "max_price",
+								"value": "5000",
+								"description": "Maximum price filter"
+							},
+							{
+								"key": "featured",
+								"value": "true",
+								"description": "Filter featured adverts only"
+							},
+							{
+								"key": "promoted",
+								"value": "true",
+								"description": "Filter promoted adverts only"
+							},
+							{
+								"key": "sort_by",
+								"value": "created_at",
+								"description": "Sort field (created_at, title, price, views, rating)"
+							},
+							{
+								"key": "sort_order",
+								"value": "desc",
+								"description": "Sort order (asc, desc)"
+							},
+							{
+								"key": "per_page",
+								"value": "12",
+								"description": "Items per page (1-50)"
+							},
+							{
+								"key": "page",
+								"value": "1",
+								"description": "Page number"
+							}
+						]
+					},
+					"description": "Get sponsored adverts with filtering and pagination"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts?category=1&country=USA&min_price=100&max_price=5000&featured=true&promoted=true&sort_by=created_at&sort_order=desc&per_page=12&page=1",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts"
+								],
+								"query": [
+									{
+										"key": "category",
+										"value": "1"
+									},
+									{
+										"key": "country",
+										"value": "USA"
+									},
+									{
+										"key": "min_price",
+										"value": "100"
+									},
+									{
+										"key": "max_price",
+										"value": "5000"
+									},
+									{
+										"key": "featured",
+										"value": "true"
+									},
+									{
+										"key": "promoted",
+										"value": "true"
+									},
+									{
+										"key": "sort_by",
+										"value": "created_at"
+									},
+									{
+										"key": "sort_order",
+										"value": "desc"
+									},
+									{
+										"key": "per_page",
+										"value": "12"
+									},
+									{
+										"key": "page",
+										"value": "1"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Luxury Villa with Ocean View\",\n                \"description\": \"Stunning 5-bedroom villa with panoramic ocean views, private pool, and modern amenities.\",\n                \"price\": 2500000,\n                \"currency\": \"USD\",\n                \"category_id\": 1,\n                \"country\": \"United Arab Emirates\",\n                \"city\": \"Dubai\",\n                \"images\": [\"https://example.com/villa1.jpg\", \"https://example.com/villa2.jpg\"],\n                \"video_url\": \"https://youtube.com/watch?v=example\",\n                \"seller_info\": {\n                    \"business_name\": \"Premium Properties\",\n                    \"contact_email\": \"contact@premium.com\",\n                    \"phone\": \"+971501234567\",\n                    \"website\": \"https://premiumproperties.com\"\n                },\n                \"location\": {\n                    \"address\": \"Palm Jumeirah\",\n                    \"coordinates\": [25.2048, 55.2708]\n                },\n                \"status\": \"active\",\n                \"featured\": true,\n                \"promoted\": false,\n                \"sponsored\": true,\n                \"promotion_plan\": \"sponsored\",\n                \"views\": 15420,\n                \"rating\": 4.9,\n                \"created_at\": \"2024-01-15T10:30:00.000000Z\",\n                \"updated_at\": \"2024-01-15T10:30:00.000000Z\",\n                \"category\": {\n                    \"id\": 1,\n                    \"name\": \"Real Estate\",\n                    \"slug\": \"real-estate\",\n                    \"icon\": \"🏠\",\n                    \"color\": \"from-blue-500 to-blue-600\"\n                }\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 2,\n        \"per_page\": 12,\n        \"total\": 15,\n        \"from\": 1,\n        \"to\": 12\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Advert Details",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/1",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"1"
+						]
+					},
+					"description": "Get single advert details by ID"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/1",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"1"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"id\": 1,\n        \"title\": \"Luxury Villa with Ocean View\",\n        \"description\": \"Stunning 5-bedroom villa with panoramic ocean views, private pool, and modern amenities. Perfect for families or those seeking luxury living.\",\n        \"price\": 2500000,\n        \"currency\": \"USD\",\n        \"category_id\": 1,\n        \"country\": \"United Arab Emirates\",\n        \"city\": \"Dubai\",\n        \"images\": [\"https://example.com/villa1.jpg\", \"https://example.com/villa2.jpg\"],\n        \"video_url\": \"https://youtube.com/watch?v=example\",\n        \"seller_info\": {\n            \"business_name\": \"Premium Properties\",\n            \"contact_email\": \"contact@premium.com\",\n            \"phone\": \"+971501234567\",\n            \"website\": \"https://premiumproperties.com\"\n        },\n        \"location\": {\n            \"address\": \"Palm Jumeirah\",\n            \"coordinates\": [25.2048, 55.2708]\n        },\n        \"status\": \"active\",\n        \"featured\": true,\n        \"promoted\": false,\n        \"sponsored\": true,\n        \"promotion_plan\": \"sponsored\",\n        \"views\": 15420,\n        \"rating\": 4.9,\n        \"created_at\": \"2024-01-15T10:30:00.000000Z\",\n        \"updated_at\": \"2024-01-15T10:30:00.000000Z\",\n        \"category\": {\n            \"id\": 1,\n            \"name\": \"Real Estate\",\n            \"slug\": \"real-estate\",\n            \"icon\": \"🏠\",\n            \"color\": \"from-blue-500 to-blue-600\"\n        },\n        \"user\": {\n            \"id\": 1,\n            \"name\": \"John Doe\",\n            \"email\": \"john@example.com\"\n        },\n        \"analytics\": {\n            \"total_views\": 15420,\n            \"total_saves\": 234,\n            \"total_contacts\": 45,\n            \"total_shares\": 12\n        }\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Search Adverts",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/search?q=luxury+villa&category=1&country=UAE&min_price=1000000&max_price=5000000&sort_by=views&sort_order=desc",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"search"
+						],
+						"query": [
+							{
+								"key": "q",
+								"value": "luxury villa",
+								"description": "Search query string"
+							},
+							{
+								"key": "category",
+								"value": "1",
+								"description": "Filter by category ID"
+							},
+							{
+								"key": "country",
+								"value": "UAE",
+								"description": "Filter by country"
+							},
+							{
+								"key": "min_price",
+								"value": "1000000",
+								"description": "Minimum price filter"
+							},
+							{
+								"key": "max_price",
+								"value": "5000000",
+								"description": "Maximum price filter"
+							},
+							{
+								"key": "sort_by",
+								"value": "views",
+								"description": "Sort field"
+							},
+							{
+								"key": "sort_order",
+								"value": "desc",
+								"description": "Sort order"
+							}
+						]
+					},
+					"description": "Search sponsored adverts with multiple filters"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/search?q=luxury+villa&category=1&country=UAE&min_price=1000000&max_price=5000000&sort_by=views&sort_order=desc",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"search"
+								],
+								"query": [
+									{
+										"key": "q",
+										"value": "luxury villa"
+									},
+									{
+										"key": "category",
+										"value": "1"
+									},
+									{
+										"key": "country",
+										"value": "UAE"
+									},
+									{
+										"key": "min_price",
+										"value": "1000000"
+									},
+									{
+										"key": "max_price",
+										"value": "5000000"
+									},
+									{
+										"key": "sort_by",
+										"value": "views"
+									},
+									{
+										"key": "sort_order",
+										"value": "desc"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Luxury Villa with Ocean View\",\n                \"description\": \"Stunning 5-bedroom villa with panoramic ocean views...\",\n                \"relevance_score\": 0.95,\n                \"matched_fields\": [\"title\", \"description\"]\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 12,\n        \"total\": 1,\n        \"from\": 1,\n        \"to\": 1\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Featured Adverts",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/featured?per_page=10&page=1",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"featured"
+						],
+						"query": [
+							{
+								"key": "per_page",
+								"value": "10",
+								"description": "Items per page"
+							},
+							{
+								"key": "page",
+								"value": "1",
+								"description": "Page number"
+							}
+						]
+					},
+					"description": "Get featured sponsored adverts"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/featured?per_page=10&page=1",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"featured"
+								],
+								"query": [
+									{
+										"key": "per_page",
+										"value": "10"
+									},
+									{
+										"key": "page",
+										"value": "1"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Luxury Villa with Ocean View\",\n                \"featured\": true,\n                \"promotion_plan\": \"sponsored\",\n                \"views\": 15420\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 10,\n        \"total\": 1\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Platform Statistics",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/stats",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"stats"
+						]
+					},
+					"description": "Get platform-wide statistics for sponsored adverts"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/stats",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"stats"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"total_adverts\": 150,\n        \"active_adverts\": 120,\n        \"total_views\": 125000,\n        \"total_saves\": 3400,\n        \"total_categories\": 7,\n        \"featured_adverts\": 15,\n        \"promoted_adverts\": 25,\n        \"sponsored_adverts\": 10,\n        \"average_rating\": 4.3,\n        \"total_revenue\": 12500.00\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Create Advert",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"title\": \"Modern Apartment Downtown\",\n    \"description\": \"Spacious 2-bedroom apartment in the heart of downtown. High-speed internet, meeting rooms, and 24/7 access.\",\n    \"price\": 2500,\n    \"currency\": \"USD\",\n    \"category_id\": 1,\n    \"country\": \"United Arab Emirates\",\n    \"city\": \"Dubai\",\n    \"images\": [\"https://example.com/apartment1.jpg\", \"https://example.com/apartment2.jpg\"],\n    \"video_url\": \"https://youtube.com/watch?v=example\",\n    \"seller_info\": {\n        \"business_name\": \"Downtown Properties\",\n        \"contact_email\": \"contact@downtown.com\",\n        \"phone\": \"+971501234567\",\n        \"website\": \"https://downtownproperties.com\"\n    },\n    \"location\": {\n        \"address\": \"Downtown Dubai\",\n        \"coordinates\": [25.2048, 55.2708]\n    },\n    \"promotion_plan\": \"featured\"\n}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts"
+						]
+					},
+					"description": "Create a new sponsored advert (requires authentication)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "POST",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n    \"title\": \"Modern Apartment Downtown\",\n    \"description\": \"Spacious 2-bedroom apartment in the heart of downtown. High-speed internet, meeting rooms, and 24/7 access.\",\n    \"price\": 2500,\n    \"currency\": \"USD\",\n    \"category_id\": 1,\n    \"country\": \"United Arab Emirates\",\n    \"city\": \"Dubai\",\n    \"images\": [\"https://example.com/apartment1.jpg\", \"https://example.com/apartment2.jpg\"],\n    \"video_url\": \"https://youtube.com/watch?v=example\",\n    \"seller_info\": {\n        \"business_name\": \"Downtown Properties\",\n        \"contact_email\": \"contact@downtown.com\",\n        \"phone\": \"+971501234567\",\n        \"website\": \"https://downtownproperties.com\"\n    },\n    \"location\": {\n        \"address\": \"Downtown Dubai\",\n        \"coordinates\": [25.2048, 55.2708]\n    },\n    \"promotion_plan\": \"featured\"\n}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts"
+								]
+							}
+						},
+						"status": "Created",
+						"code": 201,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Sponsored advert created successfully\",\n    \"data\": {\n        \"id\": 3,\n        \"title\": \"Modern Apartment Downtown\",\n        \"description\": \"Spacious 2-bedroom apartment in the heart of downtown. High-speed internet, meeting rooms, and 24/7 access.\",\n        \"price\": 2500,\n        \"currency\": \"USD\",\n        \"category_id\": 1,\n        \"country\": \"United Arab Emirates\",\n        \"city\": \"Dubai\",\n        \"images\": [\"https://example.com/apartment1.jpg\", \"https://example.com/apartment2.jpg\"],\n        \"video_url\": \"https://youtube.com/watch?v=example\",\n        \"seller_info\": {\n            \"business_name\": \"Downtown Properties\",\n            \"contact_email\": \"contact@downtown.com\",\n            \"phone\": \"+971501234567\",\n            \"website\": \"https://downtownproperties.com\"\n        },\n        \"location\": {\n            \"address\": \"Downtown Dubai\",\n            \"coordinates\": [25.2048, 55.2708]\n        },\n        \"status\": \"pending\",\n        \"featured\": false,\n        \"promoted\": false,\n        \"sponsored\": false,\n        \"promotion_plan\": \"free\",\n        \"views\": 0,\n        \"rating\": 0,\n        \"created_at\": \"2024-01-16T12:00:00.000000Z\",\n        \"updated_at\": \"2024-01-16T12:00:00.000000Z\",\n        \"user_id\": 1\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Update Advert",
+				"request": {
+					"method": "PUT",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"title\": \"Updated Apartment Title\",\n    \"description\": \"Updated description with new amenities.\",\n    \"price\": 2800,\n    \"promotion_plan\": \"sponsored\"\n}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/3",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"3"
+						]
+					},
+					"description": "Update an existing sponsored advert (requires authentication and ownership)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "PUT",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n    \"title\": \"Updated Apartment Title\",\n    \"description\": \"Updated description with new amenities.\",\n    \"price\": 2800,\n    \"promotion_plan\": \"sponsored\"\n}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/3",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"3"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Sponsored advert updated successfully\",\n    \"data\": {\n        \"id\": 3,\n        \"title\": \"Updated Apartment Title\",\n        \"description\": \"Updated description with new amenities.\",\n        \"price\": 2800,\n        \"currency\": \"USD\",\n        \"promotion_plan\": \"sponsored\",\n        \"updated_at\": \"2024-01-16T12:30:00.000000Z\"\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Delete Advert",
+				"request": {
+					"method": "DELETE",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/3",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"3"
+						]
+					},
+					"description": "Delete a sponsored advert (requires authentication and ownership)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "DELETE",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/3",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"3"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Sponsored advert deleted successfully\"\n}"
+					}
+				]
+			},
+			{
+				"name": "Get User's Adverts",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/my-adverts?status=active&sort_by=created_at&sort_order=desc&per_page=10&page=1",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"my-adverts"
+						],
+						"query": [
+							{
+								"key": "status",
+								"value": "active",
+								"description": "Filter by status"
+							},
+							{
+								"key": "sort_by",
+								"value": "created_at",
+								"description": "Sort field"
+							},
+							{
+								"key": "sort_order",
+								"value": "desc",
+								"description": "Sort order"
+							},
+							{
+								"key": "per_page",
+								"value": "10",
+								"description": "Items per page"
+							},
+							{
+								"key": "page",
+								"value": "1",
+								"description": "Page number"
+							}
+						]
+					},
+					"description": "Get current user's sponsored adverts"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/my-adverts?status=active&sort_by=created_at&sort_order=desc&per_page=10&page=1",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"my-adverts"
+								],
+								"query": [
+									{
+										"key": "status",
+										"value": "active"
+									},
+									{
+										"key": "sort_by",
+										"value": "created_at"
+									},
+									{
+										"key": "sort_order",
+										"value": "desc"
+									},
+									{
+										"key": "per_page",
+										"value": "10"
+									},
+									{
+										"key": "page",
+										"value": "1"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"My First Advert\",\n                \"status\": \"active\",\n                \"promotion_plan\": \"featured\",\n                \"views\": 1250,\n                \"created_at\": \"2024-01-10T10:30:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 10,\n        \"total\": 1\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Save/Unsave Advert",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/1/save",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"1",
+							"save"
+						]
+					},
+					"description": "Save or unsave a sponsored advert (toggle functionality)"
+				},
+				"response": [
+					{
+						"name": "Success Response - Saved",
+						"originalRequest": {
+							"method": "POST",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/1/save",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"1",
+									"save"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Advert saved successfully\",\n    \"data\": {\n        \"saved\": true,\n        \"total_saves\": 234\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Saved Adverts",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/saved?per_page=12&page=1",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"saved"
+						],
+						"query": [
+							{
+								"key": "per_page",
+								"value": "12",
+								"description": "Items per page"
+							},
+							{
+								"key": "page",
+								"value": "1",
+								"description": "Page number"
+							}
+						]
+					},
+					"description": "Get user's saved sponsored adverts"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/saved?per_page=12&page=1",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"saved"
+								],
+								"query": [
+									{
+										"key": "per_page",
+										"value": "12"
+									},
+									{
+										"key": "page",
+										"value": "1"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"data\": [\n            {\n                \"id\": 1,\n                \"title\": \"Luxury Villa with Ocean View\",\n                \"price\": 2500000,\n                \"currency\": \"USD\",\n                \"category\": {\n                    \"id\": 1,\n                    \"name\": \"Real Estate\"\n                },\n                \"saved_at\": \"2024-01-15T10:30:00.000000Z\"\n            }\n        ],\n        \"current_page\": 1,\n        \"last_page\": 1,\n        \"per_page\": 12,\n        \"total\": 1\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Track Analytics Event",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"event_type\": \"click\",\n    \"metadata\": {\n        \"source\": \"search_results\",\n        \"position\": 3,\n        \"device\": \"desktop\"\n    }\n}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/1/track",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"1",
+							"track"
+						]
+					},
+					"description": "Track analytics events for sponsored adverts"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "POST",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n    \"event_type\": \"click\",\n    \"metadata\": {\n        \"source\": \"search_results\",\n        \"position\": 3,\n        \"device\": \"desktop\"\n    }\n}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/1/track",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"1",
+									"track"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Analytics event tracked successfully\"\n}"
+					}
+				]
+			},
+			{
+				"name": "Get Advert Analytics",
+				"request": {
+					"method": "GET",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/adverts/1/analytics?period=30d",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"adverts",
+							"1",
+							"analytics"
+						],
+						"query": [
+							{
+								"key": "period",
+								"value": "30d",
+								"description": "Time period (7d, 30d, 90d)"
+							}
+						]
+					},
+					"description": "Get detailed analytics for a specific sponsored advert"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "GET",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/adverts/1/analytics?period=30d",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"adverts",
+									"1",
+									"analytics"
+								],
+								"query": [
+									{
+										"key": "period",
+										"value": "30d"
+									}
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"data\": {\n        \"advert_id\": 1,\n        \"period\": \"30d\",\n        \"analytics\": {\n            \"total_views\": 15420,\n            \"unique_views\": 8750,\n            \"total_saves\": 234,\n            \"total_contacts\": 45,\n            \"total_shares\": 12,\n            \"daily_views\": [\n                {\"date\": \"2024-01-16\", \"views\": 520},\n                {\"date\": \"2024-01-17\", \"views\": 480}\n            ],\n            \"top_countries\": [\n                {\"country\": \"United Arab Emirates\", \"views\": 8500},\n                {\"country\": \"United States\", \"views\": 3200}\n            ],\n            \"top_sources\": [\n                {\"source\": \"direct\", \"views\": 6200},\n                {\"source\": \"search\", \"views\": 4200}\n            ]\n        }\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Create Category (Admin)",
+				"request": {
+					"method": "POST",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"name\": \"Technology\",\n    \"slug\": \"technology\",\n    \"icon\": \"💻\",\n    \"color\": \"from-purple-500 to-purple-600\",\n    \"description\": \"Tech products, software, gadgets, and digital services\"\n}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/categories",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"categories"
+						]
+					},
+					"description": "Create new sponsored category (admin only)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "POST",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n    \"name\": \"Technology\",\n    \"slug\": \"technology\",\n    \"icon\": \"💻\",\n    \"color\": \"from-purple-500 to-purple-600\",\n    \"description\": \"Tech products, software, gadgets, and digital services\"\n}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/categories",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"categories"
+								]
+							}
+						},
+						"status": "Created",
+						"code": 201,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Category created successfully\",\n    \"data\": {\n        \"id\": 8,\n        \"name\": \"Technology\",\n        \"slug\": \"technology\",\n        \"icon\": \"💻\",\n        \"color\": \"from-purple-500 to-purple-600\",\n        \"description\": \"Tech products, software, gadgets, and digital services\",\n        \"created_at\": \"2024-01-16T12:00:00.000000Z\"\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Update Category (Admin)",
+				"request": {
+					"method": "PUT",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"name\": \"Technology & Gadgets\",\n    \"description\": \"Updated description for technology category\"\n}"
+					},
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/categories/8",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"categories",
+							"8"
+						]
+					},
+					"description": "Update sponsored category (admin only)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "PUT",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"body": {
+								"mode": "raw",
+								"raw": "{\n    \"name\": \"Technology & Gadgets\",\n    \"description\": \"Updated description for technology category\"\n}"
+							},
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/categories/8",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"categories",
+									"8"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Category updated successfully\",\n    \"data\": {\n        \"id\": 8,\n        \"name\": \"Technology & Gadgets\",\n        \"description\": \"Updated description for technology category\",\n        \"updated_at\": \"2024-01-16T12:30:00.000000Z\"\n    }\n}"
+					}
+				]
+			},
+			{
+				"name": "Delete Category (Admin)",
+				"request": {
+					"method": "DELETE",
+					"header": [
+						{
+							"key": "Authorization",
+							"value": "Bearer {{auth_token}}"
+						},
+						{
+							"key": "Accept",
+							"value": "application/json"
+						}
+					],
+					"url": {
+						"raw": "{{base_url}}/api/v1/sponsored/categories/8",
+						"host": [
+							"{{base_url}}"
+						],
+						"path": [
+							"api",
+							"v1",
+							"sponsored",
+							"categories",
+							"8"
+						]
+					},
+					"description": "Delete sponsored category (admin only)"
+				},
+				"response": [
+					{
+						"name": "Success Response",
+						"originalRequest": {
+							"method": "DELETE",
+							"header": [
+								{
+									"key": "Authorization",
+									"value": "Bearer {{auth_token}}"
+								},
+								{
+									"key": "Accept",
+									"value": "application/json"
+								}
+							],
+							"url": {
+								"raw": "{{base_url}}/api/v1/sponsored/categories/8",
+								"host": [
+									"{{base_url}}"
+								],
+								"path": [
+									"api",
+									"v1",
+									"sponsored",
+									"categories",
+									"8"
+								]
+							}
+						},
+						"status": "OK",
+						"code": 200,
+						"_postman_previewlanguage": "json",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"cookie": [],
+						"body": "{\n    \"success\": true,\n    \"message\": \"Category deleted successfully\"\n}"
+					}
+				]
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

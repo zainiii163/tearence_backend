@@ -24,7 +24,8 @@ return new class extends Migration
             $table->json('social_links')->nullable(); // Twitter, Instagram, LinkedIn, etc.
             $table->string('country', 2);
             $table->boolean('verified')->default(false);
-            $table->unsignedBigInteger('user_id')->nullable(); // Link to user account if author has one
+            $table->unsignedInteger('user_id')->nullable(); // Link to user account if author has one
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
             $table->integer('books_count')->default(0);
             $table->decimal('average_rating', 3, 2)->nullable();
             $table->integer('total_reviews')->default(0);

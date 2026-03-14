@@ -16,18 +16,18 @@ class VenueService extends Model
     protected $fillable = [
         'name',
         'slug',
-        'service_category',
+        'category',
         'country',
         'city',
         'min_price',
         'max_price',
         'description',
-        'packages',
+        'packages_offered',
         'availability',
         'website',
         'contact_email',
         'social_links',
-        'portfolio_images',
+        'images',
         'video_link',
         'promotion_tier',
         'is_active',
@@ -37,10 +37,10 @@ class VenueService extends Model
     protected $casts = [
         'min_price' => 'decimal:2',
         'max_price' => 'decimal:2',
-        'packages' => 'array',
+        'packages_offered' => 'array',
         'availability' => 'array',
         'social_links' => 'array',
-        'portfolio_images' => 'array',
+        'images' => 'array',
         'is_active' => 'boolean',
     ];
 
@@ -82,7 +82,7 @@ class VenueService extends Model
 
     public function scopeByCategory($query, $category)
     {
-        return $query->where('service_category', $category);
+        return $query->where('category', $category);
     }
 
     public function scopeByLocation($query, $country, $city = null)
@@ -139,16 +139,18 @@ class VenueService extends Model
         return in_array($this->promotion_tier, ['promoted', 'featured', 'sponsored', 'spotlight']);
     }
 
-    public function getServiceCategoryLabelAttribute()
+    public function getCategoryLabelAttribute()
     {
-        return match($this->service_category) {
+        return match($this->category) {
             'catering' => 'Catering',
+            'decor' => 'Decor',
             'dj' => 'DJ Services',
-            'decor' => 'Decor & Styling',
             'photography' => 'Photography',
-            'security' => 'Security Services',
-            'event_planner' => 'Event Planning',
-            'av_equipment' => 'AV Equipment',
+            'videography' => 'Videography',
+            'security' => 'Security',
+            'event_planning' => 'Event Planning',
+            'lighting' => 'Lighting',
+            'sound' => 'Sound System',
             'transportation' => 'Transportation',
             'other' => 'Other',
             default => 'Unknown',

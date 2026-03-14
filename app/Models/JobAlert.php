@@ -4,71 +4,73 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class JobAlert extends Model
 {
-    use HasFactory, SoftDeletes;
-
-    protected $primaryKey = 'job_alert_id';
-    protected $table = 'job_alerts';
+    use HasFactory;
 
     protected $fillable = [
-        'customer_id',
+        'user_id',
         'name',
         'keywords',
-        'location_id',
-        'category_id',
-        'job_type',
-        'salary_min',
-        'salary_max',
+        'location',
+        'category',
+        'work_type',
+        'salary_range',
+        'experience_level',
+        'education_level',
+        'remote_only',
         'frequency',
-        'is_active',
-        'notification_email',
-        'last_notified_at',
-        'last_matched_count',
+        'active',
+        'last_sent_at',
+        'jobs_sent_count',
     ];
 
     protected $casts = [
-        'keywords' => 'array',
-        'job_type' => 'array',
-        'salary_min' => 'decimal:2',
-        'salary_max' => 'decimal:2',
-        'is_active' => 'boolean',
-        'last_notified_at' => 'datetime',
-        'last_matched_count' => 'integer',
+        'remote_only' => 'boolean',
+        'active' => 'boolean',
+        'last_sent_at' => 'datetime',
+        'jobs_sent_count' => 'integer',
     ];
 
-    /**
-     * Get the customer that owns the alert.
-     */
-    public function customer()
+    // Relationships
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+        return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the location for the alert.
-     */
-    public function location()
+    // Scopes
+    public function scopeActive($query)
     {
-        return $this->belongsTo(Location::class, 'location_id', 'location_id');
+        return $query->where('active', true);
     }
 
-    /**
-     * Get the category for the alert.
-     */
-    public function category()
+    public function scopeByUser($query, $userId)
     {
-        return $this->belongsTo(Category::class, 'category_id', 'category_id');
+        return $query->where('user_id', $userId);
     }
 
-    /**
-     * Check if alert should be notified based on frequency
-     */
-    public function shouldNotify(): bool
+    public function scopeByFrequency($query, $frequency)
     {
-        if (!$this->is_active) {
+        return $query->where('frequency', $frequency);
+    }
+
+    // Accessors
+    public function getFrequencyLabelAttribute()
+    {
+        return [
+            'daily' => 'Daily',
+            'weekly' => 'Weekly',
+            'monthly' => 'Monthly',
+            'instant' => 'Instant',
+        ][$this->frequency] ?? $this->frequency;
+    }
+
+    // Methods
+    public function shouldSend()
+    {
+        if (!$this->active) {
             return false;
         }
 
@@ -76,101 +78,124 @@ class JobAlert extends Model
             return true;
         }
 
-        if ($this->last_notified_at === null) {
+        if (!$this->last_sent_at) {
             return true;
         }
 
         $now = now();
         switch ($this->frequency) {
             case 'daily':
-                return $this->last_notified_at->copy()->addDay()->isPast();
+                return $this->last_sent_at->copy()->addDay()->isPast();
             case 'weekly':
-                return $this->last_notified_at->copy()->addWeek()->isPast();
+                return $this->last_sent_at->copy()->addWeek()->isPast();
+            case 'monthly':
+                return $this->last_sent_at->copy()->addMonth()->isPast();
             default:
                 return false;
         }
     }
 
-    /**
-     * Find matching jobs for this alert
-     */
     public function findMatchingJobs($limit = 50)
     {
-        $query = Listing::where('status', 'active')
-            ->where(function($q) {
-                $q->whereNull('end_date')
-                  ->orWhere('end_date', '>=', now());
-            });
+        $query = Job::active()->notExpired();
 
         // Keyword search
-        $keywords = $this->keywords;
-        // Ensure keywords is an array
-        if (!is_array($keywords) && !($keywords instanceof \Countable)) {
-            if (is_string($keywords)) {
-                $decoded = json_decode($keywords, true);
-                $keywords = is_array($decoded) ? $decoded : [];
-            } else {
-                $keywords = [];
-            }
-        }
-        
-        if (is_array($keywords) && count($keywords) > 0) {
-            $query->where(function($q) use ($keywords) {
+        if ($this->keywords) {
+            $keywords = explode(',', $this->keywords);
+            $query->where(function ($q) use ($keywords) {
                 foreach ($keywords as $keyword) {
-                    $q->orWhere('title', 'like', '%' . $keyword . '%')
-                      ->orWhere('description', 'like', '%' . $keyword . '%');
+                    $q->orWhere('title', 'LIKE', "%{$keyword}%")
+                      ->orWhere('description', 'LIKE', "%{$keyword}%")
+                      ->orWhere('skills_needed', 'LIKE', "%{$keyword}%");
                 }
             });
         }
 
         // Location filter
-        if ($this->location_id) {
-            $query->where('location_id', $this->location_id);
+        if ($this->location) {
+            $query->byLocation($this->location);
         }
 
         // Category filter
-        if ($this->category_id) {
-            $query->where('category_id', $this->category_id);
+        if ($this->category) {
+            $query->whereHas('category', function ($q) {
+                $q->where('slug', $this->category);
+            });
         }
 
-        // Job type filter
-        $jobType = $this->job_type;
-        // Ensure job_type is an array
-        if (!is_array($jobType) && !($jobType instanceof \Countable)) {
-            if (is_string($jobType)) {
-                $decoded = json_decode($jobType, true);
-                $jobType = is_array($decoded) ? $decoded : [];
-            } else {
-                $jobType = [];
-            }
-        }
-        
-        if (is_array($jobType) && count($jobType) > 0) {
-            $query->whereIn('job_type', $jobType);
+        // Work type filter
+        if ($this->work_type) {
+            $query->byWorkType($this->work_type);
         }
 
         // Salary range filter
-        if ($this->salary_min) {
-            $query->where(function($q) {
-                $q->where('salary_min', '>=', $this->salary_min)
-                  ->orWhere('salary_max', '>=', $this->salary_min);
-            });
+        if ($this->salary_range) {
+            $range = explode('-', $this->salary_range);
+            if (count($range) === 2) {
+                $query->bySalaryRange($range[0], $range[1]);
+            } else {
+                $query->bySalaryRange($range[0]);
+            }
         }
 
-        if ($this->salary_max) {
-            $query->where(function($q) {
-                $q->where('salary_max', '<=', $this->salary_max)
-                  ->orWhere('salary_min', '<=', $this->salary_max);
-            });
+        // Experience level filter
+        if ($this->experience_level) {
+            $query->byExperienceLevel($this->experience_level);
         }
 
-        // Order by featured first, then by date
-        $query->orderByRaw("CASE WHEN is_featured = 1 AND (featured_expires_at IS NULL OR featured_expires_at > NOW()) THEN 0 ELSE 1 END")
-              ->orderBy('created_at', 'desc');
+        // Education level filter
+        if ($this->education_level) {
+            $query->where('education_level', $this->education_level);
+        }
 
-        return $query->with(['category', 'location', 'customer', 'currency'])
+        // Remote only filter
+        if ($this->remote_only) {
+            $query->remote();
+        }
+
+        // Order by promoted jobs first, then by posted date
+        $query->orderByRaw("CASE WHEN promotion_type != 'basic' AND (promotion_expires_at IS NULL OR promotion_expires_at > NOW()) THEN 0 ELSE 1 END")
+              ->orderBy('posted_at', 'desc');
+
+        return $query->with(['category', 'user'])
                     ->limit($limit)
                     ->get();
+    }
+
+    public function markAsSent($jobsCount = 0)
+    {
+        $this->update([
+            'last_sent_at' => now(),
+            'jobs_sent_count' => $this->jobs_sent_count + $jobsCount,
+        ]);
+    }
+
+    public function test()
+    {
+        $jobs = $this->findMatchingJobs(5);
+        
+        // Here you would send a test email to the user
+        // For now, we'll just return the jobs count
+        
+        return [
+            'alert_name' => $this->name,
+            'matching_jobs_count' => $jobs->count(),
+            'sample_jobs' => $jobs->take(3),
+        ];
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($alert) {
+            if (empty($alert->frequency)) {
+                $alert->frequency = 'daily';
+            }
+            if (empty($alert->active)) {
+                $alert->active = true;
+            }
+        });
     }
 }
 

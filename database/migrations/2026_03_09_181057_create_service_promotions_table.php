@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('service_promotions', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('service_id');
+            $table->foreignId('service_id')->constrained()->onDelete('cascade');
             $table->enum('promotion_type', ['promoted', 'featured', 'sponsored', 'network_boost']);
             $table->decimal('price', 10, 2);
             $table->string('currency', 3)->default('USD');

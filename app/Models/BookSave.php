@@ -28,7 +28,7 @@ class BookSave extends Model
      */
     public function book(): BelongsTo
     {
-        return $this->belongsTo(Book::class);
+        return $this->belongsTo(BookAdvert::class, 'book_id');
     }
 
     /**

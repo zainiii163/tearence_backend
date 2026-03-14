@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class JobSeeker extends Model
 {
@@ -11,165 +14,214 @@ class JobSeeker extends Model
 
     protected $fillable = [
         'user_id',
-        'title',
+        'pricing_plan_id',
+        'full_name',
+        'profession',
         'bio',
-        'profile_photo',
-        'cv_file',
-        'portfolio_link',
-        'linkedin_url',
-        'github_url',
-        'website_url',
-        'experience_level',
-        'years_of_experience',
-        'education_level',
-        'key_skills',
-        'desired_role',
-        'industries_interested',
-        'salary_expectation_min',
-        'salary_expectation_max',
-        'salary_currency',
-        'preferred_work_type',
-        'is_remote_available',
+        'profile_photo_url',
         'country',
         'city',
+        'state',
         'latitude',
         'longitude',
-        'location_name',
-        'willing_to_relocate',
-        'is_active',
-        'is_featured',
-        'is_sponsored',
-        'is_promoted',
-        'featured_until',
-        'sponsored_until',
-        'promoted_until',
-        'views_count',
-        'profile_contacts_count',
-        'saves_count',
-        'last_contact_at',
+        'years_of_experience',
+        'key_skills',
+        'education_level',
+        'education_details',
+        'experience_summary',
+        'desired_role',
+        'salary_expectation',
+        'work_type_preference',
+        'remote_availability',
+        'preferred_locations',
+        'preferred_industries',
+        'portfolio_link',
+        'linkedin_link',
+        'github_link',
+        'cv_file_url',
+        'additional_links',
+        'status',
+        'terms_accepted',
+        'accurate_info',
+        'verified_profile',
+        'views',
+        'contact_count',
+        'profile_views',
+        'promotion_type',
+        'promotion_expires_at',
     ];
 
     protected $casts = [
-        'salary_expectation_min' => 'decimal:2',
-        'salary_expectation_max' => 'decimal:2',
+        'preferred_locations' => 'array',
+        'preferred_industries' => 'array',
+        'additional_links' => 'array',
+        'remote_availability' => 'boolean',
+        'terms_accepted' => 'boolean',
+        'accurate_info' => 'boolean',
+        'verified_profile' => 'boolean',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
-        'is_remote_available' => 'boolean',
-        'willing_to_relocate' => 'boolean',
-        'is_active' => 'boolean',
-        'is_featured' => 'boolean',
-        'is_sponsored' => 'boolean',
-        'is_promoted' => 'boolean',
-        'featured_until' => 'datetime',
-        'sponsored_until' => 'datetime',
-        'promoted_until' => 'datetime',
-        'last_contact_at' => 'datetime',
-        'views_count' => 'integer',
-        'profile_contacts_count' => 'integer',
-        'saves_count' => 'integer',
-        'years_of_experience' => 'integer',
-        'key_skills' => 'array',
-        'industries_interested' => 'array',
+        'promotion_expires_at' => 'datetime',
     ];
 
-    public function user()
+    // Relationships
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function applications()
+    public function pricingPlan(): BelongsTo
+    {
+        return $this->belongsTo(JobPricingPlan::class, 'pricing_plan_id');
+    }
+
+    public function applications(): HasMany
     {
         return $this->hasMany(JobApplication::class);
     }
 
-    public function getKeySkillsArrayAttribute()
+    public function upsells(): MorphMany
+    {
+        return $this->morphMany(JobUpsell::class, 'upsellable');
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeByProfession($query, $profession)
+    {
+        return $query->where('profession', 'LIKE', "%{$profession}%");
+    }
+
+    public function scopeByLocation($query, $location)
+    {
+        return $query->where(function ($q) use ($location) {
+            $q->where('country', 'LIKE', "%{$location}%")
+              ->orWhere('city', 'LIKE', "%{$location}%")
+              ->orWhere('state', 'LIKE', "%{$location}%");
+        });
+    }
+
+    public function scopeByExperience($query, $experience)
+    {
+        return $query->where('years_of_experience', $experience);
+    }
+
+    public function scopeRemote($query)
+    {
+        return $query->where('remote_availability', true);
+    }
+
+    public function scopePromoted($query)
+    {
+        return $query->where('promotion_type', '!=', 'basic')
+                    ->where(function ($q) {
+                        $q->whereNull('promotion_expires_at')
+                          ->orWhere('promotion_expires_at', '>', now());
+                    });
+    }
+
+    // Accessors
+    public function getIsPromotionActiveAttribute()
+    {
+        return $this->promotion_type !== 'basic' && 
+               (!$this->promotion_expires_at || $this->promotion_expires_at->isFuture());
+    }
+
+    public function getSkillsArrayAttribute()
     {
         return $this->key_skills ? explode(',', $this->key_skills) : [];
     }
 
-    public function getIndustriesInterestedArrayAttribute()
+    public function getFormattedSalaryAttribute()
     {
-        return $this->industries_interested ? explode(',', $this->industries_interested) : [];
+        if (!$this->salary_expectation) return 'Negotiable';
+        
+        $range = explode('-', $this->salary_expectation);
+        if (count($range) === 2) {
+            return '$' . number_format($range[0]) . ' - $' . number_format($range[1]);
+        }
+        
+        return '$' . number_format($range[0]) . '+';
     }
 
-    public function getExperienceLevelLabelAttribute()
+    public function getExperienceLabelAttribute()
     {
         return [
-            'entry' => 'Entry Level',
-            'junior' => 'Junior',
-            'mid' => 'Mid Level',
-            'senior' => 'Senior',
-            'executive' => 'Executive',
-        ][$this->experience_level] ?? $this->experience_level;
+            '0-1' => 'Less than 1 year',
+            '1-3' => '1-3 years',
+            '3-5' => '3-5 years',
+            '5-10' => '5-10 years',
+            '10+' => '10+ years',
+        ][$this->years_of_experience] ?? $this->years_of_experience;
     }
 
     public function getEducationLevelLabelAttribute()
     {
         return [
             'high_school' => 'High School',
-            'diploma' => 'Diploma',
+            'associate' => 'Associate Degree',
             'bachelor' => 'Bachelor\'s Degree',
             'master' => 'Master\'s Degree',
-            'phd' => 'PhD',
-            'none' => 'No Education Requirement',
+            'doctorate' => 'Doctorate',
         ][$this->education_level] ?? $this->education_level;
     }
 
-    public function getSalaryExpectationRangeAttribute()
-    {
-        if ($this->salary_expectation_min && $this->salary_expectation_max) {
-            return $this->salary_currency . ' ' . number_format($this->salary_expectation_min) . ' - ' . number_format($this->salary_expectation_max);
-        }
-        if ($this->salary_expectation_min) {
-            return $this->salary_currency . ' ' . number_format($this->salary_expectation_min) . '+';
-        }
-        return 'Negotiable';
-    }
-
-    public function getPreferredWorkTypeLabelAttribute()
+    public function getWorkTypeLabelAttribute()
     {
         return [
-            'full_time' => 'Full-time',
-            'part_time' => 'Part-time',
-            'contract' => 'Contract',
-            'temporary' => 'Temporary',
-            'internship' => 'Internship',
-            'remote' => 'Remote',
-            'any' => 'Any',
-        ][$this->preferred_work_type] ?? $this->preferred_work_type;
+            'Full-time' => 'Full-time',
+            'Part-time' => 'Part-time',
+            'Contract' => 'Contract',
+            'Freelance' => 'Freelance',
+        ][$this->work_type_preference] ?? $this->work_type_preference;
     }
 
-    public function isPromotionActive()
-    {
-        return ($this->is_featured && $this->featured_until && $this->featured_until->isFuture()) ||
-               ($this->is_sponsored && $this->sponsored_until && $this->sponsored_until->isFuture()) ||
-               ($this->is_promoted && $this->promoted_until && $this->promoted_until->isFuture());
-    }
-
+    // Methods
     public function incrementViews()
     {
-        $this->increment('views_count');
+        $this->increment('views');
+        $this->increment('profile_views');
     }
 
-    public function incrementProfileContacts()
+    public function incrementContacts()
     {
-        $this->increment('profile_contacts_count');
-        $this->update(['last_contact_at' => now()]);
+        $this->increment('contact_count');
     }
 
-    public function incrementSaves()
+    public function hasSkills($skills)
     {
-        $this->increment('saves_count');
+        if (is_string($skills)) {
+            $skills = [$skills];
+        }
+        
+        $seekerSkills = $this->skills_array;
+        
+        foreach ($skills as $skill) {
+            if (in_array(strtolower($skill), array_map('strtolower', $seekerSkills))) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     protected static function boot()
     {
         parent::boot();
 
-        static::creating(function ($jobSeeker) {
-            if (empty($jobSeeker->salary_currency)) {
-                $jobSeeker->salary_currency = 'USD';
+        static::creating(function ($seeker) {
+            if (empty($seeker->status)) {
+                $seeker->status = 'active';
             }
+        });
+
+        static::deleting(function ($seeker) {
+            $seeker->applications()->delete();
+            $seeker->upsells()->delete();
         });
     }
 }

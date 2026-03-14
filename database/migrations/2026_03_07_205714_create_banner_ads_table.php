@@ -56,7 +56,7 @@ return new class extends Migration
             $table->timestamp('approved_at')->nullable();
             
             // User relationship
-            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedInteger('user_id')->nullable();
             
             $table->timestamps();
             

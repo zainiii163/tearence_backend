@@ -17,9 +17,18 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout', 'register', '*'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
-    'allowed_origins' => ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8000', 'http://127.0.0.1:8000', 'https://worldwideadverts.info', 'https://www.worldwideadverts.info', 'https://api.worldwideadverts.info'],
+    'allowed_origins' => [
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000', 
+    'http://localhost:8000', 
+    'http://127.0.0.1:8000',
+    'https://worldwideadverts.info',
+    'https://www.worldwideadverts.info', 
+    'https://api.worldwideadverts.info',
+    '*'
+],
 
     'allowed_origins_patterns' => [],
 

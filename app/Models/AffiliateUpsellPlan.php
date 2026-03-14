@@ -17,37 +17,39 @@ class AffiliateUpsellPlan extends Model
         'slug',
         'description',
         'price',
-        'currency',
         'duration_type',
-        'duration_value',
+        'duration_days',
+        'features',
+        'benefits',
         'highlighted_background',
-        'appears_above_standard',
-        'visibility_multiplier',
-        'top_of_category',
+        'above_standard_posts',
+        'top_category_placement',
         'larger_card_size',
         'priority_search',
         'homepage_placement',
         'category_top_placement',
         'homepage_slider',
         'social_media_promotion',
-        'weekly_email_blast',
+        'email_blast_inclusion',
+        'badge_text',
+        'badge_color',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'features' => 'array',
         'highlighted_background' => 'boolean',
-        'appears_above_standard' => 'boolean',
-        'visibility_multiplier' => 'integer',
-        'top_of_category' => 'boolean',
+        'above_standard_posts' => 'boolean',
+        'top_category_placement' => 'boolean',
         'larger_card_size' => 'boolean',
         'priority_search' => 'boolean',
         'homepage_placement' => 'boolean',
         'category_top_placement' => 'boolean',
         'homepage_slider' => 'boolean',
         'social_media_promotion' => 'boolean',
-        'weekly_email_blast' => 'boolean',
+        'email_blast_inclusion' => 'boolean',
         'is_active' => 'boolean',
         'sort_order' => 'integer',
     ];
@@ -57,7 +59,7 @@ class AffiliateUpsellPlan extends Model
      */
     public function postUpsells(): HasMany
     {
-        return $this->hasMany(AffiliatePostUpsell::class, 'upsell_plan_id');
+        return $this->hasMany(AffiliatePostUpsell::class, 'affiliate_upsell_plan_id');
     }
 
     /**
@@ -73,7 +75,7 @@ class AffiliateUpsellPlan extends Model
      */
     public function scopeOrdered($query)
     {
-        return $query->orderBy('sort_order')->orderBy('price');
+        return $query->orderBy('sort_order', 'asc')->orderBy('price', 'asc');
     }
 
     /**
@@ -81,7 +83,7 @@ class AffiliateUpsellPlan extends Model
      */
     public function getFormattedPriceAttribute()
     {
-        return $this->currency . ' ' . number_format($this->price, 2);
+        return '$' . number_format($this->price, 2);
     }
 
     /**
@@ -89,9 +91,17 @@ class AffiliateUpsellPlan extends Model
      */
     public function getDurationDescriptionAttribute()
     {
-        $duration = $this->duration_value > 1 ? $this->duration_value : '';
+        $duration = $this->duration_days > 1 ? $this->duration_days : '';
         
-        return "{$duration} {$this->duration_type}" . ($this->duration_value > 1 ? 's' : '');
+        return "{$duration} {$this->duration_type}" . ($this->duration_days > 1 ? 's' : '');
+    }
+
+    /**
+     * Get the features as array.
+     */
+    public function getFeaturesArrayAttribute()
+    {
+        return $this->features ?? [];
     }
 
     /**
@@ -105,15 +115,11 @@ class AffiliateUpsellPlan extends Model
             $benefits[] = 'Highlighted background';
         }
         
-        if ($this->appears_above_standard) {
+        if ($this->above_standard_posts) {
             $benefits[] = 'Appears above standard posts';
         }
         
-        if ($this->visibility_multiplier > 1) {
-            $benefits[] = "{$this->visibility_multiplier}× more visibility";
-        }
-        
-        if ($this->top_of_category) {
+        if ($this->top_category_placement) {
             $benefits[] = 'Top of category pages';
         }
         
@@ -141,7 +147,7 @@ class AffiliateUpsellPlan extends Model
             $benefits[] = 'Social media promotion';
         }
         
-        if ($this->weekly_email_blast) {
+        if ($this->email_blast_inclusion) {
             $benefits[] = 'Included in weekly email blast';
         }
         

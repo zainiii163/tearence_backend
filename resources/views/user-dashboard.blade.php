@@ -16,6 +16,10 @@
                     <h1 class="text-xl font-bold text-gray-900">WWA</h1>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <a href="/affiliate-dashboard" class="text-blue-600 font-medium">
+                        <i class="fas fa-handshake mr-1"></i>
+                        Affiliate Hub
+                    </a>
                     <a href="/kyc-submission" class="text-gray-700 hover:text-gray-900">
                         <i class="fas fa-shield-check mr-1"></i>
                         KYC Status
@@ -40,6 +44,58 @@
                         <strong>KYC Verification Required:</strong> You must complete KYC verification to post new ads. 
                         <a href="/kyc-submission" class="underline font-medium">Complete Verification</a>
                     </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Affiliate Stats Section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-purple-100 rounded-md p-3">
+                        <i class="fas fa-briefcase text-purple-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Business Offers</p>
+                        <p id="businessOffersCount" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="/affiliate-dashboard" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        Manage Offers →
+                    </a>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-green-100 rounded-md p-3">
+                        <i class="fas fa-users text-green-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">User Posts</p>
+                        <p id="userPostsCount" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="/affiliate-dashboard" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        Manage Posts →
+                    </a>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 bg-yellow-100 rounded-md p-3">
+                        <i class="fas fa-handshake text-yellow-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Applications</p>
+                        <p id="applicationsCount" class="text-2xl font-bold text-gray-900">0</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <a href="/affiliate-dashboard" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        View Applications →
+                    </a>
                 </div>
             </div>
         </div>
@@ -205,6 +261,7 @@
             checkKycStatus();
             loadAds();
             loadCategories();
+            loadAffiliateStats();
         });
 
         async function checkKycStatus() {
@@ -442,6 +499,37 @@
         function logout() {
             localStorage.removeItem('auth_token');
             window.location.href = '/login';
+        }
+
+        async function loadAffiliateStats() {
+            try {
+                const [businessResponse, userResponse, applicationsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/affiliates/my-business-offers?per_page=1`, {
+                        headers: { 'Authorization': `Bearer ${authToken}`, 'Accept': 'application/json' }
+                    }),
+                    fetch(`${API_BASE}/affiliates/my-user-posts?per_page=1`, {
+                        headers: { 'Authorization': `Bearer ${authToken}`, 'Accept': 'application/json' }
+                    }),
+                    fetch(`${API_BASE}/affiliates/my-applications?per_page=1`, {
+                        headers: { 'Authorization': `Bearer ${authToken}`, 'Accept': 'application/json' }
+                    })
+                ]);
+
+                const businessData = businessResponse.ok ? await businessResponse.json() : { data: { total: 0 } };
+                const userData = userResponse.ok ? await userResponse.json() : { data: { total: 0 } };
+                const applicationsData = applicationsResponse.ok ? await applicationsResponse.json() : { data: { total: 0 } };
+
+                document.getElementById('businessOffersCount').textContent = businessData.data.total || 0;
+                document.getElementById('userPostsCount').textContent = userData.data.total || 0;
+                document.getElementById('applicationsCount').textContent = applicationsData.data.total || 0;
+
+            } catch (error) {
+                console.error('Error loading affiliate stats:', error);
+                // Set zeros on error
+                document.getElementById('businessOffersCount').textContent = '0';
+                document.getElementById('userPostsCount').textContent = '0';
+                document.getElementById('applicationsCount').textContent = '0';
+            }
         }
     </script>
 </body>

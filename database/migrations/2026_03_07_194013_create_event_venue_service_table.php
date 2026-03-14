@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('event_venue_service', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('event_id');
+            $table->foreignId('event_id')->constrained()->onDelete('cascade');
             $table->unsignedBigInteger('venue_service_id');
             $table->enum('status', ['pending', 'confirmed', 'cancelled'])->default('pending');
             $table->text('notes')->nullable();

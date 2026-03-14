@@ -44,4 +44,12 @@ class Category extends Model
             'sort_options' => ['newest', 'oldest', 'price_low', 'price_high', 'relevance'],
         ];
     }
+
+    /**
+     * Get the featured adverts for the category.
+     */
+    public function featuredAdverts()
+    {
+        return $this->hasMany(FeaturedAdvert::class, 'category_id', 'category_id');
+    }
 }

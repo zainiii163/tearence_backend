@@ -124,4 +124,21 @@ class Banner extends Model
     {
         return '$' . number_format($this->price, 2);
     }
+
+    /**
+     * Get featured adverts that can be promoted as banners.
+     */
+    public function featuredAdverts()
+    {
+        return $this->hasMany(FeaturedAdvert::class, 'listing_id', 'listing_id');
+    }
+
+    /**
+     * Scope a query to get banners that can showcase featured adverts.
+     */
+    public function scopeForFeaturedAdverts($query)
+    {
+        return $query->where('banner_type', 'featured_advert')
+                    ->active();
+    }
 }

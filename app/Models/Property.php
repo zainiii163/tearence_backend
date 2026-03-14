@@ -16,82 +16,29 @@ class Property extends Model
 
     protected $fillable = [
         'user_id',
-        'category_id',
         'title',
-        'slug',
         'tagline',
-        'category', // buy, rent, lease, auction, invest
+        'category',
         'property_type',
         'country',
         'city',
-        'region',
         'address',
         'latitude',
         'longitude',
-        'show_exact_location',
-        
-        // Residential
-        'bedrooms',
-        'bathrooms',
-        'property_size',
-        'size_unit',
-        'furnished',
-        'parking_spaces',
-        
-        // Commercial
-        'commercial_type',
-        'floor_area',
-        'footfall_rating',
-        'accessibility_features',
-        
-        // Industrial
-        'zoning_type',
-        'warehouse_size',
-        'loading_bays',
-        'power_capacity',
-        'ceiling_height',
-        
-        // Land
-        'land_size',
-        'land_type',
-        'planning_permission',
-        'soil_quality',
-        
-        // Luxury
-        'premium_features',
-        'security_features',
-        'view_type',
-        
-        // Investment
-        'rental_yield',
-        'occupancy_rate',
-        'current_rental_income',
-        'roi_percentage',
-        
-        // Pricing
         'price',
         'currency',
         'negotiable',
-        'deposit_required',
+        'deposit',
         'service_charges',
         'maintenance_fees',
-        
-        // Media
         'cover_image',
         'additional_images',
         'video_tour_link',
-        
-        // Description
         'description',
-        'overview',
-        'key_features',
-        'location_highlights',
-        'nearby_amenities',
-        'transport_links',
-        'additional_notes',
+        'specifications',
         'amenities',
-        
-        // Seller/Agent
+        'location_highlights',
+        'transport_links',
         'seller_name',
         'seller_company',
         'seller_phone',
@@ -99,68 +46,40 @@ class Property extends Model
         'seller_website',
         'seller_logo',
         'verified_agent',
-        
-        // Status
-        'status',
-        'featured',
-        'promoted',
-        'sponsored',
-        'featured_until',
+        'advert_type',
         'promoted_until',
+        'featured_until',
         'sponsored_until',
-        
-        // Analytics
-        'views_count',
-        'inquiries_count',
-        'saves_count',
-        
-        // Approval
-        'approval_status',
-        'rejection_reason',
-        'approved_at',
-        'approved_by',
+        'views',
+        'saves',
+        'enquiries',
+        'active',
+        'approved',
     ];
 
     protected $casts = [
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
-        'property_size' => 'decimal:2',
-        'floor_area' => 'decimal:2',
-        'warehouse_size' => 'decimal:2',
-        'land_size' => 'decimal:2',
-        'power_capacity' => 'decimal:2',
-        'ceiling_height' => 'decimal:2',
         'price' => 'decimal:2',
-        'deposit_required' => 'decimal:2',
+        'deposit' => 'decimal:2',
         'service_charges' => 'decimal:2',
         'maintenance_fees' => 'decimal:2',
-        'current_rental_income' => 'decimal:2',
-        'rental_yield' => 'decimal:2',
-        'occupancy_rate' => 'decimal:2',
-        'roi_percentage' => 'decimal:2',
-        'furnished' => 'boolean',
-        'accessibility_features' => 'boolean',
         'negotiable' => 'boolean',
-        'show_exact_location' => 'boolean',
-        'featured' => 'boolean',
-        'promoted' => 'boolean',
-        'sponsored' => 'boolean',
         'verified_agent' => 'boolean',
         'additional_images' => 'array',
-        'premium_features' => 'array',
-        'security_features' => 'array',
+        'specifications' => 'array',
         'amenities' => 'array',
-        'featured_until' => 'datetime',
+        'location_highlights' => 'array',
+        'transport_links' => 'array',
         'promoted_until' => 'datetime',
+        'featured_until' => 'datetime',
         'sponsored_until' => 'datetime',
-        'approved_at' => 'datetime',
     ];
 
     protected $dates = [
-        'featured_until',
         'promoted_until',
+        'featured_until',
         'sponsored_until',
-        'approved_at',
         'deleted_at',
     ];
 
@@ -236,34 +155,19 @@ class Property extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function category(): BelongsTo
+    public function favourites(): HasMany
     {
-        return $this->belongsTo(Category::class);
-    }
-
-    public function approvedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    public function upsells(): HasMany
-    {
-        return $this->hasMany(PropertyUpsell::class);
+        return $this->hasMany(PropertyFavourite::class);
     }
 
     public function analytics(): HasMany
     {
-        return $this->hasMany(PropertyAnalytics::class);
+        return $this->hasMany(PropertyAnalytic::class);
     }
 
-    public function savedBy(): HasMany
+    public function enquiries(): HasMany
     {
-        return $this->hasMany(PropertySaved::class);
-    }
-
-    public function images(): MorphMany
-    {
-        return $this->morphMany(Image::class, 'imageable');
+        return $this->hasMany(PropertyEnquiry::class);
     }
 
     public function getFormattedPriceAttribute(): string
@@ -326,31 +230,31 @@ class Property extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', 'active')
-                    ->where('approval_status', 'approved');
-    }
-
-    public function scopeFeatured($query)
-    {
-        return $query->where('featured', true)
-                    ->where(function ($q) {
-                        $q->whereNull('featured_until')
-                          ->orWhere('featured_until', '>', now());
-                    });
+        return $query->where('active', true)
+                    ->where('approved', true);
     }
 
     public function scopePromoted($query)
     {
-        return $query->where('promoted', true)
+        return $query->where('advert_type', 'promoted')
                     ->where(function ($q) {
                         $q->whereNull('promoted_until')
                           ->orWhere('promoted_until', '>', now());
                     });
     }
 
+    public function scopeFeatured($query)
+    {
+        return $query->where('advert_type', 'featured')
+                    ->where(function ($q) {
+                        $q->whereNull('featured_until')
+                          ->orWhere('featured_until', '>', now());
+                    });
+    }
+
     public function scopeSponsored($query)
     {
-        return $query->where('sponsored', true)
+        return $query->where('advert_type', 'sponsored')
                     ->where(function ($q) {
                         $q->whereNull('sponsored_until')
                           ->orWhere('sponsored_until', '>', now());

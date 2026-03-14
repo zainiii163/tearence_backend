@@ -25,19 +25,14 @@ class SponsoredPricingPlan extends Model
      */
     protected $fillable = [
         'name',
-        'tier',
+        'slug',
         'price',
         'currency',
         'duration_days',
-        'description',
         'features',
-        'visibility_settings',
-        'is_active',
-        'is_featured',
-        'sort_order',
-        'badge_settings',
-        'placement_settings',
-        'promotion_settings',
+        'active',
+        'recommended',
+        'visibility_multiplier',
     ];
 
     /**
@@ -48,12 +43,9 @@ class SponsoredPricingPlan extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'features' => 'array',
-        'visibility_settings' => 'array',
-        'is_active' => 'boolean',
-        'is_featured' => 'boolean',
-        'badge_settings' => 'array',
-        'placement_settings' => 'array',
-        'promotion_settings' => 'array',
+        'active' => 'boolean',
+        'recommended' => 'boolean',
+        'visibility_multiplier' => 'integer',
     ];
 
     /**
@@ -61,7 +53,15 @@ class SponsoredPricingPlan extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        return $query->where('active', true);
+    }
+
+    /**
+     * Scope a query to only include recommended plans.
+     */
+    public function scopeRecommended($query)
+    {
+        return $query->where('recommended', true);
     }
 
     /**
@@ -81,14 +81,14 @@ class SponsoredPricingPlan extends Model
     }
 
     /**
-     * Get the formatted price.
+     * Get formatted price.
      */
     public function getFormattedPriceAttribute()
     {
         $symbols = [
-            'GBP' => '£',
             'USD' => '$',
             'EUR' => '€',
+            'GBP' => '£',
         ];
 
         $symbol = $symbols[$this->currency] ?? $this->currency;
@@ -110,7 +110,7 @@ class SponsoredPricingPlan extends Model
     }
 
     /**
-     * Get the duration display.
+     * Get duration display.
      */
     public function getDurationDisplayAttribute()
     {

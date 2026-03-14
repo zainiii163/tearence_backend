@@ -15,8 +15,9 @@ return new class extends Migration
     {
         Schema::create('book_saves', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('book_id');
-            $table->unsignedBigInteger('user_id');
+            $table->foreignId('book_id')->constrained()->onDelete('cascade');
+            $table->unsignedInteger('user_id');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->timestamp('saved_at');
             
             $table->unique(['book_id', 'user_id']);

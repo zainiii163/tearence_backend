@@ -8,8 +8,8 @@ use App\Http\Requests\PropertyUpdateRequest;
 use App\Http\Resources\PropertyCollection;
 use App\Http\Resources\PropertyResource;
 use App\Models\Property;
-use App\Models\PropertyAnalytics;
-use App\Models\PropertySaved;
+use App\Models\PropertyAnalytic;
+use App\Models\PropertyFavourite;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -21,7 +21,7 @@ class PropertyController extends Controller
 {
     public function index(Request $request): PropertyCollection
     {
-        $query = Property::with(['user', 'category']);
+        $query = Property::with(['user']);
 
         // Apply filters
         if ($request->filled('property_type')) {
@@ -60,10 +60,14 @@ class PropertyController extends Controller
         }
 
         // Priority ordering: sponsored > promoted > featured > regular
-        $query->orderBy('sponsored', 'desc')
-              ->orderBy('promoted', 'desc')
-              ->orderBy('featured', 'desc')
-              ->orderBy('created_at', 'desc');
+        $query->orderByRaw("
+            CASE 
+                WHEN advert_type = 'sponsored' AND sponsored_until > NOW() THEN 1
+                WHEN advert_type = 'featured' AND featured_until > NOW() THEN 2
+                WHEN advert_type = 'promoted' AND promoted_until > NOW() THEN 3
+                ELSE 4
+            END
+        ")->orderBy('created_at', 'desc');
 
         $properties = $query->paginate($request->get('per_page', 12));
 
@@ -72,7 +76,7 @@ class PropertyController extends Controller
 
     public function featured(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user', 'category'])
+        $properties = Property::with(['user'])
             ->active()
             ->featured()
             ->orderBy('created_at', 'desc')
@@ -83,7 +87,7 @@ class PropertyController extends Controller
 
     public function promoted(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user', 'category'])
+        $properties = Property::with(['user'])
             ->active()
             ->promoted()
             ->orderBy('created_at', 'desc')
@@ -94,7 +98,7 @@ class PropertyController extends Controller
 
     public function sponsored(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user', 'category'])
+        $properties = Property::with(['user'])
             ->active()
             ->sponsored()
             ->orderBy('created_at', 'desc')
@@ -106,19 +110,18 @@ class PropertyController extends Controller
     public function show(Property $property): PropertyResource
     {
         // Track view
-        PropertyAnalytics::create([
+        PropertyAnalytic::create([
             'property_id' => $property->id,
             'event_type' => 'view',
             'user_id' => Auth::id(),
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
-            'country' => request()->header('CF-IPCountry') ?? null,
         ]);
 
         // Increment view count
-        $property->increment('views_count');
+        $property->increment('views');
 
-        return new PropertyResource($property->load(['user', 'category', 'upsells']));
+        return new PropertyResource($property->load(['user']));
     }
 
     public function store(PropertyStoreRequest $request): PropertyResource
@@ -154,7 +157,7 @@ class PropertyController extends Controller
 
             DB::commit();
 
-            return new PropertyResource($property->load(['user', 'category']));
+            return new PropertyResource($property->load(['user']));
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -207,7 +210,7 @@ class PropertyController extends Controller
 
             DB::commit();
 
-            return new PropertyResource($property->load(['user', 'category']));
+            return new PropertyResource($property->load(['user']));
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -253,7 +256,7 @@ class PropertyController extends Controller
 
     public function myProperties(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user', 'category'])
+        $properties = Property::with(['user'])
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->paginate($request->get('per_page', 12));
@@ -265,15 +268,15 @@ class PropertyController extends Controller
     {
         $user = Auth::user();
 
-        $saved = $user->savedProperties()->where('property_id', $property->id)->first();
+        $saved = $property->favourites()->where('user_id', $user->id)->first();
 
         if ($saved) {
             // Unsave
             $saved->delete();
-            $property->decrement('saves_count');
+            $property->decrement('saves');
 
             // Track analytics
-            PropertyAnalytics::create([
+            PropertyAnalytic::create([
                 'property_id' => $property->id,
                 'event_type' => 'save',
                 'user_id' => $user->id,
@@ -285,11 +288,11 @@ class PropertyController extends Controller
             return response()->json(['message' => 'Property removed from saved list']);
         } else {
             // Save
-            $user->savedProperties()->create(['property_id' => $property->id]);
-            $property->increment('saves_count');
+            $property->favourites()->create(['user_id' => $user->id]);
+            $property->increment('saves');
 
             // Track analytics
-            PropertyAnalytics::create([
+            PropertyAnalytic::create([
                 'property_id' => $property->id,
                 'event_type' => 'save',
                 'user_id' => $user->id,
@@ -305,8 +308,8 @@ class PropertyController extends Controller
     public function savedProperties(Request $request): PropertyCollection
     {
         $properties = Auth::user()
-            ->savedProperties()
-            ->with('property.user', 'property.category')
+            ->favourites()
+            ->with('property.user')
             ->get()
             ->pluck('property');
 
@@ -329,7 +332,7 @@ class PropertyController extends Controller
         ]);
 
         // Track analytics
-        PropertyAnalytics::create([
+        PropertyAnalytic::create([
             'property_id' => $property->id,
             'event_type' => 'contact_agent',
             'user_id' => Auth::id(),
@@ -342,7 +345,7 @@ class PropertyController extends Controller
         ]);
 
         // Increment inquiry count
-        $property->increment('inquiries_count');
+        $property->increment('enquiries');
 
         // TODO: Send email notification to property owner
         // TODO: Send confirmation email to user
@@ -357,7 +360,7 @@ class PropertyController extends Controller
             'metadata' => 'nullable|array',
         ]);
 
-        PropertyAnalytics::create([
+        PropertyAnalytic::create([
             'property_id' => $property->id,
             'event_type' => $request->event_type,
             'user_id' => Auth::id(),

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('service_addons', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('service_id');
+            $table->foreignId('service_id')->constrained()->onDelete('cascade');
             $table->string('title');
             $table->text('description')->nullable();
             $table->decimal('price', 10, 2);

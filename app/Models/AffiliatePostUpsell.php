@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AffiliatePostUpsell extends Model
 {
@@ -13,48 +14,51 @@ class AffiliatePostUpsell extends Model
     protected $table = 'affiliate_post_upsells';
 
     protected $fillable = [
-        'affiliate_post_id',
-        'upsell_plan_id',
-        'customer_id',
+        'user_id',
+        'affiliate_upsell_plan_id',
+        'affiliatable_id',
+        'affiliatable_type',
         'amount_paid',
-        'currency',
-        'payment_method',
-        'transaction_id',
         'payment_status',
+        'payment_transaction_id',
+        'payment_method',
+        'paid_at',
         'starts_at',
-        'ends_at',
+        'expires_at',
         'is_active',
+        'admin_notes',
     ];
 
     protected $casts = [
         'amount_paid' => 'decimal:2',
+        'paid_at' => 'datetime',
         'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
+        'expires_at' => 'datetime',
         'is_active' => 'boolean',
     ];
 
     /**
-     * Get the affiliate post that owns the upsell.
+     * Get the user that owns the upsell.
      */
-    public function affiliatePost(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(AffiliatePost::class);
+        return $this->belongsTo(User::class);
     }
 
     /**
      * Get the upsell plan for this post upsell.
      */
-    public function upsellPlan(): BelongsTo
+    public function affiliateUpsellPlan(): BelongsTo
     {
-        return $this->belongsTo(AffiliateUpsellPlan::class, 'upsell_plan_id');
+        return $this->belongsTo(AffiliateUpsellPlan::class);
     }
 
     /**
-     * Get the customer that owns the upsell.
+     * Get the affiliatable model (business offer or user post).
      */
-    public function customer(): BelongsTo
+    public function affiliatable(): MorphTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->morphTo();
     }
 
     /**
@@ -65,7 +69,7 @@ class AffiliatePostUpsell extends Model
         return $query->where('is_active', true)
                     ->where('payment_status', 'paid')
                     ->where('starts_at', '<=', now())
-                    ->where('ends_at', '>', now());
+                    ->where('expires_at', '>', now());
     }
 
     /**
@@ -93,8 +97,8 @@ class AffiliatePostUpsell extends Model
                $this->payment_status === 'paid' &&
                $this->starts_at && 
                $this->starts_at->isPast() &&
-               $this->ends_at && 
-               $this->ends_at->isFuture();
+               $this->expires_at && 
+               $this->expires_at->isFuture();
     }
 
     /**
@@ -102,7 +106,7 @@ class AffiliatePostUpsell extends Model
      */
     public function getFormattedAmountPaidAttribute()
     {
-        return $this->currency . ' ' . number_format($this->amount_paid, 2);
+        return '$' . number_format($this->amount_paid, 2);
     }
 
     /**
@@ -110,11 +114,11 @@ class AffiliatePostUpsell extends Model
      */
     public function getDurationInDaysAttribute()
     {
-        if (!$this->starts_at || !$this->ends_at) {
+        if (!$this->starts_at || !$this->expires_at) {
             return null;
         }
         
-        return $this->starts_at->diffInDays($this->ends_at);
+        return $this->starts_at->diffInDays($this->expires_at);
     }
 
     /**
@@ -122,11 +126,11 @@ class AffiliatePostUpsell extends Model
      */
     public function getDaysRemainingAttribute()
     {
-        if (!$this->ends_at) {
+        if (!$this->expires_at) {
             return null;
         }
         
-        return max(0, now()->diffInDays($this->ends_at));
+        return max(0, now()->diffInDays($this->expires_at));
     }
 
     /**
@@ -134,11 +138,11 @@ class AffiliatePostUpsell extends Model
      */
     public function getIsExpiringSoonAttribute()
     {
-        if (!$this->ends_at) {
+        if (!$this->expires_at) {
             return false;
         }
         
-        return now()->diffInDays($this->ends_at) <= 7;
+        return now()->diffInDays($this->expires_at) <= 7;
     }
 
     /**
@@ -153,20 +157,21 @@ class AffiliatePostUpsell extends Model
                 $upsell->starts_at = now();
             }
             
-            if (!$upsell->ends_at && $upsell->upsellPlan) {
-                $plan = $upsell->upsellPlan;
-                $upsell->ends_at = now()->add("{$plan->duration_value} {$plan->duration_type}");
+            if (!$upsell->expires_at && $upsell->affiliateUpsellPlan) {
+                $plan = $upsell->affiliateUpsellPlan;
+                $upsell->expires_at = now()->addDays($plan->duration_days);
             }
         });
 
         static::updating(function ($upsell) {
             if ($upsell->isDirty('payment_status') && $upsell->payment_status === 'paid' && !$upsell->is_active) {
                 $upsell->is_active = true;
+                $upsell->paid_at = now();
                 $upsell->starts_at = now();
                 
-                if ($upsell->upsellPlan && !$upsell->ends_at) {
-                    $plan = $upsell->upsellPlan;
-                    $upsell->ends_at = now()->add("{$plan->duration_value} {$plan->duration_type}");
+                if ($upsell->affiliateUpsellPlan && !$upsell->expires_at) {
+                    $plan = $upsell->affiliateUpsellPlan;
+                    $upsell->expires_at = now()->addDays($plan->duration_days);
                 }
             }
         });

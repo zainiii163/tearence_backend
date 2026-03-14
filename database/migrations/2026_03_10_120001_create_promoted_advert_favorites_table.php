@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('promoted_advert_favorites', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('promoted_advert_id');
+            $table->foreignId('promoted_advert_id')->constrained()->onDelete('cascade');
             $table->unsignedInteger('user_id');
             $table->timestamps();
             

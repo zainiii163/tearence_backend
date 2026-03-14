@@ -26,39 +26,27 @@ class DatabaseSeeder extends Seeder
             // Ad pricing plans (before content that uses them)
             AdPricingPlansSeeder::class,
             
-            // User and group seeders
-            GroupSeeder::class,
-            AdminUserSeeder::class,
-            DashboardPermissionSeeder::class,
+            // Buy & Sell marketplace seeders
+            BuySellCategorySeeder::class,
+            BuySellPromotionPlanSeeder::class,
+            BuySellAdvertSeeder::class,
             
-            // Customer and related seeders
-            CustomerSeeder::class,
-            LocationSeeder::class,
-            CustomerBusinessSeeder::class,
-            CustomerStoreSeeder::class,
+            // Books marketplace seeders
+            PricingPlanSeeder::class,
+            BookAdvertSeeder::class,
             
-            // Campaign and donor seeders
-            CampaignSeeder::class,
-            DonorSeeder::class,
-            
-            // Content seeders
-            BannerSeeder::class,
-            AffiliateLinksSeeder::class,
-            BooksAuthorsSeeder::class,
-            BooksSeeder::class,
-            BlogSeeder::class,
-            AdvertisementSeeder::class,
-            
-            // New comprehensive seeders
+            // Services Marketplace System
+            ServiceCategorySeeder::class,
             ServiceSeeder::class,
-            VehicleSeeder::class,
-            BannerAdsSeeder::class,
-            AffiliateSeeder::class,
-            FundingSeeder::class,
-            ResortsTravelSeeder::class,
-            JobsSeeder::class,
-            PropertySeeder::class,
-            SponsoredAdvertsSeeder::class,
+            
+            // Sponsored Adverts System
+            SponsoredCategorySeeder::class,
+            SponsoredPricingPlanSeeder::class,
+            SponsoredAdvertSeeder::class,
+            
+            // Banner Adverts System
+            BannerCategorySeeder::class,
+            BannerAdSeeder::class,
             
             // Listing and job-related seeders
             SampleListingsSeeder::class,

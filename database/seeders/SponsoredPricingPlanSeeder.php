@@ -1,6 +1,9 @@
 <?php
 
+namespace Database\Seeders;
+
 use Illuminate\Database\Seeder;
+use App\Models\SponsoredPricingPlan;
 
 class SponsoredPricingPlanSeeder extends Seeder
 {
@@ -11,57 +14,77 @@ class SponsoredPricingPlanSeeder extends Seeder
     {
         $plans = [
             [
-                'name' => 'Sponsored Basic',
-                'tier' => 'basic',
+                'name' => 'Free',
+                'slug' => 'free',
+                'price' => 0.00,
+                'currency' => 'USD',
+                'duration_days' => 30,
+                'features' => json_encode([
+                    'Basic listing on sponsored page',
+                    'Standard visibility',
+                    'Up to 5 images',
+                ]),
+                'active' => true,
+                'recommended' => false,
+                'visibility_multiplier' => 1,
+            ],
+            [
+                'name' => 'Promoted',
+                'slug' => 'promoted',
                 'price' => 29.99,
-                'currency' => 'GBP',
+                'currency' => 'USD',
                 'duration_days' => 30,
-                'description' => 'Get started with sponsored advertising and reach more customers with enhanced visibility.',
-                'features' => \App\Models\SponsoredPricingPlan::getDefaultFeatures()['basic'],
-                'visibility_settings' => \App\Models\SponsoredPricingPlan::getDefaultVisibilitySettings()['basic'],
-                'badge_settings' => \App\Models\SponsoredPricingPlan::getDefaultBadgeSettings()['basic'],
-                'placement_settings' => \App\Models\SponsoredPricingPlan::getDefaultPlacementSettings()['basic'],
-                'promotion_settings' => \App\Models\SponsoredPricingPlan::getDefaultPromotionSettings()['basic'],
-                'is_active' => true,
-                'is_featured' => false,
-                'sort_order' => 1,
+                'features' => json_encode([
+                    'Enhanced visibility',
+                    'Priority in search results',
+                    'Larger advert card',
+                    'Up to 10 images',
+                    'Basic analytics',
+                ]),
+                'active' => true,
+                'recommended' => false,
+                'visibility_multiplier' => 2,
             ],
             [
-                'name' => 'Sponsored Plus',
-                'tier' => 'plus',
-                'price' => 59.99,
-                'currency' => 'GBP',
+                'name' => 'Featured',
+                'slug' => 'featured',
+                'price' => 49.99,
+                'currency' => 'USD',
                 'duration_days' => 30,
-                'description' => 'Enhanced visibility with priority placement and larger advert cards for maximum impact.',
-                'features' => \App\Models\SponsoredPricingPlan::getDefaultFeatures()['plus'],
-                'visibility_settings' => \App\Models\SponsoredPricingPlan::getDefaultVisibilitySettings()['plus'],
-                'badge_settings' => \App\Models\SponsoredPricingPlan::getDefaultBadgeSettings()['plus'],
-                'placement_settings' => \App\Models\SponsoredPricingPlan::getDefaultPlacementSettings()['plus'],
-                'promotion_settings' => \App\Models\SponsoredPricingPlan::getDefaultPromotionSettings()['plus'],
-                'is_active' => true,
-                'is_featured' => true,
-                'sort_order' => 2,
+                'features' => json_encode([
+                    'Top placement in category',
+                    'Homepage carousel inclusion',
+                    'Featured badge',
+                    'Advanced analytics',
+                    'Up to 15 images',
+                ]),
+                'active' => true,
+                'recommended' => true,
+                'visibility_multiplier' => 3,
             ],
             [
-                'name' => 'Sponsored Premium',
-                'tier' => 'premium',
+                'name' => 'Sponsored',
+                'slug' => 'sponsored',
                 'price' => 99.99,
-                'currency' => 'GBP',
+                'currency' => 'USD',
                 'duration_days' => 30,
-                'description' => 'Maximum visibility across the platform with homepage placement and social media promotion.',
-                'features' => \App\Models\SponsoredPricingPlan::getDefaultFeatures()['premium'],
-                'visibility_settings' => \App\Models\SponsoredPricingPlan::getDefaultVisibilitySettings()['premium'],
-                'badge_settings' => \App\Models\SponsoredPricingPlan::getDefaultBadgeSettings()['premium'],
-                'placement_settings' => \App\Models\SponsoredPricingPlan::getDefaultPlacementSettings()['premium'],
-                'promotion_settings' => \App\Models\SponsoredPricingPlan::getDefaultPromotionSettings()['premium'],
-                'is_active' => true,
-                'is_featured' => true,
-                'sort_order' => 3,
+                'features' => json_encode([
+                    'Homepage placement',
+                    'Maximum visibility across platform',
+                    'Social media promotion',
+                    'Premium sponsored badge',
+                    'Unlimited images',
+                    'Comprehensive analytics',
+                    'Dedicated support',
+                ]),
+                'active' => true,
+                'recommended' => false,
+                'visibility_multiplier' => 5,
             ],
         ];
 
         foreach ($plans as $plan) {
-            \App\Models\SponsoredPricingPlan::create($plan);
+            SponsoredPricingPlan::create($plan);
         }
     }
 }

@@ -151,9 +151,9 @@ class VehicleCategoryResource extends Resource
     public static function getPages(): array
     {
         return [
-            // 'index' => Pages\ListVehicleCategories::route('/'),
-            // 'create' => Pages\CreateVehicleCategory::route('/create'),
-            // 'edit' => Pages\EditVehicleCategory::route('/{record}/edit'),
+            'index' => Pages\ListVehicleCategories::route('/'),
+            'create' => Pages\CreateVehicleCategory::route('/create'),
+            'edit' => Pages\EditVehicleCategory::route('/{record}/edit'),
         ];
     }
 }

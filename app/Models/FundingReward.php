@@ -19,52 +19,39 @@ class FundingReward extends Model
         'limit',
         'claimed_count',
         'estimated_delivery_date',
+        'sort_order',
         'is_active',
     ];
 
     protected $casts = [
         'minimum_contribution' => 'decimal:2',
-        'estimated_delivery_date' => 'date',
         'is_active' => 'boolean',
+        'estimated_delivery_date' => 'date',
     ];
-
-    public function getRemainingSlotsAttribute(): int
-    {
-        if ($this->limit === null) return -1; // Unlimited
-        return max(0, $this->limit - $this->claimed_count);
-    }
-
-    public function getIsSoldOutAttribute(): bool
-    {
-        return $this->limit !== null && $this->claimed_count >= $this->limit;
-    }
 
     public function fundingProject(): BelongsTo
     {
         return $this->belongsTo(FundingProject::class);
     }
 
-    public function backers(): HasMany
+    public function pledges(): HasMany
     {
-        return $this->hasMany(FundingBacker::class);
+        return $this->hasMany(FundingPledge::class);
     }
 
-    public function scopeActive($query)
+    public function isLimitReached(): bool
     {
-        return $query->where('is_active', true);
+        if ($this->limit === null) {
+            return false;
+        }
+        return $this->claimed_count >= $this->limit;
     }
 
-    public function scopeAvailable($query)
+    public function getAvailableCountAttribute(): int
     {
-        return $query->where(function ($q) {
-            $q->whereNull('limit')
-              ->orWhereRaw('claimed_count < limit');
-        });
-    }
-
-    public function scopeByContribution($query, $amount)
-    {
-        return $query->where('minimum_contribution', '<=', $amount)
-                    ->orderBy('minimum_contribution', 'desc');
+        if ($this->limit === null) {
+            return PHP_INT_MAX;
+        }
+        return max(0, $this->limit - $this->claimed_count);
     }
 }

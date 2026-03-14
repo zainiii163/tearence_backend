@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JobCategory extends Model
 {
@@ -14,25 +15,45 @@ class JobCategory extends Model
         'slug',
         'description',
         'icon',
-        'color',
-        'is_active',
-        'sort_order',
-        'jobs_count',
+        'trending',
+        'job_count',
+        'active',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'jobs_count' => 'integer',
+        'trending' => 'boolean',
+        'active' => 'boolean',
+        'job_count' => 'integer',
     ];
 
-    public function jobs()
+    public function jobs(): HasMany
     {
         return $this->hasMany(Job::class);
     }
 
-    public function activeJobs()
+    public function activeJobs(): HasMany
     {
-        return $this->hasMany(Job::class)->where('is_active', true);
+        return $this->hasMany(Job::class)->where('status', 'active');
+    }
+
+    public function jobAlerts(): HasMany
+    {
+        return $this->hasMany(JobAlert::class);
+    }
+
+    public function getActiveJobsCountAttribute(): int
+    {
+        return $this->activeJobs()->count();
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('active', true);
+    }
+
+    public function scopeTrending($query)
+    {
+        return $query->where('trending', true);
     }
 
     public function getRouteKeyName()
