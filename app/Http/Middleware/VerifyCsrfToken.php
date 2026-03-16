@@ -15,5 +15,6 @@ class VerifyCsrfToken extends Middleware
         'api/v1/auth/web-login',
         'api/v1/auth/web-logout',
         'api/v1/auth/web-check',
+        'api/v1/cors-test',
     ];
 }

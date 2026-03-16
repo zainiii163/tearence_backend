@@ -44,6 +44,10 @@ return [
             'driver' => 'jwt',
             'provider' => 'customers',
         ],
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'customers',
+        ],
         'admin' => [
             'driver' => 'jwt',
             'provider' => 'users',

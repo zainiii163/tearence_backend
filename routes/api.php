@@ -138,6 +138,8 @@ use App\Http\Controllers\Api\JobSeekerController;
 
 use App\Http\Controllers\Api\SponsoredAdvertController;
 
+use App\Http\Controllers\Api\SponsoredCategoryController;
+
 use App\Http\Controllers\Api\SponsoredPricingPlanController;
 
 use App\Http\Controllers\Api\FeaturedAdvertController;
@@ -149,6 +151,8 @@ use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\PropertyUpsellController;
 
 use App\Http\Controllers\Api\BuySellController;
+
+use App\Http\Controllers\Api\BuySellUploadController;
 
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
 
@@ -251,19 +255,12 @@ Route::group([
 
 
     // CORS test endpoint
-
     Route::get('/cors-test', function () {
-
         return response()->json([
-
-            'message' => 'CORS test successful',
-
-            'timestamp' => now(),
-
-            'origin' => request()->header('Origin')
-
+            'message' => 'CORS is working',
+            'origin' => request()->header('Origin'),
+            'timestamp' => now()->toISOString()
         ]);
-
     });
 
 
@@ -2170,56 +2167,7 @@ Route::group([
 
 
 
-    // Jobs System
-
-    Route::group(['prefix' => 'jobs'], function () {
-
-        // Public routes
-
-        Route::get('/', [JobController::class, 'index']);
-
-        Route::get('/featured', [JobController::class, 'featuredJobs']);
-
-        Route::get('/sponsored', [JobController::class, 'sponsoredJobs']);
-
-        Route::get('/urgent', [JobController::class, 'urgentJobs']);
-
-        Route::get('/remote', [JobController::class, 'remoteJobs']);
-
-        Route::get('/trending', [JobController::class, 'trendingJobs']);
-
-        Route::get('/live-activity', [JobController::class, 'liveActivityFeed']);
-
-        Route::get('/{slug}', [JobController::class, 'show']);
-
-
-
-        // Authenticated routes
-
-        Route::group(['middleware' => 'auth:api'], function () {
-
-            Route::post('/', [JobController::class, 'store']);
-
-            Route::put('/{id}', [JobController::class, 'update']);
-
-            Route::delete('/{id}', [JobController::class, 'destroy']);
-
-            Route::get('/my-jobs', [JobController::class, 'myJobs']);
-
-            Route::get('/statistics', [JobController::class, 'statistics']);
-
-            Route::post('/{jobId}/apply', [JobController::class, 'apply']);
-
-            Route::get('/my-applications', [JobController::class, 'myApplications']);
-
-            Route::get('/{jobId}/applications', [JobController::class, 'jobApplications']);
-
-            Route::put('/applications/{applicationId}/status', [JobController::class, 'updateApplicationStatus']);
-
-        });
-
-    });
-
+    
 
 
     // Job Categories
@@ -2298,7 +2246,9 @@ Route::group([
         
         // Public routes
         Route::get('/stats', [SponsoredAdvertController::class, 'stats']);
+        Route::get('/homepage-stats', [SponsoredAdvertController::class, 'stats']); // Alias for frontend compatibility
         Route::get('/activity', [SponsoredAdvertController::class, 'activity']);
+        Route::get('/live-activity', [SponsoredAdvertController::class, 'activity']); // Alias for frontend compatibility
         Route::get('/categories', [SponsoredCategoryController::class, 'index']);
         Route::get('/adverts', [SponsoredAdvertController::class, 'index']);
         Route::get('/adverts/search', [SponsoredAdvertController::class, 'search']);
@@ -2322,6 +2272,34 @@ Route::group([
             Route::post('/categories', [SponsoredCategoryController::class, 'store']);
             Route::put('/categories/{id}', [SponsoredCategoryController::class, 'update']);
             Route::delete('/categories/{id}', [SponsoredCategoryController::class, 'destroy']);
+        });
+
+    });
+
+    // Sponsored Adverts System - Frontend Compatibility Route
+    // This provides the /sponsored-adverts prefix that the frontend expects
+    Route::group(['prefix' => 'sponsored-adverts'], function () {
+        
+        // Public routes - map to same controllers
+        Route::get('/homepage-stats', [SponsoredAdvertController::class, 'stats']);
+        Route::get('/live-activity', [SponsoredAdvertController::class, 'activity']);
+        Route::get('/categories', [SponsoredCategoryController::class, 'index']);
+        Route::get('/', [SponsoredAdvertController::class, 'index']);
+        Route::get('/search', [SponsoredAdvertController::class, 'search']);
+        Route::get('/featured', [SponsoredAdvertController::class, 'featured']);
+        Route::get('/category/{slug}', [SponsoredAdvertController::class, 'byCategory']);
+        Route::get('/{id}', [SponsoredAdvertController::class, 'show']);
+
+        // Authenticated routes
+        Route::group(['middleware' => 'auth:api'], function () {
+            Route::post('/', [SponsoredAdvertController::class, 'store']);
+            Route::put('/{id}', [SponsoredAdvertController::class, 'update']);
+            Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
+            Route::get('/my-adverts', [SponsoredAdvertController::class, 'userAdverts']);
+            Route::post('/{advertId}/save', [SponsoredAdvertController::class, 'save']);
+            Route::get('/saved', [SponsoredAdvertController::class, 'saved']);
+            Route::post('/{advertId}/track', [SponsoredAdvertController::class, 'track']);
+            Route::get('/{advertId}/analytics', [SponsoredAdvertController::class, 'analytics']);
         });
 
     });
@@ -2674,128 +2652,10 @@ Route::group([
 
 
 
-    // Jobs & Vacancies API
+    
 
-    Route::group(['prefix' => 'jobs', 'middleware' => 'auth:api'], function () {
 
-        // Job Listings
-
-        Route::get('/', [JobListingController::class, 'index']);
-
-        Route::get('/stats', [JobListingController::class, 'stats']);
-
-        Route::get('/categories', [JobListingController::class, 'categories']);
-
-        Route::get('/my-jobs', [JobListingController::class, 'myJobs']);
-
-        Route::get('/saved', [JobListingController::class, 'savedJobs']);
-
-        Route::post('/', [JobListingController::class, 'store']);
-
-        Route::get('/{jobListing}', [JobListingController::class, 'show']);
-
-        Route::put('/{jobListing}', [JobListingController::class, 'update']);
-
-        Route::delete('/{jobListing}', [JobListingController::class, 'destroy']);
-
-        Route::post('/{jobListing}/save', [JobListingController::class, 'saveJob']);
-
-        Route::delete('/{jobListing}/save', [JobListingController::class, 'unsaveJob']);
-
-
-
-        // Job Applications
-
-        Route::get('/applications', [JobApplicationController::class, 'index']);
-
-        Route::get('/applications/stats', [JobApplicationController::class, 'stats']);
-
-        Route::post('/{jobListing}/apply', [JobApplicationController::class, 'store']);
-
-        Route::get('/applications/{jobApplication}', [JobApplicationController::class, 'show']);
-
-        Route::put('/applications/{jobApplication}/status', [JobApplicationController::class, 'updateStatus']);
-
-        Route::delete('/applications/{jobApplication}', [JobApplicationController::class, 'destroy']);
-
-
-
-        // Job Seekers
-
-        Route::get('/seekers', [ApiJobSeekerController::class, 'index']);
-
-        Route::get('/seekers/stats', [ApiJobSeekerController::class, 'stats']);
-
-        Route::get('/seekers/my-profile', [ApiJobSeekerController::class, 'myProfile']);
-
-        Route::post('/seekers', [ApiJobSeekerController::class, 'store']);
-
-        Route::get('/seekers/{jobSeeker}', [ApiJobSeekerController::class, 'show']);
-
-        Route::put('/seekers/{jobSeeker}', [ApiJobSeekerController::class, 'update']);
-
-        Route::delete('/seekers/{jobSeeker}', [ApiJobSeekerController::class, 'destroy']);
-
-
-
-        // Job Upsells
-
-        Route::get('/upsells', [ApiJobUpsellController::class, 'index']);
-
-        Route::get('/upsells/pricing', [ApiJobUpsellController::class, 'pricing']);
-
-        Route::get('/upsells/stats', [ApiJobUpsellController::class, 'stats']);
-
-        Route::post('/upsells', [ApiJobUpsellController::class, 'store']);
-
-        Route::get('/upsells/{jobUpsell}', [ApiJobUpsellController::class, 'show']);
-
-        Route::post('/upsells/{jobUpsell}/activate', [ApiJobUpsellController::class, 'activate']);
-
-        Route::post('/upsells/{jobUpsell}/cancel', [ApiJobUpsellController::class, 'cancel']);
-
-
-
-        // Job Alerts
-
-        Route::get('/alerts', [ApiJobAlertController::class, 'index']);
-
-        Route::get('/alerts/stats', [ApiJobAlertController::class, 'stats']);
-
-        Route::post('/alerts', [ApiJobAlertController::class, 'store']);
-
-        Route::get('/alerts/{jobAlert}', [ApiJobAlertController::class, 'show']);
-
-        Route::put('/alerts/{jobAlert}', [ApiJobAlertController::class, 'update']);
-
-        Route::post('/alerts/{jobAlert}/test', [ApiJobAlertController::class, 'test']);
-
-        Route::post('/alerts/send', [ApiJobAlertController::class, 'sendAlerts']);
-
-    });
-
-
-
-    // Public Job Routes (no auth required)
-
-    Route::group(['prefix' => 'public/jobs'], function () {
-
-        Route::get('/', [JobListingController::class, 'index']);
-
-        Route::get('/stats', [JobListingController::class, 'stats']);
-
-        Route::get('/categories', [JobListingController::class, 'categories']);
-
-        Route::get('/{jobListing}', [JobListingController::class, 'show']);
-
-        Route::get('/seekers', [ApiJobSeekerController::class, 'index']);
-
-        Route::get('/seekers/stats', [ApiJobSeekerController::class, 'stats']);
-
-        Route::get('/seekers/{jobSeeker}', [ApiJobSeekerController::class, 'show']);
-
-    });
-
+    
 
 
     // Buy & Sell API (comprehensive system)
