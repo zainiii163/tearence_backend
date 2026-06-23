@@ -55,11 +55,13 @@ class ServiceResource extends Resource
                         Forms\Components\Textarea::make('description')
                             ->required()
                             ->columnSpanFull(),
-                        Forms\Components\Textarea::make('whats_included')
+                        Forms\Components\TagsInput::make('whats_included')
                             ->label('What\'s Included')
+                            ->placeholder('Add item')
                             ->columnSpanFull(),
-                        Forms\Components\Textarea::make('whats_not_included')
+                        Forms\Components\TagsInput::make('whats_not_included')
                             ->label('What\'s Not Included')
+                            ->placeholder('Add item')
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('requirements')
                             ->label('Requirements from Buyer')
@@ -81,17 +83,16 @@ class ServiceResource extends Resource
                             ->prefix('$')
                             ->required(),
                         Forms\Components\Select::make('currency')
-                            ->options([
-                                'USD' => 'USD',
-                                'EUR' => 'EUR',
-                                'GBP' => 'GBP',
-                            ])
+                            ->options(\App\Support\ServiceFormHelper::CURRENCIES)
                             ->default('USD')
                             ->required(),
                         Forms\Components\TextInput::make('delivery_time')
                             ->numeric()
-                            ->suffix('days')
-                            ->required(),
+                            ->suffix('days'),
+                        Forms\Components\TagsInput::make('languages')
+                            ->label('Languages Spoken')
+                            ->placeholder('Add language')
+                            ->columnSpanFull(),
                         Forms\Components\Select::make('country')
                             ->options(fn () => \App\Models\Country::pluck('name', 'name'))
                             ->searchable()
@@ -114,21 +115,12 @@ class ServiceResource extends Resource
                 Forms\Components\Section::make('Status & Promotion')
                     ->schema([
                         Forms\Components\Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'pending' => 'Pending',
-                                'suspended' => 'Suspended',
-                            ])
+                            ->options(\App\Support\ServiceFormHelper::STATUSES)
+                            ->default('draft')
                             ->required(),
                         Forms\Components\Select::make('promotion_type')
-                            ->options([
-                                '' => 'No Promotion',
-                                'promoted' => 'Promoted',
-                                'featured' => 'Featured',
-                                'sponsored' => 'Sponsored',
-                                'network_boost' => 'Network Boost',
-                            ]),
+                            ->options(\App\Support\ServiceFormHelper::PROMOTION_TYPES)
+                            ->default('standard'),
                         Forms\Components\DateTimePicker::make('promotion_expires_at')
                             ->label('Promotion Expires At'),
                         Forms\Components\Toggle::make('is_verified')

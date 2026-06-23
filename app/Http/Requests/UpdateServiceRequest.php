@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ServiceFormHelper;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateServiceRequest extends FormRequest
@@ -19,18 +20,26 @@ class UpdateServiceRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
+    protected function prepareForValidation(): void
+    {
+        ServiceFormHelper::normalizeRequestLists($this);
+    }
+
     public function rules(): array
     {
         return [
+            'category_id' => 'sometimes|required|exists:service_categories,id',
             'title' => 'sometimes|required|string|max:255',
-            'tagline' => 'nullable|string|max:255',
+            'tagline' => 'nullable|string|max:80',
             'description' => 'sometimes|required|string|min:50',
             'whats_included' => 'nullable|array',
             'whats_included.*' => 'string|max:255',
             'whats_not_included' => 'nullable|array',
             'whats_not_included.*' => 'string|max:255',
             'requirements' => 'nullable|string|max:1000',
+            'service_type' => 'sometimes|in:freelance,local,business',
             'starting_price' => 'sometimes|required|numeric|min:0|max:999999.99',
+            'currency' => 'sometimes|required|string|size:3|in:USD,GBP,EUR,JPY,AUD,CAD',
             'delivery_time' => 'nullable|integer|min:1|max:365',
             'availability' => 'nullable|array',
             'availability.monday' => 'boolean',
@@ -47,6 +56,17 @@ class UpdateServiceRequest extends FormRequest
             'service_area_radius' => 'nullable|integer|min:0|max:1000',
             'languages' => 'nullable|array',
             'languages.*' => 'string|max:50',
+            'status' => 'sometimes|in:draft,active,paused,suspended',
+            'promotion_type' => 'nullable|in:standard,promoted,featured,sponsored,network_boost',
+            'packages' => 'nullable|array|max:5',
+            'packages.*.name' => 'required|string|max:255',
+            'packages.*.description' => 'required|string|max:1000',
+            'packages.*.price' => 'required|numeric|min:0|max:999999.99',
+            'packages.*.delivery_time' => 'required|integer|min:1|max:365',
+            'packages.*.features' => 'nullable|array|max:10',
+            'packages.*.features.*' => 'string|max:255',
+            'packages.*.revisions' => 'nullable|integer|min:0|max:20',
+            'packages.*.sort_order' => 'nullable|integer|min:0|max:10',
         ];
     }
 

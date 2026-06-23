@@ -298,12 +298,5 @@ class Job extends Model
                 $job->slug = str()->slug($job->title) . '-' . uniqid();
             }
         });
-
-        static::deleting(function ($job) {
-            $job->applications()->delete();
-            $job->saves()->delete();
-            $job->views()->delete();
-            $job->upsells()->delete();
-        });
     }
 }

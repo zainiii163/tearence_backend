@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ServiceFormHelper;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceRequest extends FormRequest
@@ -19,19 +20,24 @@ class StoreServiceRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
+    protected function prepareForValidation(): void
+    {
+        ServiceFormHelper::normalizeRequestLists($this);
+    }
+
     public function rules(): array
     {
         return [
-            'category_id' => 'required|exists:ea_service_categories,id',
+            'category_id' => 'required|exists:service_categories,id',
             'title' => 'required|string|max:255',
-            'tagline' => 'nullable|string|max:255',
+            'tagline' => 'nullable|string|max:80',
             'description' => 'required|string|min:50',
             'whats_included' => 'nullable|array',
             'whats_included.*' => 'string|max:255',
             'whats_not_included' => 'nullable|array',
             'whats_not_included.*' => 'string|max:255',
             'requirements' => 'nullable|string|max:1000',
-            'service_type' => 'required|in:freelance,local,business',
+            'service_type' => 'nullable|in:freelance,local,business',
             'starting_price' => 'required|numeric|min:0|max:999999.99',
             'currency' => 'required|string|size:3|in:USD,GBP,EUR,JPY,AUD,CAD',
             'delivery_time' => 'nullable|integer|min:1|max:365',
@@ -60,6 +66,7 @@ class StoreServiceRequest extends FormRequest
             'packages.*.revisions' => 'nullable|integer|min:0|max:20',
             'packages.*.sort_order' => 'nullable|integer|min:0|max:10',
             'promotion_type' => 'nullable|in:standard,promoted,featured,sponsored,network_boost',
+            'status' => 'nullable|in:draft,active,paused,suspended',
         ];
     }
 

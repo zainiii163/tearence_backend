@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,8 @@ class ServiceMedia extends Model
         'is_thumbnail' => 'boolean',
     ];
 
+    protected $appends = ['full_url'];
+
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
@@ -37,7 +40,7 @@ class ServiceMedia extends Model
 
     public function getFullUrlAttribute(): string
     {
-        return asset($this->file_path);
+        return MediaUrlHelper::resolve($this->file_path) ?? '';
     }
 
     public function scopeImages($query)

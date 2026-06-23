@@ -32,11 +32,7 @@ class PackagesRelationManager extends RelationManager
                     ->prefix('$')
                     ->required(),
                 Forms\Components\Select::make('currency')
-                    ->options([
-                        'USD' => 'USD',
-                        'EUR' => 'EUR',
-                        'GBP' => 'GBP',
-                    ])
+                    ->options(\App\Support\ServiceFormHelper::CURRENCIES)
                     ->default('USD')
                     ->required(),
                 Forms\Components\TextInput::make('delivery_time')

@@ -9,6 +9,7 @@ use App\Models\JobPricingPlan;
 use App\Models\JobSave;
 use App\Models\JobView;
 use App\Support\JobSchema;
+use App\Support\JobDeleteHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -569,12 +570,24 @@ class JobController extends Controller
             ], 404);
         }
 
-        $job->delete();
+        try {
+            JobDeleteHelper::deleteJob($job);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job deleted successfully',
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Job deleted successfully',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'DELETE_FAILED',
+                    'message' => 'Failed to delete job. Please try again.',
+                ],
+            ], 500);
+        }
     }
 
     /**

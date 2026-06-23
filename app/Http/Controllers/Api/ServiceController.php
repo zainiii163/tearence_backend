@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreServiceRequest;
+use App\Http\Requests\UpdateServiceRequest;
 use App\Models\Service;
 use App\Models\ServicePackage;
 use App\Models\ServiceCategory;
 use App\Models\ServiceProvider;
 use App\Models\ServiceMedia;
 use App\Models\ServiceAddon;
+use App\Support\ServiceFormHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -134,46 +137,10 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreServiceRequest $request): JsonResponse
     {
-        $request->validate([
-            'category_id' => 'required|exists:service_categories,id',
-            'title' => 'required|string|max:255',
-            'tagline' => 'nullable|string|max:255',
-            'description' => 'required|string',
-            'whats_included' => 'nullable|array',
-            'whats_not_included' => 'nullable|array',
-            'requirements' => 'nullable|string',
-            'service_type' => 'required|in:freelance,local,business',
-            'starting_price' => 'required|numeric|min:0',
-            'currency' => 'required|string|size:3',
-            'delivery_time' => 'nullable|integer|min:1',
-            'availability' => 'nullable|array',
-            'country' => 'required|string|max:100',
-            'city' => 'nullable|string|max:100',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'service_area_radius' => 'nullable|integer|min:0',
-            'languages' => 'nullable|array',
-            'packages' => 'nullable|array',
-            'packages.*.name' => 'required|string|max:255',
-            'packages.*.description' => 'required|string',
-            'packages.*.price' => 'required|numeric|min:0',
-            'packages.*.delivery_time' => 'required|integer|min:1',
-            'packages.*.features' => 'nullable|array',
-            'packages.*.revisions' => 'nullable|integer|min:0',
-            'packages.*.sort_order' => 'nullable|integer|min:0',
-            'addons' => 'nullable|array',
-            'addons.*.title' => 'required|string|max:255',
-            'addons.*.description' => 'nullable|string',
-            'addons.*.price' => 'required|numeric|min:0',
-            'addons.*.delivery_time' => 'nullable|integer|min:0',
-            'addons.*.features' => 'nullable|array',
-            'addons.*.sort_order' => 'nullable|integer|min:0',
-            'promotion_type' => 'nullable|in:standard,promoted,featured,sponsored,network_boost',
-        ]);
+        $attributes = ServiceFormHelper::buildAttributes($request);
 
-        // Create or update service provider
         $serviceProvider = ServiceProvider::firstOrCreate(
             ['user_id' => Auth::id()],
             [
@@ -185,55 +152,17 @@ class ServiceController extends Controller
             ]
         );
 
-        $service = Service::create([
+        $service = Service::create(array_merge($attributes, [
             'user_id' => Auth::id(),
             'service_provider_id' => $serviceProvider->id,
-            'category_id' => $request->category_id,
-            'title' => $request->title,
             'slug' => Str::slug($request->title) . '-' . time(),
-            'tagline' => $request->tagline,
-            'description' => $request->description,
-            'whats_included' => $request->whats_included,
-            'whats_not_included' => $request->whats_not_included,
-            'requirements' => $request->requirements,
-            'service_type' => $request->service_type,
-            'starting_price' => $request->starting_price,
-            'currency' => $request->currency,
-            'delivery_time' => $request->delivery_time,
-            'availability' => $request->availability,
-            'country' => $request->country,
-            'city' => $request->city,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'service_area_radius' => $request->service_area_radius,
-            'languages' => $request->languages,
-            'status' => 'draft',
-            'promotion_type' => $request->promotion_type ?? 'standard',
             'is_verified' => false,
-        ]);
+        ]));
 
-        // Create packages if provided
         if ($request->packages) {
-            $sortOrder = 0;
-            // Convert object to array if it's an associative array
-            $packages = is_array($request->packages) ? array_values($request->packages) : [];
-            foreach ($packages as $packageData) {
-                ServicePackage::create([
-                    'service_id' => $service->id,
-                    'name' => $packageData['name'],
-                    'description' => $packageData['description'],
-                    'price' => $packageData['price'],
-                    'currency' => $request->currency,
-                    'delivery_time' => $packageData['delivery_time'],
-                    'features' => $packageData['features'] ?? [],
-                    'revisions' => $packageData['revisions'] ?? 1,
-                    'sort_order' => $sortOrder++,
-                    'is_active' => true,
-                ]);
-            }
+            $this->syncPackages($service, $request->packages, $request->currency);
         }
 
-        // Create addons if provided
         if ($request->addons) {
             foreach ($request->addons as $index => $addonData) {
                 ServiceAddon::create([
@@ -253,11 +182,11 @@ class ServiceController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Service created successfully',
-            'data' => $service->load(['category', 'packages', 'addons']),
+            'data' => $service->load(['category', 'packages', 'addons', 'media']),
         ], 201);
     }
 
-    public function update(Request $request, Service $service): JsonResponse
+    public function update(UpdateServiceRequest $request, Service $service): JsonResponse
     {
         if ($service->user_id !== Auth::id()) {
             return response()->json([
@@ -266,30 +195,17 @@ class ServiceController extends Controller
             ], 403);
         }
 
-        $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'tagline' => 'nullable|string|max:255',
-            'description' => 'sometimes|required|string',
-            'whats_included' => 'nullable|array',
-            'whats_not_included' => 'nullable|array',
-            'requirements' => 'nullable|string',
-            'starting_price' => 'sometimes|required|numeric|min:0',
-            'delivery_time' => 'nullable|integer|min:1',
-            'availability' => 'nullable|array',
-            'country' => 'sometimes|required|string|max:100',
-            'city' => 'nullable|string|max:100',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-            'service_area_radius' => 'nullable|integer|min:0',
-            'languages' => 'nullable|array',
-        ]);
+        $attributes = ServiceFormHelper::buildAttributes($request, isUpdate: true);
+        $service->update($attributes);
 
-        $service->update($request->all());
+        if ($request->has('packages')) {
+            $this->syncPackages($service, $request->packages ?? [], $service->currency);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Service updated successfully',
-            'data' => $service,
+            'data' => $service->fresh(['category', 'packages', 'addons', 'media']),
         ]);
     }
 
@@ -312,7 +228,7 @@ class ServiceController extends Controller
 
     public function myServices(Request $request): JsonResponse
     {
-        $services = Service::with(['category', 'packages'])
+        $services = Service::with(['category', 'packages', 'media'])
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 10);
@@ -353,55 +269,138 @@ class ServiceController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|max:10240', // 10MB max
-            'type' => 'required|in:image,video,document',
+            'file' => 'required_without:files|file|max:10240|mimes:jpeg,png,jpg,gif,webp',
+            'files' => 'nullable|array|max:10',
+            'files.*' => 'file|max:10240|mimes:jpeg,png,jpg,gif,webp',
+            'type' => 'nullable|in:image,video,document',
             'caption' => 'nullable|string|max:255',
             'is_thumbnail' => 'boolean',
         ]);
 
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
+        $files = [];
+        if ($request->hasFile('files')) {
+            $files = $request->file('files');
+        } elseif ($request->hasFile('file')) {
+            $files = [$request->file('file')];
+        }
+
+        if ($files === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No file provided',
+            ], 400);
+        }
+
+        $uploaded = [];
+        $mediaType = $request->input('type', 'image');
+        $markFirstAsThumbnail = $request->boolean('is_thumbnail')
+            || ! ServiceMedia::where('service_id', $service->id)->where('is_thumbnail', true)->exists();
+
+        foreach ($files as $index => $file) {
             $path = $file->store('services/media', 'public');
-            
-            // If this is set as thumbnail, unset other thumbnails
-            if ($request->is_thumbnail) {
-                $service->media()->where('is_thumbnail', true)->update(['is_thumbnail' => false]);
+
+            $isThumbnail = $markFirstAsThumbnail && $index === 0;
+            if ($isThumbnail) {
+                ServiceMedia::where('service_id', $service->id)
+                    ->where('is_thumbnail', true)
+                    ->update(['is_thumbnail' => false]);
             }
-            
-            $media = $service->media()->create([
-                'type' => $request->type,
+
+            $uploaded[] = $service->media()->create([
+                'type' => $mediaType,
                 'file_path' => $path,
                 'file_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType(),
                 'file_size' => $file->getSize(),
                 'caption' => $request->caption,
-                'sort_order' => $service->media()->count() + 1,
-                'is_thumbnail' => $request->is_thumbnail ?? false,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Media uploaded successfully',
-                'data' => $media,
+                'sort_order' => ServiceMedia::where('service_id', $service->id)->count() + 1,
+                'is_thumbnail' => $isThumbnail,
             ]);
         }
 
         return response()->json([
-            'success' => false,
-            'message' => 'No file provided',
-        ], 400);
+            'success' => true,
+            'message' => count($uploaded) === 1 ? 'Media uploaded successfully' : count($uploaded) . ' files uploaded successfully',
+            'data' => count($uploaded) === 1 ? $uploaded[0] : $uploaded,
+        ]);
+    }
+
+    public function deleteMedia(Request $request, Service $service, ServiceMedia $media): JsonResponse
+    {
+        if ($service->user_id !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        if ((int) $media->service_id !== (int) $service->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Media not found for this service',
+            ], 404);
+        }
+
+        if ($media->file_path && Storage::disk('public')->exists($media->file_path)) {
+            Storage::disk('public')->delete($media->file_path);
+        }
+
+        $media->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Media deleted successfully',
+        ]);
     }
 
     public function getCategories(): JsonResponse
     {
         $categories = ServiceCategory::where('is_active', true)
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->map(fn (ServiceCategory $category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'icon' => $category->icon,
+                'sort_order' => $category->sort_order,
+                'label' => $category->name,
+            ]);
 
         return response()->json([
             'success' => true,
             'data' => $categories,
         ]);
+    }
+
+    public function getFormSchema(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => ServiceFormHelper::formSchema(),
+        ]);
+    }
+
+    private function syncPackages(Service $service, array $packages, string $currency): void
+    {
+        ServicePackage::where('service_id', $service->id)->delete();
+
+        $sortOrder = 0;
+        foreach (array_values($packages) as $packageData) {
+            ServicePackage::create([
+                'service_id' => $service->id,
+                'name' => $packageData['name'],
+                'description' => $packageData['description'],
+                'price' => $packageData['price'],
+                'currency' => $currency,
+                'delivery_time' => $packageData['delivery_time'],
+                'features' => ServiceFormHelper::normalizeListField($packageData['features'] ?? []) ?? [],
+                'revisions' => $packageData['revisions'] ?? 1,
+                'sort_order' => $packageData['sort_order'] ?? $sortOrder++,
+                'is_active' => true,
+            ]);
+        }
     }
 
     public function getFeaturedServices(): JsonResponse

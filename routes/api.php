@@ -1140,6 +1140,8 @@ Route::group([
 
         Route::get('/categories', [ServiceController::class, 'getCategories']);
 
+        Route::get('/form-schema', [ServiceController::class, 'getFormSchema']);
+
         Route::get('/promotion-options', [ServiceController::class, 'getPromotionOptions']);
 
         Route::get('/my-services', [ServiceController::class, 'myServices'])->middleware('jwt.auth');
@@ -1161,6 +1163,8 @@ Route::group([
             Route::post('/{service}/toggle-status', [ServiceController::class, 'toggleStatus']);
 
             Route::post('/{service}/media', [ServiceController::class, 'uploadMedia']);
+
+            Route::delete('/{service}/media/{media}', [ServiceController::class, 'deleteMedia']);
 
             Route::post('/{service}/purchase-promotion', [ServiceController::class, 'purchasePromotion']);
 
