@@ -144,43 +144,44 @@ class AuthController extends APIController
      */
     public function webLogin(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
+        try {
+            $credentials = $request->validate([
+                'email' => ['required', 'email'],
+                'password' => ['required'],
+            ]);
 
-        // Check if user exists
-        $user = Customer::where('email', $credentials['email'])->first();
-        
-        if (!$user) {
+            // Attempt JWT authentication using the configured api guard
+            if (!$token = auth('api')->attempt($credentials)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The provided credentials do not match our records.'
+                ], 401);
+            }
+
+            $user = auth('api')->user();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'data' => [
+                    'access_token' => $token,
+                    'token_type' => 'bearer',
+                    'expires_in' => auth('api')->factory()->getTTL() * 60,
+                    'user' => [
+                        'id' => $user->customer_id,
+                        'name' => $user->first_name . ' ' . $user->last_name,
+                        'email' => $user->email,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                    ]
+                ]
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'The provided credentials do not match our records.'
-            ], 401);
+                'message' => 'Login failed: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Attempt JWT authentication
-        if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'The provided credentials do not match our records.'
-            ], 401);
-        }
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful',
-            'token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
-            'user' => [
-                'id' => $user->customer_id,
-                'name' => $user->first_name . ' ' . $user->last_name,
-                'email' => $user->email,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-            ]
-        ]);
     }
 
     /**

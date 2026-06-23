@@ -26,6 +26,51 @@ class UserResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
+    public static function canEdit($record): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
+    public static function canDelete($record): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
     public static function form(Form $form): Form
     {
         return $form

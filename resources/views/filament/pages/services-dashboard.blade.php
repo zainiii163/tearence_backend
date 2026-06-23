@@ -63,7 +63,7 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $service->title }}</p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $service->user->name }} • {{ $service->category->name }}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $service->user?->name ?? 'Unknown' }} • {{ $service->category?->name ?? 'Uncategorized' }}</p>
                                 </div>
                                 <div class="text-right">
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">${{ number_format($service->starting_price, 2) }}</p>

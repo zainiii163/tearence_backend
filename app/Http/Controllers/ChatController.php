@@ -22,7 +22,12 @@ class ChatController extends APIController
     public function getConversations(Request $request)
     {
         try {
-            $user_id = auth()->user()->user_id;
+            $user = auth()->user();
+            if (!$user) {
+                return $this->errorResponse('User not authenticated', Response::HTTP_UNAUTHORIZED);
+            }
+            
+            $user_id = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
 
             // TODO: Implement actual conversation retrieval logic when chat models are created
             // For now, return empty array to prevent frontend errors
@@ -43,7 +48,12 @@ class ChatController extends APIController
     public function getUnreadCount(Request $request)
     {
         try {
-            $user_id = auth()->user()->user_id;
+            $user = auth()->user();
+            if (!$user) {
+                return $this->errorResponse('User not authenticated', Response::HTTP_UNAUTHORIZED);
+            }
+            
+            $user_id = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
 
             // TODO: Implement actual unread count logic when chat models are created
             // For now, return zero to prevent frontend errors

@@ -16,4 +16,9 @@ class ListBuySellPromotionPlans extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    public function getTableRecordKey($record): string
+    {
+        return (string) $record->getKey();
+    }
 }

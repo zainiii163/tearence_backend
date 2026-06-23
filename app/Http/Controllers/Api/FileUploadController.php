@@ -260,6 +260,24 @@ class FileUploadController extends Controller
                 'image/gif',
                 'image/webp',
             ],
+            'thumbnail' => [
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+            ],
+            'portfolio' => [
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+                'video/mp4',
+                'video/avi',
+                'video/mov',
+            ],
+            'pdf' => [
+                'application/pdf',
+            ],
         ];
 
         return $mimeTypes[$type] ?? $mimeTypes['other'];
@@ -277,6 +295,9 @@ class FileUploadController extends Controller
             'other' => 'project-documents/other',
             'profile' => 'user-profiles',
             'cover' => 'project-covers',
+            'thumbnail' => 'services/thumbnails',
+            'portfolio' => 'services/portfolio',
+            'pdf' => 'services/pdf',
         ];
 
         $path = $basePaths[$type] ?? 'project-documents/other';
@@ -331,5 +352,104 @@ class FileUploadController extends Controller
         $sanitizedName = substr($sanitizedName, 0, 50); // Limit length
         
         return time() . '_' . $sanitizedName . '_' . Str::random(8) . '.' . $extension;
+    }
+
+    /**
+     * Upload service media
+     */
+    public function uploadServiceMedia(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|max:10240', // 10MB max
+            'type' => 'required|in:thumbnail,portfolio,pdf',
+            'service_id' => 'nullable|exists:services,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'VALIDATION_ERROR',
+                    'message' => 'Invalid file upload data',
+                    'details' => $validator->errors(),
+                ],
+            ], 422);
+        }
+
+        try {
+            $file = $request->file('file');
+            $type = $request->type;
+            $serviceId = $request->service_id;
+
+            // Validate file type based on upload type
+            $allowedMimes = $this->getAllowedMimes($type);
+            if (!in_array($file->getMimeType(), $allowedMimes)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => [
+                        'code' => 'INVALID_FILE_TYPE',
+                        'message' => 'File type not allowed for this upload type',
+                    ],
+                ], 422);
+            }
+
+            // Generate unique filename
+            $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+            $storagePath = $this->getStoragePath($type);
+            $filePath = $file->storeAs($storagePath, $fileName, 'public');
+
+            $fileData = [
+                'file_id' => Str::uuid(),
+                'file_path' => Storage::url($filePath),
+                'file_name' => $file->getClientOriginalName(),
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'uploaded_at' => now()->toISOString(),
+            ];
+
+            // If service_id is provided, attach to service
+            if ($serviceId) {
+                $service = \App\Models\Service::findOrFail($serviceId);
+                
+                if ($service->user_id !== Auth::id()) {
+                    Storage::delete($filePath);
+                    return response()->json([
+                        'success' => false,
+                        'error' => [
+                            'code' => 'UNAUTHORIZED',
+                            'message' => 'You can only upload files to your own services',
+                        ],
+                    ], 403);
+                }
+
+                // Create media record
+                $media = $service->media()->create([
+                    'type' => $type === 'thumbnail' ? 'image' : ($type === 'pdf' ? 'document' : 'image'),
+                    'file_path' => $filePath,
+                    'file_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'is_thumbnail' => $type === 'thumbnail',
+                    'sort_order' => $service->media()->count() + 1,
+                ]);
+
+                $fileData['media_id'] = $media->id;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $fileData,
+                'message' => 'File uploaded successfully',
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => [
+                    'code' => 'UPLOAD_ERROR',
+                    'message' => 'Failed to upload file: ' . $e->getMessage(),
+                ],
+            ], 500);
+        }
     }
 }

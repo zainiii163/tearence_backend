@@ -34,7 +34,7 @@ class JobViewResource extends Resource
                             ->preload()
                             ->required(),
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
                             ->searchable()
                             ->preload()
                             ->nullable(),
@@ -92,7 +92,7 @@ class JobViewResource extends Resource
                     ->searchable()
                     ->limit(50)
                     ->tooltip(fn (JobView $record): string => $record->job->title ?? ''),
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Viewer')
                     ->searchable()
                     ->placeholder('Guest'),
@@ -133,7 +133,7 @@ class JobViewResource extends Resource
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('user')
-                    ->relationship('user', 'name')
+                    ->relationship('user', 'first_name')
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('device_type')

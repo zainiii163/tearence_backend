@@ -12,10 +12,10 @@ class ResortsTravelSeeder extends Seeder
     {
         // Create Resorts Travel Categories
         $categories = [
-            ['name' => 'Luxury Resorts', 'slug' => 'luxury-resorts', 'description' => 'Premium luxury resort accommodations', 'icon' => 'star', 'sort_order' => 1],
-            ['name' => 'Beach Hotels', 'slug' => 'beach-hotels', 'description' => 'Beachfront hotels and coastal properties', 'icon' => 'umbrella-beach', 'sort_order' => 2],
-            ['name' => 'Transport Services', 'slug' => 'transport-services', 'description' => 'Airport transfers and transportation', 'icon' => 'car', 'sort_order' => 3],
-            ['name' => 'Tour Experiences', 'slug' => 'tour-experiences', 'description' => 'Guided tours and experiences', 'icon' => 'map-marked', 'sort_order' => 4],
+            ['name' => 'Luxury Resorts', 'slug' => 'luxury-resorts', 'type' => 'accommodation', 'description' => 'Premium luxury resort accommodations', 'icon' => 'star', 'sort_order' => 1],
+            ['name' => 'Beach Hotels', 'slug' => 'beach-hotels', 'type' => 'accommodation', 'description' => 'Beachfront hotels and coastal properties', 'icon' => 'umbrella-beach', 'sort_order' => 2],
+            ['name' => 'Transport Services', 'slug' => 'transport-services', 'type' => 'transport', 'description' => 'Airport transfers and transportation', 'icon' => 'car', 'sort_order' => 3],
+            ['name' => 'Tour Experiences', 'slug' => 'tour-experiences', 'type' => 'experience', 'description' => 'Guided tours and experiences', 'icon' => 'map-marked', 'sort_order' => 4],
         ];
 
         foreach ($categories as $category) {

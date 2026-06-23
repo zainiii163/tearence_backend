@@ -14,63 +14,61 @@ class Job extends Model
 
     protected $fillable = [
         'user_id',
-        'category_id',
-        'pricing_plan_id',
+        'job_category_id',
         'title',
+        'slug',
         'description',
         'responsibilities',
         'requirements',
-        'benefits',
         'skills_needed',
+        'benefits',
         'company_name',
         'company_description',
         'company_size',
         'company_industry',
         'company_founded',
-        'logo_url',
+        'company_logo',
         'company_website',
         'company_social',
+        'contact_email',
+        'application_link',
+        'application_phone',
+        'application_instructions',
         'country',
         'city',
         'state',
         'address',
         'latitude',
         'longitude',
+        'location_name',
         'work_type',
-        'salary_range',
-        'currency',
         'experience_level',
         'education_level',
-        'remote_available',
+        'salary_min',
+        'salary_max',
+        'salary_currency',
+        'salary_range',
         'application_method',
-        'application_email',
-        'application_phone',
-        'application_website',
-        'application_instructions',
-        'status',
-        'verified_employer',
+        'is_active',
+        'is_remote',
+        'is_verified_employer',
         'terms_accepted',
         'accurate_info',
-        'views',
         'applications_count',
         'saves_count',
         'expires_at',
-        'promotion_type',
-        'promotion_expires_at',
-        'gallery',
     ];
 
     protected $casts = [
-        'company_social' => 'array',
-        'gallery' => 'array',
-        'verified_employer' => 'boolean',
+        'is_remote' => 'boolean',
+        'is_verified_employer' => 'boolean',
         'terms_accepted' => 'boolean',
         'accurate_info' => 'boolean',
-        'remote_available' => 'boolean',
+        'is_active' => 'boolean',
+        'company_social' => 'array',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'expires_at' => 'datetime',
-        'promotion_expires_at' => 'datetime',
     ];
 
     // Relationships
@@ -81,7 +79,7 @@ class Job extends Model
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(JobCategory::class, 'category_id');
+        return $this->belongsTo(JobCategory::class, 'job_category_id');
     }
 
     public function pricingPlan(): BelongsTo
@@ -112,7 +110,7 @@ class Job extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('is_active', true);
     }
 
     public function scopeExpired($query)
@@ -135,10 +133,10 @@ class Job extends Model
 
     public function scopePromoted($query)
     {
-        return $query->where('promotion_type', '!=', 'basic')
+        return $query->where('is_featured', true)
                     ->where(function ($q) {
-                        $q->whereNull('promotion_expires_at')
-                          ->orWhere('promotion_expires_at', '>', now());
+                        $q->whereNull('featured_until')
+                          ->orWhere('featured_until', '>', now());
                     });
     }
 
@@ -163,7 +161,7 @@ class Job extends Model
 
     public function scopeRemote($query)
     {
-        return $query->where('remote_available', true);
+        return $query->where('is_remote', true);
     }
 
     public function scopeBySalaryRange($query, $minSalary, $maxSalary = null)
@@ -186,22 +184,25 @@ class Job extends Model
 
     public function getIsPromotionActiveAttribute()
     {
-        return $this->promotion_type !== 'basic' && 
-               (!$this->promotion_expires_at || $this->promotion_expires_at->isFuture());
+        return $this->is_featured && 
+               (!$this->featured_until || $this->featured_until->isFuture());
     }
 
     public function getFormattedSalaryAttribute()
     {
-        if (!$this->salary_range) return 'Negotiable';
+        if (!$this->salary_min && !$this->salary_max) return 'Negotiable';
         
-        $currency = $this->currency ?? 'USD';
-        $range = explode('-', $this->salary_range);
+        $currency = $this->salary_currency ?? 'USD';
         
-        if (count($range) === 2) {
-            return $currency . ' ' . number_format($range[0]) . ' - ' . number_format($range[1]);
+        if ($this->salary_min && $this->salary_max) {
+            return $currency . ' ' . number_format($this->salary_min) . ' - ' . number_format($this->salary_max);
         }
         
-        return $currency . ' ' . number_format($range[0]) . '+';
+        if ($this->salary_min) {
+            return $currency . ' ' . number_format($this->salary_min) . '+';
+        }
+        
+        return 'Negotiable';
     }
 
     public function getWorkTypeLabelAttribute()
@@ -240,13 +241,7 @@ class Job extends Model
     // Methods
     public function incrementViews()
     {
-        $this->increment('views');
-        JobView::create([
-            'job_id' => $this->id,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'referrer' => request()->header('referer'),
-        ]);
+        // Views are tracked via JobView records; avoid creating duplicates here.
     }
 
     public function incrementApplications()

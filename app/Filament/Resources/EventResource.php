@@ -177,18 +177,18 @@ class EventResource extends Resource
                 // Media
                 Forms\Components\Section::make('Media')
                     ->schema([
-                        Forms\Components\Repeater::make('images')
+                        Forms\Components\FileUpload::make('images')
                             ->label('Event Images')
-                            ->schema([
-                                Forms\Components\TextInput::make('url')
-                                    ->label('Image URL')
-                                    ->url()
-                                    ->required(),
-                            ])
-                            ->columns(1)
-                            ->collapsed()
-                            ->collapsible()
-                            ->nullable(),
+                            ->image()
+                            ->disk('public')
+                            ->directory('events')
+                            ->visibility('public')
+                            ->multiple()
+                            ->reorderable()
+                            ->maxFiles(10)
+                            ->maxSize(5120)
+                            ->helperText('Upload at least one image. The first image is shown on the website.')
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('video_link')
                             ->label('Video Link')
@@ -221,10 +221,11 @@ class EventResource extends Resource
                 Forms\Components\Section::make('User Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->label('Posted By')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
-                            ->required(),
+                            ->preload()
+                            ->required()
                     ])
                     ->columns(1),
             ]);
@@ -234,8 +235,9 @@ class EventResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('images.0')
+                Tables\Columns\ImageColumn::make('thumbnail')
                     ->label('Image')
+                    ->getStateUsing(fn (Event $record): ?string => static::firstImageUrl($record->images))
                     ->circular()
                     ->defaultImageUrl(url('/placeholder.png')),
 
@@ -287,7 +289,7 @@ class EventResource extends Resource
                 Tables\Columns\ToggleColumn::make('is_active')
                     ->label('Active'),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Posted By')
                     ->sortable()
                     ->toggleable(),
@@ -356,5 +358,19 @@ class EventResource extends Resource
             'view' => Pages\ViewEvent::route('/{record}'),
             'edit' => Pages\EditEvent::route('/{record}/edit'),
         ];
+    }
+
+    public static function normalizeImagesField(array $data): array
+    {
+        if (array_key_exists('images', $data)) {
+            $data['images'] = VenueResource::normalizeUploadedImages($data['images']);
+        }
+
+        return $data;
+    }
+
+    public static function firstImageUrl(mixed $images): ?string
+    {
+        return VenueResource::firstImageUrl($images);
     }
 }

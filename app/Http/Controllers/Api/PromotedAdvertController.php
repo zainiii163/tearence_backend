@@ -72,11 +72,13 @@ class PromotedAdvertController extends Controller
         $sortOrder = $request->get('sort_order', 'desc');
 
         match($sortBy) {
+            'trending' => $query->orderBy('views_count', $sortOrder),
             'views' => $query->orderBy('views_count', $sortOrder),
             'saves' => $query->orderBy('saves_count', $sortOrder),
             'price' => $query->orderBy('price', $sortOrder),
             'title' => $query->orderBy('title', $sortOrder),
-            default => $query->orderBy($sortBy, $sortOrder),
+            'created_at' => $query->orderBy('created_at', $sortOrder),
+            default => $query->orderBy('created_at', 'desc'),
         };
 
         $promotedAdverts = $query->paginate($request->get('per_page', 12));
@@ -99,7 +101,7 @@ class PromotedAdvertController extends Controller
             'key_features' => 'nullable|array',
             'special_notes' => 'nullable|string',
             'advert_type' => 'required|in:product,service,property,vehicle,job,event,business,miscellaneous',
-            'category_id' => 'nullable|exists:categories,id',
+            'category_id' => 'nullable|exists:promoted_advert_categories,id',
             'country' => 'required|string|max:100',
             'city' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -140,7 +142,9 @@ class PromotedAdvertController extends Controller
         $data = $validator->validated();
         $data['promotion_price'] = $promotionPrices[$data['promotion_tier']];
         $data['user_id'] = Auth::id();
-        $data['status'] = 'pending';
+        $data['status'] = 'active';
+        $data['is_active'] = true;
+        $data['approved_at'] = now();
 
         $promotedAdvert = PromotedAdvert::create($data);
 
@@ -183,7 +187,7 @@ class PromotedAdvertController extends Controller
             'key_features' => 'nullable|array',
             'special_notes' => 'nullable|string',
             'advert_type' => 'sometimes|required|in:product,service,property,vehicle,job,event,business,miscellaneous',
-            'category_id' => 'nullable|exists:categories,id',
+            'category_id' => 'nullable|exists:promoted_advert_categories,id',
             'country' => 'sometimes|required|string|max:100',
             'city' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -423,25 +427,55 @@ class PromotedAdvertController extends Controller
      */
     public function uploadImages(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        // Handle both 'images' and 'images[]' field names
+        $images = $request->file('images') ?: $request->file('images.');
+        
+        if (!$images) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No files found. Please select images to upload.',
+                'errors' => [
+                    'images' => ['The images field is required.']
+                ],
+            ], 422);
+        }
+
+        $validator = Validator::make(['images' => $images], [
             'images' => 'required|array|max:10',
-            'images.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
         ]);
 
         if ($validator->fails()) {
+            $errors = $validator->errors();
+            $errorMessages = [];
+            
+            foreach ($errors->all() as $error) {
+                $errorMessages[] = $error;
+            }
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
+                'message' => 'Validation failed: ' . implode(', ', $errorMessages),
+                'errors' => $errors,
             ], 422);
         }
 
         $uploadedImages = [];
 
-        foreach ($request->file('images') as $image) {
-            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-            $path = $image->storeAs('promoted-adverts', $filename, 'public');
-            $uploadedImages[] = $filename;
+        foreach ($images as $index => $image) {
+            try {
+                $filename = time() . '_' . $index . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+                $path = $image->storeAs('promoted-adverts', $filename, 'public');
+                $uploadedImages[] = $filename;
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Failed to upload image at index {$index}: " . $e->getMessage(),
+                    'errors' => [
+                        "images.{$index}" => [$e->getMessage()]
+                    ],
+                ], 422);
+            }
         }
 
         return response()->json([
@@ -515,5 +549,124 @@ class PromotedAdvertController extends Controller
                 'favorited' => $favorited,
             ],
         ]);
+    }
+
+    /**
+     * Get promoted adverts statistics.
+     */
+    public function statistics(): JsonResponse
+    {
+        try {
+            $totalActive = PromotedAdvert::active()->count();
+            $totalViews = PromotedAdvert::active()->sum('views_count');
+            $totalSaves = PromotedAdvert::active()->sum('saves_count');
+            $totalClicks = PromotedAdvert::active()->sum('clicks_count');
+            $totalCategories = PromotedAdvertCategory::active()->count();
+            $totalCountries = PromotedAdvert::active()->distinct('country')->count('country');
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_active_adverts' => $totalActive ?? 0,
+                    'total_views' => $totalViews ?? 0,
+                    'total_saves' => $totalSaves ?? 0,
+                    'total_clicks' => $totalClicks ?? 0,
+                    'total_categories' => $totalCategories ?? 0,
+                    'total_countries' => $totalCountries ?? 0,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_active_adverts' => 0,
+                    'total_views' => 0,
+                    'total_saves' => 0,
+                    'total_clicks' => 0,
+                    'total_categories' => 0,
+                    'total_countries' => 0,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Get live activity feed.
+     */
+    public function liveActivity(): JsonResponse
+    {
+        try {
+            // Get recent analytics events
+            $recentActivities = PromotedAdvertAnalytic::with(['promotedAdvert'])
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get()
+                ->map(function ($analytic) {
+                    $advert = $analytic->promotedAdvert;
+                    return [
+                        'id' => $analytic->id,
+                        'event_type' => $analytic->event_type,
+                        'country' => $analytic->country,
+                        'city' => $analytic->city,
+                        'advert_title' => $advert ? $advert->title : 'Unknown',
+                        'advert_slug' => $advert ? $advert->slug : null,
+                        'created_at' => $analytic->created_at ? $analytic->created_at->diffForHumans() : null,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $recentActivities,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
+    }
+
+    /**
+     * Get trending countries.
+     */
+    public function trendingCountries(): JsonResponse
+    {
+        $trendingCountries = PromotedAdvert::active()
+            ->selectRaw('country, COUNT(*) as advert_count, SUM(views_count) as total_views')
+            ->groupBy('country')
+            ->orderBy('total_views', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $trendingCountries,
+        ]);
+    }
+
+    /**
+     * Get trending categories.
+     */
+    public function trendingCategories(): JsonResponse
+    {
+        try {
+            $trendingCategories = PromotedAdvertCategory::active()
+                ->withCount(['promotedAdverts' => function ($query) {
+                    $query->active();
+                }])
+                ->orderBy('promoted_adverts_count', 'desc')
+                ->limit(12)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $trendingCategories,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
     }
 }

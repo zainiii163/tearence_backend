@@ -4,8 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class SponsoredAdvert extends Model
 {
@@ -18,36 +19,16 @@ class SponsoredAdvert extends Model
      */
     protected $table = 'sponsored_adverts';
 
-    protected $primaryKey = 'id';
+    protected $primaryKey = 'sponsored_advert_id';
+
+    protected $appends = ['id', 'status'];
 
     /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
-    protected $fillable = [
-        'user_id',
-        'title',
-        'description',
-        'price',
-        'currency',
-        'category_id',
-        'country',
-        'city',
-        'images',
-        'video_url',
-        'seller_info',
-        'location',
-        'views',
-        'rating',
-        'reviews_count',
-        'featured',
-        'promoted',
-        'sponsored',
-        'status',
-        'promotion_plan',
-        'promotion_expires_at',
-    ];
+    protected $guarded = [];
 
     /**
      * The attributes that should be cast.
@@ -56,16 +37,16 @@ class SponsoredAdvert extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
-        'images' => 'array',
-        'seller_info' => 'array',
-        'location' => 'array',
-        'views' => 'integer',
-        'rating' => 'decimal:2',
-        'reviews_count' => 'integer',
-        'featured' => 'boolean',
-        'promoted' => 'boolean',
-        'sponsored' => 'boolean',
-        'promotion_expires_at' => 'datetime',
+        'sponsorship_price' => 'decimal:2',
+        'sponsorship_start_date' => 'datetime',
+        'sponsorship_end_date' => 'datetime',
+        'additional_images' => 'array',
+        'social_links' => 'array',
+        'tags' => 'array',
+        'seo_meta' => 'array',
+        'is_active' => 'boolean',
+        'verified_seller' => 'boolean',
+        'is_featured' => 'boolean',
     ];
 
     /**
@@ -74,58 +55,115 @@ class SponsoredAdvert extends Model
     protected static function boot()
     {
         parent::boot();
+
+        static::creating(function ($advert) {
+            if (empty($advert->slug)) {
+                $advert->slug = static::createUniqueSlug($advert->title);
+            }
+        });
+
+        static::updating(function ($advert) {
+            if ($advert->isDirty('title') && empty($advert->slug)) {
+                $advert->slug = static::createUniqueSlug($advert->title);
+            }
+        });
     }
 
-    /**
-     * Get the user who created the advert.
-     */
-    public function user()
+    /** Alias primary key as id for API consumers */
+    public function getIdAttribute(): ?int
     {
-        return $this->belongsTo(User::class);
+        $key = $this->attributes['sponsored_advert_id'] ?? null;
+        return $key !== null ? (int) $key : null;
     }
 
-    /**
-     * Get the category for this advert.
-     */
-    public function category()
+    /** Dashboard-friendly status derived from is_active + payment_status */
+    public function getStatusAttribute(): string
     {
-        return $this->belongsTo(SponsoredCategory::class);
+        if ((bool) ($this->attributes['is_active'] ?? false)) {
+            return 'active';
+        }
+
+        return match ($this->payment_status ?? 'pending') {
+            'pending' => 'pending',
+            'failed' => 'failed',
+            default => 'paused',
+        };
     }
 
     /**
-     * Get the analytics for this advert.
+     * Get the user that posted the sponsored advert.
      */
-    public function analytics()
+    public function user(): BelongsTo
     {
-        return $this->hasMany(SponsoredAnalytic::class, 'advert_id');
+        return $this->belongsTo(User::class, 'created_by', 'user_id');
     }
 
     /**
-     * Get the saves for this advert.
+     * Get the category for this sponsored advert.
      */
-    public function saves()
+    public function category(): BelongsTo
     {
-        return $this->hasMany(SavedAdvert::class, 'advert_id');
+        return $this->belongsTo(SponsoredCategory::class, 'category_id');
     }
 
     /**
-     * Scope a query to only include active adverts.
+     * Get the analytics for the sponsored advert.
+     */
+    public function analytics(): MorphMany
+    {
+        return $this->morphMany(AnalyticsReport::class, 'analyzable');
+    }
+
+    /**
+     * Scope a query to only include active sponsored adverts.
      */
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('is_active', true);
     }
 
     /**
-     * Scope a query to filter by category.
+     * Scope a query to get sponsored adverts by tier.
      */
-    public function scopeByCategory($query, $categoryId)
+    public function scopeByTier($query, $tier)
     {
-        return $query->where('category_id', $categoryId);
+        return $query->where('sponsorship_tier', $tier);
     }
 
     /**
-     * Scope a query to filter by country.
+     * Scope a query to get premium sponsored adverts.
+     */
+    public function scopePremium($query)
+    {
+        return $query->where('sponsorship_tier', 'premium');
+    }
+
+    /**
+     * Scope a query to get plus sponsored adverts.
+     */
+    public function scopePlus($query)
+    {
+        return $query->where('sponsorship_tier', 'plus');
+    }
+
+    /**
+     * Scope a query to get basic sponsored adverts.
+     */
+    public function scopeBasic($query)
+    {
+        return $query->where('sponsorship_tier', 'basic');
+    }
+
+    /**
+     * Scope a query to get sponsored adverts by category.
+     */
+    public function scopeByCategory($query, $category)
+    {
+        return $query->where('category_id', $category);
+    }
+
+    /**
+     * Scope a query to get sponsored adverts by country.
      */
     public function scopeByCountry($query, $country)
     {
@@ -133,7 +171,7 @@ class SponsoredAdvert extends Model
     }
 
     /**
-     * Scope a query to filter by city.
+     * Scope a query to get sponsored adverts by city.
      */
     public function scopeByCity($query, $city)
     {
@@ -141,35 +179,90 @@ class SponsoredAdvert extends Model
     }
 
     /**
-     * Scope a query to only include sponsored adverts.
+     * Scope a query to get sponsored adverts by advert type.
      */
-    public function scopeSponsored($query)
+    public function scopeByAdvertType($query, $advertType)
     {
-        return $query->where('sponsored', true);
+        return $query->where('advert_type', $advertType);
     }
 
     /**
-     * Scope a query to only include featured adverts.
+     * Scope a query to get verified seller sponsored adverts.
      */
-    public function scopeFeatured($query)
+    public function scopeVerifiedSeller($query)
     {
-        return $query->where('featured', true);
+        return $query->where('verified_seller', true);
     }
 
     /**
-     * Scope a query to only include promoted adverts.
+     * Scope a query to get sponsored adverts within price range.
      */
-    public function scopePromoted($query)
+    public function scopePriceRange($query, $minPrice = null, $maxPrice = null)
     {
-        return $query->where('promoted', true);
+        if ($minPrice !== null) {
+            $query->where('price', '>=', $minPrice);
+        }
+        if ($maxPrice !== null) {
+            $query->where('price', '<=', $maxPrice);
+        }
+        return $query;
     }
 
     /**
-     * Scope a query to order by popularity.
+     * Scope a query to get sponsored adverts with active promotion.
      */
-    public function scopeOrderByPopularity($query)
+    public function scopeWithActivePromotion($query)
     {
-        return $query->orderBy('views', 'desc');
+        return $query->where(function($q) {
+            $q->whereNull('sponsorship_end_date')
+              ->orWhere('sponsorship_end_date', '>', now());
+        });
+    }
+
+    /**
+     * Scope a query to search sponsored adverts.
+     */
+    public function scopeSearch($query, $searchTerm)
+    {
+        return $query->where(function($q) use ($searchTerm) {
+            $q->where('title', 'LIKE', '%' . $searchTerm . '%')
+              ->orWhere('tagline', 'LIKE', '%' . $searchTerm . '%')
+              ->orWhere('description', 'LIKE', '%' . $searchTerm . '%')
+              ->orWhere('business_name', 'LIKE', '%' . $searchTerm . '%')
+              ->orWhere('seller_name', 'LIKE', '%' . $searchTerm . '%');
+        });
+    }
+
+    /**
+     * Increment the view count.
+     */
+    public function incrementViews()
+    {
+        $this->increment('views_count');
+    }
+
+    /**
+     * Increment the save count.
+     */
+    public function incrementSaves()
+    {
+        $this->increment('saves_count');
+    }
+
+    /**
+     * Decrement the save count.
+     */
+    public function decrementSaves()
+    {
+        $this->decrement('saves_count');
+    }
+
+    /**
+     * Increment the click count.
+     */
+    public function incrementClicks()
+    {
+        $this->increment('clicks_count');
     }
 
     /**
@@ -177,457 +270,115 @@ class SponsoredAdvert extends Model
      */
     public function getFormattedPriceAttribute()
     {
-        if (!$this->price) {
-            return 'Free';
+        if ($this->price === null) {
+            return 'N/A';
+        }
+        return number_format($this->price, 2) . ' ' . $this->currency;
+    }
+
+    /**
+     * Get the main image URL.
+     */
+    public function getMainImageUrlAttribute()
+    {
+        if (isset($this->attributes['main_image']) && $this->attributes['main_image']) {
+            $image = $this->attributes['main_image'];
+            // If it's not already a full URL, prepend the storage URL
+            if (!str_starts_with($image, 'http')) {
+                return asset('storage/' . $image);
+            }
+            return $image;
+        }
+        return asset('img/NoImage.png');
+    }
+
+    /**
+     * Get the main image URL (alias for frontend compatibility).
+     */
+    public function getImageAttribute()
+    {
+        return $this->getMainImageUrlAttribute();
+    }
+
+    /**
+     * Get the logo URL.
+     */
+    public function getLogoUrlAttribute()
+    {
+        if (isset($this->attributes['logo']) && $this->attributes['logo']) {
+            return $this->attributes['logo'];
+        }
+        return asset('placeholder.png');
+    }
+
+    /**
+     * Get the sponsored advert URL (slug-based).
+     */
+    public function getUrlAttribute()
+    {
+        return route('sponsored.show', $this->slug);
+    }
+
+    /**
+     * Get the promotion status.
+     */
+    public function getPromotionStatusAttribute()
+    {
+        if ($this->sponsorship_end_date && $this->sponsorship_end_date->isPast()) {
+            return 'Expired';
         }
 
-        return '$' . number_format($this->price, 2);
+        return ucfirst($this->sponsorship_tier);
     }
 
     /**
-     * Get the first image URL.
+     * Check if the sponsored advert has active promotion.
      */
-    public function getFirstImageUrlAttribute()
+    public function hasActivePromotion()
     {
-        if (!$this->images || empty($this->images)) {
-            return asset('placeholder.png');
+        return $this->sponsorship_end_date === null || $this->sponsorship_end_date->isFuture();
+    }
+
+    /**
+     * Get the promotion badge color.
+     */
+    public function getBadgeColorAttribute()
+    {
+        return match($this->sponsorship_tier) {
+            'premium' => 'amber',
+            'plus' => 'blue',
+            'basic' => 'gray',
+            default => 'gray'
+        };
+    }
+
+    /**
+     * Get the promotion icon.
+     */
+    public function getPromotionIconAttribute()
+    {
+        return match($this->sponsorship_tier) {
+            'premium' => 'crown',
+            'plus' => 'zap',
+            'basic' => 'star',
+            default => 'star'
+        };
+    }
+
+    /**
+     * Create a unique slug.
+     */
+    public static function createUniqueSlug($title)
+    {
+        $slug = Str::slug($title);
+        $originalSlug = $slug;
+        $counter = 1;
+
+        while (self::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
         }
 
-        return $this->images[0];
-    }
-
-    /**
-     * Check if the advert is currently promoted.
-     */
-    public function getIsCurrentlyPromotedAttribute()
-    {
-        return $this->promotion_expires_at && $this->promotion_expires_at > now();
-    }
-
-    /**
-     * Increment view count.
-     */
-    public function incrementViews()
-    {
-        $this->increment('views');
-    }
-
-    /**
-     * Track analytics event.
-     */
-    public function trackEvent($eventType, $metadata = [], $userId = null)
-    {
-        return $this->analytics()->create([
-            'event_type' => $eventType,
-            'metadata' => $metadata,
-            'user_id' => $userId,
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-        ]);
-    }
-
-    /**
-     * Get the country flag emoji.
-     */
-    public function getCountryFlagAttribute()
-    {
-        $flags = [
-            'GB' => '🇬🇧',
-            'US' => '🇺🇸',
-            'CA' => '🇨🇦',
-            'AU' => '🇦🇺',
-            'DE' => '🇩🇪',
-            'FR' => '🇫🇷',
-            'IT' => '🇮🇹',
-            'ES' => '🇪🇸',
-            'NL' => '🇳🇱',
-            'BE' => '🇧🇪',
-            'CH' => '🇨🇭',
-            'AT' => '🇦🇹',
-            'IE' => '🇮🇪',
-            'PT' => '🇵🇹',
-            'SE' => '🇸🇪',
-            'NO' => '🇳🇴',
-            'DK' => '🇩🇰',
-            'FI' => '🇫🇮',
-            'PL' => '🇵🇱',
-            'CZ' => '🇨🇿',
-            'GR' => '🇬🇷',
-            'TR' => '🇹🇷',
-            'IL' => '🇮🇱',
-            'AE' => '🇦🇪',
-            'SA' => '🇸🇦',
-            'IN' => '🇮🇳',
-            'PK' => '🇵🇰',
-            'BD' => '🇧🇩',
-            'LK' => '🇱🇰',
-            'NP' => '🇳🇵',
-            'TH' => '🇹🇭',
-            'MY' => '🇲🇾',
-            'SG' => '🇸🇬',
-            'ID' => '🇮🇩',
-            'PH' => '🇵🇭',
-            'VN' => '🇻🇳',
-            'JP' => '🇯🇵',
-            'KR' => '🇰🇷',
-            'CN' => '🇨🇳',
-            'HK' => '🇭🇰',
-            'TW' => '🇹🇼',
-            'MO' => '🇲🇴',
-            'NZ' => '🇳🇿',
-            'FJ' => '🇫🇯',
-            'PG' => '🇵🇬',
-            'SB' => '🇸🇧',
-            'VU' => '🇻🇺',
-            'NC' => '🇳🇨',
-            'PF' => '🇵🇫',
-            'CK' => '🇨🇰',
-            'TO' => '🇹🇴',
-            'WS' => '🇼🇸',
-            'KI' => '🇰🇮',
-            'TV' => '🇹🇻',
-            'NU' => '🇳🇺',
-            'AS' => '🇦🇸',
-            'GU' => '🇬🇺',
-            'MP' => '🇲🇵',
-            'PW' => '🇵🇼',
-            'FM' => '🇫🇲',
-            'MH' => '🇲🇭',
-            'UM' => '🇺🇲',
-            'VI' => '🇻🇮',
-            'PR' => '🇵🇷',
-            'BQ' => '🇧🇶',
-            'CW' => '🇨🇼',
-            'SX' => '🇸🇽',
-            'AG' => '🇦🇬',
-            'AI' => '🇦🇮',
-            'AN' => '🇦🇳',
-            'AW' => '🇦🇼',
-            'BB' => '🇧🇧',
-            'BM' => '🇧🇲',
-            'BS' => '🇧🇸',
-            'BZ' => '🇧🇿',
-            'CA' => '🇨🇦',
-            'CR' => '🇨🇷',
-            'CU' => '🇨🇺',
-            'DM' => '🇩🇲',
-            'DO' => '🇩🇴',
-            'GD' => '🇬🇩',
-            'GT' => '🇬🇹',
-            'HN' => '🇭🇳',
-            'HT' => '🇭🇹',
-            'JM' => '🇯🇲',
-            'KN' => '🇰🇳',
-            'KY' => '🇰🇾',
-            'LC' => '🇱🇨',
-            'MX' => '🇲🇽',
-            'NI' => '🇳🇮',
-            'PA' => '🇵🇦',
-            'PY' => '🇵🇾',
-            'SR' => '🇸🇷',
-            'TT' => '🇹🇹',
-            'TC' => '🇹🇨',
-            'US' => '🇺🇸',
-            'UY' => '🇺🇾',
-            'VE' => '🇻🇪',
-            'VG' => '🇻🇬',
-            'AR' => '🇦🇷',
-            'BO' => '🇧🇴',
-            'BR' => '🇧🇷',
-            'CL' => '🇨🇱',
-            'CO' => '🇨🇴',
-            'EC' => '🇪🇨',
-            'FK' => '🇫🇰',
-            'GF' => '🇬🇫',
-            'GY' => '🇬🇾',
-            'PE' => '🇵🇪',
-            'PY' => '🇵🇾',
-            'SR' => '🇸🇷',
-            'UY' => '🇺🇾',
-            'VE' => '🇻🇪',
-            'DZ' => '🇩🇿',
-            'EG' => '🇪🇬',
-            'LY' => '🇱🇾',
-            'MA' => '🇲🇦',
-            'SD' => '🇸🇩',
-            'TN' => '🇹🇳',
-            'AO' => '🇦🇴',
-            'BF' => '🇧🇫',
-            'BI' => '🇧🇮',
-            'BJ' => '🇧🇯',
-            'BW' => '🇧🇼',
-            'CD' => '🇨🇩',
-            'CF' => '🇨🇫',
-            'CG' => '🇨🇬',
-            'CI' => '🇨🇮',
-            'CM' => '🇨🇲',
-            'DJ' => '🇩🇯',
-            'ER' => '🇪🇷',
-            'ET' => '🇪🇹',
-            'GA' => '🇬🇦',
-            'GH' => '🇬🇭',
-            'GM' => '🇬🇲',
-            'GN' => '🇬🇳',
-            'GQ' => '🇬🇶',
-            'GW' => '🇬🇼',
-            'KE' => '🇰🇪',
-            'KM' => '🇰🇲',
-            'LR' => '🇱🇷',
-            'LS' => '🇱🇸',
-            'MG' => '🇲🇬',
-            'ML' => '🇲🇱',
-            'MR' => '🇲🇷',
-            'MU' => '🇲🇺',
-            'MW' => '🇲🇼',
-            'MZ' => '🇲🇿',
-            'NA' => '🇳🇦',
-            'NE' => '🇳🇪',
-            'NG' => '🇳🇬',
-            'RW' => '🇷🇼',
-            'SC' => '🇸🇨',
-            'SL' => '🇸🇱',
-            'SN' => '🇸🇳',
-            'SO' => '🇸🇴',
-            'SS' => '🇸🇸',
-            'SZ' => '🇸🇿',
-            'TD' => '🇹🇩',
-            'TG' => '🇹🇬',
-            'TZ' => '🇹🇿',
-            'UG' => '🇺🇬',
-            'ZA' => '🇿🇦',
-            'ZM' => '🇿🇲',
-            'ZW' => '🇿🇼',
-            'RE' => '🇷🇪',
-            'SH' => '🇸🇭',
-            'ST' => '🇸🇹',
-            'YT' => '🇾🇹',
-            'AF' => '🇦🇫',
-            'AM' => '🇦🇲',
-            'AZ' => '🇦🇿',
-            'BH' => '🇧🇭',
-            'CN' => '🇨🇳',
-            'CY' => '🇨🇾',
-            'GE' => '🇬🇪',
-            'IR' => '🇮🇷',
-            'IQ' => '🇮🇶',
-            'JO' => '🇯🇴',
-            'KG' => '🇰🇬',
-            'KZ' => '🇰🇿',
-            'LB' => '🇱🇧',
-            'OM' => '🇴🇲',
-            'PS' => '🇵🇸',
-            'QA' => '🇶🇦',
-            'RU' => '🇷🇺',
-            'SA' => '🇸🇦',
-            'SY' => '🇸🇾',
-            'TM' => '🇹🇲',
-            'UA' => '🇺🇦',
-            'UZ' => '🇺🇿',
-            'YE' => '🇾🇪',
-        ];
-
-        // Try to get flag by country code first, then by country name
-        $countryCode = $this->getCountryCode();
-        if ($countryCode && isset($flags[$countryCode])) {
-            return $flags[$countryCode];
-        }
-
-        return '🌍'; // Default globe icon
-    }
-
-    /**
-     * Get the ISO country code.
-     */
-    private function getCountryCode()
-    {
-        $countryCodes = [
-            'United Kingdom' => 'GB',
-            'United States' => 'US',
-            'USA' => 'US',
-            'Canada' => 'CA',
-            'Australia' => 'AU',
-            'Germany' => 'DE',
-            'France' => 'FR',
-            'Italy' => 'IT',
-            'Spain' => 'ES',
-            'Netherlands' => 'NL',
-            'Belgium' => 'BE',
-            'Switzerland' => 'CH',
-            'Austria' => 'AT',
-            'Ireland' => 'IE',
-            'Portugal' => 'PT',
-            'Sweden' => 'SE',
-            'Norway' => 'NO',
-            'Denmark' => 'DK',
-            'Finland' => 'FI',
-            'Poland' => 'PL',
-            'Czech Republic' => 'CZ',
-            'Greece' => 'GR',
-            'Turkey' => 'TR',
-            'Israel' => 'IL',
-            'United Arab Emirates' => 'AE',
-            'UAE' => 'AE',
-            'Saudi Arabia' => 'SA',
-            'India' => 'IN',
-            'Pakistan' => 'PK',
-            'Bangladesh' => 'BD',
-            'Sri Lanka' => 'LK',
-            'Nepal' => 'NP',
-            'Thailand' => 'TH',
-            'Malaysia' => 'MY',
-            'Singapore' => 'SG',
-            'Indonesia' => 'ID',
-            'Philippines' => 'PH',
-            'Vietnam' => 'VN',
-            'Japan' => 'JP',
-            'South Korea' => 'KR',
-            'Korea' => 'KR',
-            'China' => 'CN',
-            'Hong Kong' => 'HK',
-            'Taiwan' => 'TW',
-            'New Zealand' => 'NZ',
-            'Fiji' => 'FJ',
-            'Papua New Guinea' => 'PG',
-            'Solomon Islands' => 'SB',
-            'Vanuatu' => 'VU',
-            'New Caledonia' => 'NC',
-            'French Polynesia' => 'PF',
-            'Cook Islands' => 'CK',
-            'Tonga' => 'TO',
-            'Samoa' => 'WS',
-            'Kiribati' => 'KI',
-            'Tuvalu' => 'TV',
-            'Niue' => 'NU',
-            'American Samoa' => 'AS',
-            'Guam' => 'GU',
-            'Northern Mariana Islands' => 'MP',
-            'Palau' => 'PW',
-            'Federated States of Micronesia' => 'FM',
-            'Marshall Islands' => 'MH',
-            'United States Minor Outlying Islands' => 'UM',
-            'Virgin Islands' => 'VI',
-            'Puerto Rico' => 'PR',
-            'Bonaire' => 'BQ',
-            'Curacao' => 'CW',
-            'Sint Maarten' => 'SX',
-            'Antigua and Barbuda' => 'AG',
-            'Anguilla' => 'AI',
-            'Netherlands Antilles' => 'AN',
-            'Aruba' => 'AW',
-            'Barbados' => 'BB',
-            'Bermuda' => 'BM',
-            'Bahamas' => 'BS',
-            'Belize' => 'BZ',
-            'Costa Rica' => 'CR',
-            'Cuba' => 'CU',
-            'Dominica' => 'DM',
-            'Dominican Republic' => 'DO',
-            'Grenada' => 'GD',
-            'Guatemala' => 'GT',
-            'Honduras' => 'HN',
-            'Haiti' => 'HT',
-            'Jamaica' => 'JM',
-            'Saint Kitts and Nevis' => 'KN',
-            'Cayman Islands' => 'KY',
-            'Saint Lucia' => 'LC',
-            'Mexico' => 'MX',
-            'Nicaragua' => 'NI',
-            'Panama' => 'PA',
-            'Paraguay' => 'PY',
-            'Suriname' => 'SR',
-            'Trinidad and Tobago' => 'TT',
-            'Turks and Caicos Islands' => 'TC',
-            'British Virgin Islands' => 'VG',
-            'Argentina' => 'AR',
-            'Bolivia' => 'BO',
-            'Brazil' => 'BR',
-            'Chile' => 'CL',
-            'Colombia' => 'CO',
-            'Ecuador' => 'EC',
-            'Falkland Islands' => 'FK',
-            'French Guiana' => 'GF',
-            'Guyana' => 'GY',
-            'Peru' => 'PE',
-            'Uruguay' => 'UY',
-            'Venezuela' => 'VE',
-            'Algeria' => 'DZ',
-            'Egypt' => 'EG',
-            'Libya' => 'LY',
-            'Morocco' => 'MA',
-            'Sudan' => 'SD',
-            'Tunisia' => 'TN',
-            'Angola' => 'AO',
-            'Burkina Faso' => 'BF',
-            'Burundi' => 'BI',
-            'Benin' => 'BJ',
-            'Botswana' => 'BW',
-            'Democratic Republic of the Congo' => 'CD',
-            'Central African Republic' => 'CF',
-            'Republic of the Congo' => 'CG',
-            'Ivory Coast' => 'CI',
-            'Cameroon' => 'CM',
-            'Djibouti' => 'DJ',
-            'Eritrea' => 'ER',
-            'Ethiopia' => 'ET',
-            'Gabon' => 'GA',
-            'Ghana' => 'GH',
-            'Gambia' => 'GM',
-            'Guinea' => 'GN',
-            'Equatorial Guinea' => 'GQ',
-            'Guinea-Bissau' => 'GW',
-            'Kenya' => 'KE',
-            'Comoros' => 'KM',
-            'Liberia' => 'LR',
-            'Lesotho' => 'LS',
-            'Madagascar' => 'MG',
-            'Mali' => 'ML',
-            'Mauritania' => 'MR',
-            'Mauritius' => 'MU',
-            'Malawi' => 'MW',
-            'Mozambique' => 'MZ',
-            'Namibia' => 'NA',
-            'Niger' => 'NE',
-            'Nigeria' => 'NG',
-            'Rwanda' => 'RW',
-            'Seychelles' => 'SC',
-            'Sierra Leone' => 'SL',
-            'Senegal' => 'SN',
-            'Somalia' => 'SO',
-            'South Sudan' => 'SS',
-            'Eswatini' => 'SZ',
-            'Chad' => 'TD',
-            'Togo' => 'TG',
-            'Tanzania' => 'TZ',
-            'Uganda' => 'UG',
-            'South Africa' => 'ZA',
-            'Zambia' => 'ZM',
-            'Zimbabwe' => 'ZW',
-            'Reunion' => 'RE',
-            'Saint Helena' => 'SH',
-            'Sao Tome and Principe' => 'ST',
-            'Mayotte' => 'YT',
-            'Afghanistan' => 'AF',
-            'Armenia' => 'AM',
-            'Azerbaijan' => 'AZ',
-            'Bahrain' => 'BH',
-            'Cyprus' => 'CY',
-            'Georgia' => 'GE',
-            'Iran' => 'IR',
-            'Iraq' => 'IQ',
-            'Jordan' => 'JO',
-            'Kyrgyzstan' => 'KG',
-            'Kazakhstan' => 'KZ',
-            'Lebanon' => 'LB',
-            'Oman' => 'OM',
-            'Palestine' => 'PS',
-            'Qatar' => 'QA',
-            'Russia' => 'RU',
-            'Syria' => 'SY',
-            'Turkmenistan' => 'TM',
-            'Uzbekistan' => 'UZ',
-            'Yemen' => 'YE',
-        ];
-
-        return $countryCodes[$this->country] ?? null;
+        return $slug;
     }
 }

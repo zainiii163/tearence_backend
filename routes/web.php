@@ -12,6 +12,8 @@ use App\Http\Controllers\Frontend\BannerDashboardController;
 use App\Http\Controllers\Frontend\BuySellDashboardController;
 use App\Http\Controllers\BuySellController;
 use App\Http\Controllers\SponsoredDashboardController;
+use App\Http\Controllers\Api\SponsoredAdvertController;
+use App\Http\Controllers\Api\SponsoredCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +25,19 @@ use App\Http\Controllers\SponsoredDashboardController;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+// Ignore favicon requests to prevent 422 errors
+Route::get('/favicon.ico', function () {
+    return response('', 204);
+});
+
+Route::get('/favicon-16x16.png', function () {
+    return response('', 204);
+});
+
+Route::get('/favicon-32x32.png', function () {
+    return response('', 204);
+});
 
 Route::get('logs', [\Rap2hpoutre\LaravelLogViewer\LogViewerController::class, 'index']);
 
@@ -49,6 +64,13 @@ Route::get('/otp/send', [OTPController::class, 'show'])->name('otp.send');
 Route::post('/otp/send', [OTPController::class, 'send'])->name('otp.send.post');
 Route::get('/otp/verify', [OTPController::class, 'show'])->name('otp.verify');
 Route::post('/otp/verify', [OTPController::class, 'verify'])->name('otp.verify.post');
+
+// Create Ad Routes - commented out due to missing controller
+// Route::get('/create-ad', [CreateAdController::class, 'index'])->name('create.ad');
+// Route::post('/create-ad', [CreateAdController::class, 'store'])->name('create.ad.store');
+// Route::get('/create-ad/{id}/edit', [CreateAdController::class, 'edit'])->name('create.ad.edit');
+// Route::put('/create-ad/{id}', [CreateAdController::class, 'update'])->name('create.ad.update');
+// Route::delete('/create-ad/{id}', [CreateAdController::class, 'destroy'])->name('create.ad.destroy');
 
 // Welcome Route
 Route::get('/welcome', function () {
@@ -138,7 +160,7 @@ Route::get('/promoted-adverts/create', function () {
 
 Route::get('/promoted-adverts/{slug}', function ($slug) {
     return view('promoted-advert-detail', ['slug' => $slug]);
-})->name('promoted-adverts.show');
+})->where('slug', '^[a-zA-Z0-9-_]+$')->name('promoted-adverts.show');
 
 // Jobs & Vacancies Routes
 Route::get('/jobs', function () {
@@ -166,14 +188,14 @@ Route::get('/property', [PropertyController::class, 'index'])->name('property.in
 Route::get('/property/search', [PropertyController::class, 'search'])->name('property.search');
 Route::get('/property/post', [PropertyController::class, 'create'])->middleware('auth')->name('property.create');
 Route::post('/property', [PropertyController::class, 'store'])->middleware('auth')->name('property.store');
-Route::get('/property/{id}', [PropertyController::class, 'show'])->name('property.show');
-Route::get('/property/{id}/edit', [PropertyController::class, 'edit'])->middleware('auth')->name('property.edit');
-Route::put('/property/{id}', [PropertyController::class, 'update'])->middleware('auth')->name('property.update');
-Route::delete('/property/{id}', [PropertyController::class, 'destroy'])->middleware('auth')->name('property.destroy');
+Route::get('/property/{id}', [PropertyController::class, 'show'])->where('id', '^[0-9]+$')->name('property.show');
+Route::get('/property/{id}/edit', [PropertyController::class, 'edit'])->where('id', '^[0-9]+$')->middleware('auth')->name('property.edit');
+Route::put('/property/{id}', [PropertyController::class, 'update'])->where('id', '^[0-9]+$')->middleware('auth')->name('property.update');
+Route::delete('/property/{id}', [PropertyController::class, 'destroy'])->where('id', '^[0-9]+$')->middleware('auth')->name('property.destroy');
 Route::get('/my-properties', [PropertyController::class, 'myProperties'])->middleware('auth')->name('property.my');
-Route::post('/property/{id}/save', [PropertyController::class, 'save'])->middleware('auth')->name('property.save');
+Route::post('/property/{id}/save', [PropertyController::class, 'save'])->where('id', '^[0-9]+$')->middleware('auth')->name('property.save');
 Route::get('/saved-properties', [PropertyController::class, 'saved'])->middleware('auth')->name('property.saved');
-Route::post('/property/{id}/contact', [PropertyController::class, 'contact'])->name('property.contact');
+Route::post('/property/{id}/contact', [PropertyController::class, 'contact'])->where('id', '^[0-9]+$')->name('property.contact');
 
 // Events & Venues Routes
 Route::get('/events-venues', function () {

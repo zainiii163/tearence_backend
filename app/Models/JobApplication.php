@@ -14,34 +14,22 @@ class JobApplication extends Model
         'job_id',
         'user_id',
         'job_seeker_id',
-        'full_name',
-        'email',
-        'phone',
-        'location',
         'cover_letter',
-        'cv_file_url',
-        'portfolio_links',
-        'expected_salary',
-        'available_start_date',
-        'additional_notes',
+        'cv_file',
+        'portfolio_link',
+        'contact_email',
+        'contact_phone',
         'status',
         'employer_notes',
-        'next_steps',
-        'status_updated_at',
-        'interview_date',
-        'interview_type',
-        'interview_notes',
+        'applied_at',
         'viewed_at',
-        'ip_address',
-        'user_agent',
+        'responded_at',
     ];
 
     protected $casts = [
-        'portfolio_links' => 'array',
-        'available_start_date' => 'date',
-        'interview_date' => 'datetime',
         'viewed_at' => 'datetime',
-        'status_updated_at' => 'datetime',
+        'responded_at' => 'datetime',
+        'applied_at' => 'datetime',
     ];
 
     // Relationships
@@ -206,15 +194,6 @@ class JobApplication extends Model
     protected static function boot()
     {
         parent::boot();
-
-        static::creating(function ($application) {
-            if (empty($application->ip_address)) {
-                $application->ip_address = request()->ip();
-            }
-            if (empty($application->user_agent)) {
-                $application->user_agent = request()->userAgent();
-            }
-        });
 
         static::created(function ($application) {
             $application->job->incrementApplications();

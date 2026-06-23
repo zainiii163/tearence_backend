@@ -82,7 +82,6 @@ class VehicleMakeModelSeeder extends Seeder
                 'name' => $makeName,
                 'slug' => strtolower(str_replace(' ', '-', $makeName)),
                 'is_active' => true,
-                'sort_order' => 0,
             ]);
 
             foreach ($models as $modelName) {
@@ -91,7 +90,6 @@ class VehicleMakeModelSeeder extends Seeder
                     'name' => $modelName,
                     'slug' => strtolower(str_replace(' ', '-', $modelName)),
                     'is_active' => true,
-                    'sort_order' => 0,
                 ]);
             }
         }

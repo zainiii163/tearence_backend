@@ -63,6 +63,6 @@ class ServiceProvider extends Model
 
     public function getProfilePhotoAttribute(): string
     {
-        return $this->user?->profile_photo_url ?: '';
+        return $this->user?->avatar ?: '';
     }
 }

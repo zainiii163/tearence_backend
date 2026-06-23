@@ -11,6 +11,7 @@ use App\Models\VehicleMake;
 use App\Models\VehicleModel;
 use App\Models\VehicleFavourite;
 use App\Models\VehicleEnquiry;
+use App\Models\User;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Requests\VehicleEnquiryRequest;
@@ -31,8 +32,7 @@ class VehicleController extends Controller
             'vehicleModel', 
             'user',
             'business'
-        ])->where('is_active', true)
-          ->where('status', 'approved');
+        ])->published();
 
         // Filters
         if ($request->has('category')) {
@@ -157,12 +157,20 @@ class VehicleController extends Controller
         try {
             DB::beginTransaction();
 
+            $user = auth('api')->user();
+            $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+            
+            if (!$userId) {
+                return response()->json(['message' => 'Unauthorized - No authenticated user found'], 401);
+            }
+
             $vehicleData = [
-                'user_id' => auth()->id(),
+                'user_id' => $userId,
                 'business_id' => $request->business_id,
                 'category_id' => $request->category_id,
                 'make_id' => $request->make_id,
                 'model_id' => $request->model_id,
+                'custom_model' => $request->custom_model,
                 'title' => $request->title,
                 'tagline' => $request->tagline,
                 'description' => $request->description,
@@ -228,23 +236,30 @@ class VehicleController extends Controller
                 'road_tax_status' => $request->road_tax_status,
                 'previous_owners' => $request->previous_owners,
                 
-                // Status
+                // Status — user submissions require approval before appearing on the website
                 'status' => 'pending',
                 'is_active' => true,
             ];
 
-            // Handle main image
+            // Handle main image (file upload or pre-uploaded path)
             if ($request->hasFile('main_image')) {
                 $image = $request->file('main_image');
-                $path = $image->store('vehicles', 'public');
+                $path = $image->store('/', 'vehicles');
                 $vehicleData['main_image'] = basename($path);
+            } elseif (is_string($request->input('main_image')) && trim($request->input('main_image')) !== '') {
+                $vehicleData['main_image'] = basename($request->input('main_image'));
+            } else {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => ['main_image' => ['Main vehicle image is required.']],
+                ], 422);
             }
 
             // Handle additional images
             if ($request->hasFile('additional_images')) {
                 $additionalImages = [];
                 foreach ($request->file('additional_images') as $image) {
-                    $path = $image->store('vehicles', 'public');
+                    $path = $image->store('/', 'vehicles');
                     $additionalImages[] = basename($path);
                 }
                 $vehicleData['additional_images'] = $additionalImages;
@@ -260,8 +275,9 @@ class VehicleController extends Controller
             DB::commit();
 
             return response()->json([
+                'success' => true,
                 'message' => 'Vehicle created successfully',
-                'vehicle' => new VehicleResource($vehicle->load([
+                'data' => new VehicleResource($vehicle->load([
                     'category', 'make', 'vehicleModel', 'user', 'business'
                 ]))
             ], 201);
@@ -276,20 +292,31 @@ class VehicleController extends Controller
         }
     }
 
-    public function show(Vehicle $vehicle): VehicleResource
+    public function show(Vehicle $vehicle): JsonResponse
     {
+        if (!$vehicle->isPublishedOnWebsite()) {
+            return response()->json(['message' => 'Vehicle not found'], 404);
+        }
+
         // Increment view count
         $vehicle->incrementViews();
 
-        return new VehicleResource($vehicle->load([
-            'category', 'make', 'vehicleModel', 'user', 'business', 
-            'favourites', 'analytics'
-        ]));
+        return response()->json([
+            'success' => true,
+            'message' => 'Vehicle retrieved successfully',
+            'data' => new VehicleResource($vehicle->load([
+                'category', 'make', 'vehicleModel', 'user', 'business', 
+                'favourites', 'analytics'
+            ]))
+        ], 200);
     }
 
     public function update(UpdateVehicleRequest $request, Vehicle $vehicle): JsonResponse
     {
-        if ($vehicle->user_id !== auth()->id()) {
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        if (!$userId || $vehicle->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -302,11 +329,11 @@ class VehicleController extends Controller
             if ($request->hasFile('main_image')) {
                 // Delete old image
                 if ($vehicle->main_image) {
-                    Storage::disk('public')->delete('vehicles/' . $vehicle->main_image);
+                    Storage::disk('vehicles')->delete($vehicle->main_image);
                 }
-                
+
                 $image = $request->file('main_image');
-                $path = $image->store('vehicles', 'public');
+                $path = $image->store('/', 'vehicles');
                 $vehicleData['main_image'] = basename($path);
             }
 
@@ -314,7 +341,7 @@ class VehicleController extends Controller
             if ($request->hasFile('additional_images')) {
                 $additionalImages = [];
                 foreach ($request->file('additional_images') as $image) {
-                    $path = $image->store('vehicles', 'public');
+                    $path = $image->store('/', 'vehicles');
                     $additionalImages[] = basename($path);
                 }
                 $vehicleData['additional_images'] = $additionalImages;
@@ -325,11 +352,12 @@ class VehicleController extends Controller
             DB::commit();
 
             return response()->json([
+                'success' => true,
                 'message' => 'Vehicle updated successfully',
-                'vehicle' => new VehicleResource($vehicle->load([
+                'data' => new VehicleResource($vehicle->load([
                     'category', 'make', 'vehicleModel', 'user', 'business'
                 ]))
-            ]);
+            ], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -343,48 +371,106 @@ class VehicleController extends Controller
 
     public function destroy(Vehicle $vehicle): JsonResponse
     {
-        if ($vehicle->user_id !== auth()->id()) {
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        if (!$userId || $vehicle->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         // Delete images
         if ($vehicle->main_image) {
-            Storage::disk('public')->delete('vehicles/' . $vehicle->main_image);
+            Storage::disk('vehicles')->delete($vehicle->main_image);
         }
-        
+
         if ($vehicle->additional_images) {
             foreach ($vehicle->additional_images as $image) {
-                Storage::disk('public')->delete('vehicles/' . $image);
+                Storage::disk('vehicles')->delete($image);
             }
         }
 
         $vehicle->delete();
 
-        return response()->json(['message' => 'Vehicle deleted successfully']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Vehicle deleted successfully'
+        ]);
+    }
+
+    public function getStats(): JsonResponse
+    {
+        $stats = [
+            'total_vehicles' => Vehicle::published()->count(),
+            'featured_vehicles' => Vehicle::published()->where('is_featured', true)->count(),
+            'total_categories' => VehicleCategory::where('is_active', true)->count(),
+            'total_makes' => VehicleMake::where('is_active', true)->count(),
+            'recent_vehicles' => Vehicle::published()->orderBy('created_at', 'desc')->take(5)->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
+    }
+
+    public function checkFavourite(Vehicle $vehicle): JsonResponse
+    {
+        $user = auth('api')->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'data' => ['is_favourited' => false]
+            ]);
+        }
+        
+        $userId = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
+        $isFavourited = $vehicle->favourites()->where('user_id', $userId)->exists();
+        
+        return response()->json([
+            'success' => true,
+            'data' => ['is_favourited' => $isFavourited]
+        ]);
     }
 
     public function saveVehicle(Vehicle $vehicle): JsonResponse
     {
-        $user = auth()->user();
+        $user = auth('api')->user();
         
-        $favourite = $vehicle->favourites()->where('user_id', $user->id)->first();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+        
+        $userId = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
+        $favourite = $vehicle->favourites()->where('user_id', $userId)->first();
         
         if ($favourite) {
             $favourite->delete();
             $vehicle->decrement('saves');
             
-            return response()->json(['message' => 'Vehicle removed from saved']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle removed from saved',
+                'data' => ['saved' => false]
+            ]);
         } else {
-            $vehicle->favourites()->create(['user_id' => $user->id]);
+            $vehicle->favourites()->create(['user_id' => $userId]);
             $vehicle->increment('saves');
             
-            return response()->json(['message' => 'Vehicle saved successfully']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle saved successfully',
+                'data' => ['saved' => true]
+            ]);
         }
     }
 
     public function myVehicles(Request $request): VehicleCollection
     {
-        $vehicles = Vehicle::where('user_id', auth()->id())
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        $vehicles = Vehicle::where('user_id', $userId)
             ->with(['category', 'make', 'vehicleModel', 'business'])
             ->paginate($request->get('per_page', 12));
 
@@ -393,8 +479,11 @@ class VehicleController extends Controller
 
     public function savedVehicles(Request $request): VehicleCollection
     {
-        $vehicles = Vehicle::whereHas('favourites', function($query) {
-            $query->where('user_id', auth()->id());
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        $vehicles = Vehicle::whereHas('favourites', function($query) use ($userId) {
+            $query->where('user_id', $userId);
         })->with(['category', 'make', 'vehicleModel', 'user', 'business'])
           ->paginate($request->get('per_page', 12));
 
@@ -403,7 +492,10 @@ class VehicleController extends Controller
 
     public function toggleStatus(Vehicle $vehicle): JsonResponse
     {
-        if ($vehicle->user_id !== auth()->id()) {
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        if ($vehicle->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -418,7 +510,10 @@ class VehicleController extends Controller
 
     public function markAsSold(Vehicle $vehicle): JsonResponse
     {
-        if ($vehicle->user_id !== auth()->id()) {
+        $user = auth('api')->user();
+        $userId = $user ? ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id) : null;
+        
+        if ($vehicle->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -434,7 +529,7 @@ class VehicleController extends Controller
     {
         try {
             $enquiry = $vehicle->enquiries()->create([
-                'user_id' => auth()->id(),
+                'user_id' => auth('api')->id(),
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
@@ -487,7 +582,7 @@ class VehicleController extends Controller
         $categories = VehicleCategory::active()
             ->ordered()
             ->withCount(['vehicles' => function($query) {
-                $query->active();
+                $query->published();
             }])
             ->get();
 
@@ -530,8 +625,52 @@ class VehicleController extends Controller
         return new VehicleCollection($vehicles);
     }
 
-    private function processUpgrade(Vehicle $vehicle, string $upgradeType, array $data): void
+    public function getPopularMakes(): JsonResponse
     {
+        $popularMakes = VehicleMake::active()
+            ->withCount(['vehicles' => function($query) {
+                $query->published();
+            }])
+            ->orderBy('vehicles_count', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $popularMakes
+        ]);
+    }
+
+    public function incrementViews(Vehicle $vehicle): JsonResponse
+    {
+        $vehicle->increment('views');
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'View count incremented',
+            'views' => $vehicle->fresh()->views
+        ]);
+    }
+
+    public function incrementClicks(Vehicle $vehicle): JsonResponse
+    {
+        $vehicle->increment('clicks');
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Click count incremented',
+            'clicks' => $vehicle->fresh()->clicks
+        ]);
+    }
+
+    public function upgradeVehicle(Request $request, Vehicle $vehicle): JsonResponse
+    {
+        $user = auth('api')->user();
+        
+        if (!$user || $vehicle->user_id !== ($user instanceof \App\Models\Customer ? $user->customer_id : $user->id)) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $upgradeConfig = [
             'promoted' => ['is_promoted' => true],
             'featured' => ['is_featured' => true],
@@ -539,10 +678,13 @@ class VehicleController extends Controller
             'top_of_category' => ['is_top_of_category' => true],
         ];
 
+        $upgradeType = $request->input('upgrade_type');
+        
         if (isset($upgradeConfig[$upgradeType])) {
             $vehicle->update($upgradeConfig[$upgradeType]);
             
             // Set expiry if pricing plan is selected
+            $data = $request->all();
             if (isset($data['pricing_plan_id'])) {
                 $vehicle->update([
                     'pricing_plan_id' => $data['pricing_plan_id'],
@@ -550,6 +692,55 @@ class VehicleController extends Controller
                     'payment_status' => 'pending'
                 ]);
             }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle upgraded successfully',
+                'data' => new VehicleResource($vehicle->load([
+                    'category', 'make', 'vehicleModel', 'user', 'business'
+                ]))
+            ], 200);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid upgrade type'
+            ], 400);
+        }
+    }
+
+    public function toggleFavourite(Vehicle $vehicle): JsonResponse
+    {
+        $user = auth('api')->user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated'
+            ], 401);
+        }
+        
+        $userId = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
+        
+        $favourite = $vehicle->favourites()->where('user_id', $userId)->first();
+        
+        if ($favourite) {
+            $favourite->delete();
+            $vehicle->decrement('saves');
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle removed from favourites',
+                'data' => ['saved' => false]
+            ]);
+        } else {
+            $vehicle->favourites()->create(['user_id' => $userId]);
+            $vehicle->increment('saves');
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle added to favourites',
+                'data' => ['saved' => true]
+            ]);
         }
     }
 }

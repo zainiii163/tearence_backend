@@ -13,7 +13,8 @@ class ListVehicles extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->mutateFormDataUsing(fn (array $data): array => VehicleResource::prepareAdminPublicationData($data)),
         ];
     }
 }

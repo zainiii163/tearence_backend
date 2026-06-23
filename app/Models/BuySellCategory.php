@@ -51,6 +51,11 @@ class BuySellCategory extends Model
             ->where('status', 'active');
     }
 
+    public function activeItems(): HasMany
+    {
+        return $this->activeAdverts();
+    }
+
     public function subcategories(): HasMany
     {
         return $this->hasMany(BuySellCategory::class, 'parent_id');

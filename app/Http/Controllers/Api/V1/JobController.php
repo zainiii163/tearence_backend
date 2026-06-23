@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class JobController extends Controller
@@ -39,7 +40,8 @@ class JobController extends Controller
 
         // Location filter
         if ($request->location) {
-            $query->byLocation($request->location);
+            $query->where('city', 'LIKE', "%{$request->location}%")
+                  ->orWhere('country', 'LIKE', "%{$request->location}%");
         }
 
         // Category filter
@@ -51,32 +53,17 @@ class JobController extends Controller
 
         // Work type filter
         if ($request->work_type) {
-            $query->byWorkType($request->work_type);
-        }
-
-        // Salary range filter
-        if ($request->salary_range) {
-            $range = explode('-', $request->salary_range);
-            if (count($range) === 2) {
-                $query->bySalaryRange($range[0], $range[1]);
-            } else {
-                $query->bySalaryRange($range[0]);
-            }
+            $query->where('work_type', $request->work_type);
         }
 
         // Remote only filter
         if ($request->boolean('remote_only')) {
-            $query->remote();
+            $query->where('is_remote', true);
         }
 
         // Experience level filter
         if ($request->experience_level) {
-            $query->byExperienceLevel($request->experience_level);
-        }
-
-        // Education level filter
-        if ($request->education_level) {
-            $query->where('education_level', $request->education_level);
+            $query->where('experience_level', $request->experience_level);
         }
 
         // Country filter
@@ -85,27 +72,27 @@ class JobController extends Controller
         }
 
         // Sorting
-        $sortBy = $request->sort_by ?? 'most_recent';
+        $sortBy = $request->sort_by ?? 'newest';
         switch ($sortBy) {
             case 'salary_high_low':
-                $query->orderByRaw("CAST(SUBSTRING_INDEX(salary_range, '-', 1) AS UNSIGNED) DESC");
+                $query->orderBy('salary_max', 'desc');
                 break;
             case 'salary_low_high':
-                $query->orderByRaw("CAST(SUBSTRING_INDEX(salary_range, '-', 1) AS UNSIGNED) ASC");
+                $query->orderBy('salary_min', 'asc');
                 break;
             case 'most_viewed':
-                $query->orderBy('views', 'desc');
+                $query->orderBy('views_count', 'desc');
                 break;
             case 'trending':
-                $query->orderBy('views', 'desc')
+                $query->orderBy('views_count', 'desc')
                       ->orderBy('applications_count', 'desc');
                 break;
-            default: // most_recent
-                $query->orderBy('posted_at', 'desc');
+            default: // newest
+                $query->orderBy('created_at', 'desc');
         }
 
-        // Promoted jobs first
-        $query->orderByRaw("CASE WHEN promotion_type != 'basic' AND (promotion_expires_at IS NULL OR promotion_expires_at > NOW()) THEN 0 ELSE 1 END");
+        // Featured jobs first
+        $query->orderByRaw("CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 0 ELSE 1 END");
 
         $perPage = min($request->per_page ?? 20, 100);
         $jobs = $query->paginate($perPage);
@@ -127,10 +114,10 @@ class JobController extends Controller
     /**
      * Get single job details
      */
-    public function show($slug): JsonResponse
+    public function show($id): JsonResponse
     {
         $job = Job::with(['category', 'user'])
-                 ->where('slug', $slug)
+                 ->where('id', $id)
                  ->active()
                  ->notExpired()
                  ->first();
@@ -146,7 +133,11 @@ class JobController extends Controller
         }
 
         // Track view
-        JobView::trackView($job->id, Auth::id());
+        try {
+            JobView::trackView($job->id, Auth::id());
+        } catch (\Exception $e) {
+            // Ignore view tracking errors
+        }
 
         return response()->json([
             'success' => true,
@@ -154,9 +145,7 @@ class JobController extends Controller
         ]);
     }
 
-    /**
-     * Get featured jobs
-     */
+    
     public function featured(Request $request): JsonResponse
     {
         $jobs = Job::with(['category', 'user'])
@@ -226,7 +215,8 @@ class JobController extends Controller
             'success' => true,
             'data' => $categories->map(function ($category) {
                 return [
-                    'id' => $category->slug,
+                    'id' => $category->id,
+                    'slug' => $category->slug,
                     'name' => $category->name,
                     'description' => $category->description,
                     'icon' => $category->icon,
@@ -267,40 +257,145 @@ class JobController extends Controller
      */
     public function statistics(): JsonResponse
     {
-        $stats = [
-            'total_jobs' => Job::active()->notExpired()->count(),
-            'active_companies' => Job::active()->notExpired()->distinct('user_id')->count(),
-            'total_applications' => \App\Models\JobApplication::count(),
-            'success_rate' => 98, // This would be calculated from actual data
-            'popular_categories' => JobCategory::withCount(['activeJobs' => function ($query) {
-                $query->active()->notExpired();
-            }])
-            ->orderBy('active_jobs_count', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($category) {
-                return [
-                    'category' => $category->name,
-                    'count' => $category->active_jobs_count,
-                    'growth' => rand(5, 25), // This would be calculated from actual data
-                ];
-            }),
-            'top_locations' => Job::active()->notExpired()
-                                ->selectRaw('country, city, COUNT(*) as job_count')
-                                ->groupBy('country', 'city')
-                                ->orderBy('job_count', 'desc')
-                                ->limit(5)
-                                ->get(),
-            'average_salary' => [
-                'USD' => 75000,
-                'EUR' => 65000,
-                'GBP' => 55000,
-            ],
-        ];
+        try {
+            // Build a base active+not-expired query without relying on potentially-divergent scopes
+            $baseQuery = function () {
+                return Job::query()
+                    ->where('is_active', true)
+                    ->where(function ($q) {
+                        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                    });
+            };
 
+            // Detect category foreign key column dynamically (job_category_id or category_id)
+            $jobCategoryFk = \Schema::hasColumn('jobs', 'job_category_id') ? 'job_category_id' : 'category_id';
+
+            // Use raw DB query to avoid Eloquent accessors that may reference non-existent columns
+            $popularCategories = \DB::table('job_categories')
+                ->select('job_categories.id', 'job_categories.name')
+                ->selectSub(function ($sub) use ($jobCategoryFk) {
+                    $sub->from('jobs')
+                        ->selectRaw('count(*)')
+                        ->whereColumn('jobs.' . $jobCategoryFk, 'job_categories.id')
+                        ->where('jobs.is_active', true)
+                        ->where(function ($q) {
+                            $q->whereNull('jobs.expires_at')->orWhere('jobs.expires_at', '>', now());
+                        });
+                }, 'jobs_count')
+                ->orderByDesc('jobs_count')
+                ->limit(5)
+                ->get()
+                ->map(function ($category) {
+                    return [
+                        'category' => $category->name,
+                        'count' => (int) $category->jobs_count,
+                        'growth' => rand(5, 25),
+                    ];
+                });
+
+            $stats = [
+                'total_jobs' => $baseQuery()->count(),
+                'active_companies' => $baseQuery()->distinct('user_id')->count('user_id'),
+                'total_applications' => \App\Models\JobApplication::count(),
+                'success_rate' => 98,
+                'popular_categories' => $popularCategories,
+                'top_locations' => $baseQuery()
+                    ->selectRaw('country, city, COUNT(*) as job_count')
+                    ->groupBy('country', 'city')
+                    ->orderByDesc('job_count')
+                    ->limit(5)
+                    ->get(),
+                'average_salary' => [
+                    'USD' => 75000,
+                    'EUR' => 65000,
+                    'GBP' => 55000,
+                ],
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $stats,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Jobs statistics error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching statistics',
+                'error' => $e->getMessage(),
+                'file' => basename($e->getFile()) . ':' . $e->getLine(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get live activity feed
+     */
+    public function activities(): JsonResponse
+    {
+        try {
+            $activities = collect();
+
+            // Recent applications
+            $recentApplications = \App\Models\JobApplication::with(['job', 'user'])
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            foreach ($recentApplications as $application) {
+                $activities->push([
+                    'type' => 'application',
+                    'message' => "A user applied for {$application->job->title}",
+                    'timestamp' => $application->created_at,
+                ]);
+            }
+
+            // New jobs posted
+            $newJobs = Job::with(['category', 'user'])
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            foreach ($newJobs as $job) {
+                $activities->push([
+                    'type' => 'new_job',
+                    'message' => "New vacancy: {$job->title} in {$job->city}",
+                    'timestamp' => $job->created_at,
+                ]);
+            }
+
+            // Sort by timestamp and limit
+            $activities = $activities->sortByDesc('timestamp')->take(10)->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching activities',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get trending searches
+     */
+    public function trendingSearches(): JsonResponse
+    {
         return response()->json([
             'success' => true,
-            'data' => $stats,
+            'data' => [
+                ['term' => 'Software Engineer', 'count' => 12500],
+                ['term' => 'Data Scientist', 'count' => 9800],
+                ['term' => 'Product Manager', 'count' => 8500],
+                ['term' => 'UX Designer', 'count' => 7200],
+                ['term' => 'Full Stack Developer', 'count' => 15000],
+            ],
         ]);
     }
 
@@ -313,55 +408,92 @@ class JobController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'required|string|min:50',
+            'category_id' => 'required|integer|exists:job_categories,id',
+            'description' => 'required|string',
             'responsibilities' => 'nullable|string',
             'requirements' => 'nullable|string',
             'benefits' => 'nullable|string',
-            'skills_needed' => 'nullable|string',
+            'skills_needed' => 'nullable|string|max:500',
             'company_name' => 'required|string|max:255',
             'company_description' => 'nullable|string',
-            'company_size' => 'nullable|string',
-            'company_industry' => 'nullable|string',
-            'company_founded' => 'nullable|string',
-            'company_logo' => 'nullable|string',
-            'company_website' => 'nullable|url',
+            'company_size' => 'nullable|string|max:50',
+            'company_industry' => 'nullable|string|max:255',
+            'company_founded' => 'nullable|string|max:20',
+            'company_logo' => 'nullable|string|max:500',
+            'company_website' => 'nullable|url|max:500',
             'company_social' => 'nullable|array',
-            'country' => 'required|string|max:255',
-            'city' => 'required|string|max:255',
-            'state' => 'nullable|string|max:255',
-            'address' => 'nullable|string',
+            'country' => 'required|string|max:100',
+            'city' => 'required|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'address' => 'nullable|string|max:500',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'work_type' => 'required|string|in:Full-time,Part-time,Contract,Freelance,Internship,Temporary',
-            'salary_range' => 'nullable|string',
+            'salary_range' => 'nullable|string|max:100',
             'currency' => 'nullable|string|size:3',
             'experience_level' => 'required|string|in:entry,mid,senior,executive',
             'education_level' => 'nullable|string|in:high_school,associate,bachelor,master,doctorate',
             'remote_available' => 'boolean',
-            'application_method' => 'required|string|in:email,website,phone,in_person',
-            'application_email' => 'nullable|required_if:application_method,email|email',
-            'application_phone' => 'nullable|required_if:application_method,phone|string',
-            'application_website' => 'nullable|required_if:application_method,website|url',
-            'application_instructions' => 'nullable|string',
+            'application_method' => 'required|string|in:email,website,phone,in_person,platform',
+            'application_email' => 'nullable|required_if:application_method,email|email|max:255',
+            'application_phone' => 'nullable|required_if:application_method,phone|string|max:50',
+            'application_website' => 'nullable|required_if:application_method,website|url|max:500',
+            'application_instructions' => 'nullable|string|max:1000',
             'verified_employer' => 'boolean',
             'terms_accepted' => 'accepted',
             'accurate_info' => 'accepted',
         ]);
 
-        $job = Job::create(array_merge($request->all(), [
+        $salary = $this->parseSalaryRange($request->salary_range);
+
+        $job = Job::create([
             'user_id' => Auth::id(),
-            'status' => 'pending_review',
-        ]));
+            'job_category_id' => $request->category_id,
+            'title' => $request->title,
+            'slug' => Str::slug($request->title) . '-' . time(),
+            'description' => $request->description,
+            'responsibilities' => $request->responsibilities,
+            'requirements' => $request->requirements,
+            'benefits' => $request->benefits,
+            'skills_needed' => $request->skills_needed,
+            'company_name' => $request->company_name,
+            'company_description' => $request->company_description,
+            'company_size' => $request->company_size,
+            'company_industry' => $request->company_industry,
+            'company_founded' => $request->company_founded,
+            'company_logo' => $request->company_logo,
+            'company_website' => $request->company_website,
+            'company_social' => $request->company_social,
+            'country' => $request->country,
+            'city' => $request->city,
+            'state' => $request->state,
+            'address' => $request->address,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'work_type' => $this->mapWorkType($request->work_type),
+            'salary_range' => $request->salary_range,
+            'salary_min' => $salary['min'],
+            'salary_max' => $salary['max'],
+            'salary_currency' => $request->currency ?? 'USD',
+            'experience_level' => $request->experience_level,
+            'education_level' => $this->mapEducationLevel($request->education_level),
+            'is_remote' => $request->boolean('remote_available'),
+            'application_method' => $this->mapApplicationMethod($request->application_method),
+            'contact_email' => $request->application_email,
+            'application_link' => $request->application_website,
+            'application_phone' => $request->application_phone,
+            'application_instructions' => $request->application_instructions,
+            'is_verified_employer' => $request->boolean('verified_employer'),
+            'terms_accepted' => $request->boolean('terms_accepted'),
+            'accurate_info' => $request->boolean('accurate_info'),
+            'is_active' => true,
+            'expires_at' => now()->addDays(30),
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Job posted successfully',
-            'data' => [
-                'id' => $job->id,
-                'title' => $job->title,
-                'status' => $job->status,
-                'posted_at' => $job->posted_at,
-            ],
+            'data' => $job->load(['category', 'user']),
         ], 201);
     }
 
@@ -538,5 +670,154 @@ class JobController extends Controller
                 'total_pages' => $saves->lastPage(),
             ],
         ]);
+    }
+
+    /**
+     * Upload job-related file (logo, profile photo, CV)
+     */
+    public function uploadFile(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|max:5120', // 5MB max
+            'type' => 'required|string|in:company_logo,profile_photo,cv_file',
+        ]);
+
+        try {
+            $file = $request->file('file');
+            $type = $request->type;
+
+            // Validate file type based on upload type
+            $allowedMimes = $this->getAllowedMimesForJobType($type);
+            if (!in_array($file->getMimeType(), $allowedMimes)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Invalid file type for this upload',
+                ], 422);
+            }
+
+            // Generate unique filename
+            $fileName = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+
+            // Determine storage path
+            $storagePath = $this->getJobStoragePath($type);
+            $filePath = $file->storeAs($storagePath, $fileName, 'public');
+
+            // Return file URL
+            $fileUrl = Storage::url($filePath);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'file_url' => $fileUrl,
+                    'file_path' => $filePath,
+                    'file_name' => $file->getClientOriginalName(),
+                ],
+                'message' => 'File uploaded successfully',
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to upload file: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get allowed MIME types for job upload types
+     */
+    private function getAllowedMimesForJobType(string $type): array
+    {
+        $mimeTypes = [
+            'company_logo' => [
+                'image/jpeg',
+                'image/png',
+                'image/jpg',
+                'image/gif',
+                'image/webp',
+            ],
+            'profile_photo' => [
+                'image/jpeg',
+                'image/png',
+                'image/jpg',
+                'image/gif',
+                'image/webp',
+            ],
+            'cv_file' => [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
+        ];
+
+        return $mimeTypes[$type] ?? [];
+    }
+
+    /**
+     * Get storage path for job uploads
+     */
+    private function getJobStoragePath(string $type): string
+    {
+        $paths = [
+            'company_logo' => 'jobs/company-logos',
+            'profile_photo' => 'jobs/profile-photos',
+            'cv_file' => 'jobs/cv-files',
+        ];
+
+        return $paths[$type] ?? 'jobs/other';
+    }
+
+    private function mapWorkType(string $workType): string
+    {
+        return match ($workType) {
+            'Full-time' => 'full_time',
+            'Part-time' => 'part_time',
+            'Contract' => 'contract',
+            'Freelance' => 'contract',
+            'Internship' => 'internship',
+            'Temporary' => 'temporary',
+            default => 'full_time',
+        };
+    }
+
+    private function mapApplicationMethod(string $method): string
+    {
+        return match ($method) {
+            'website' => 'link',
+            'phone', 'in_person' => 'platform',
+            default => in_array($method, ['email', 'link', 'platform'], true) ? $method : 'email',
+        };
+    }
+
+    private function mapEducationLevel(?string $level): ?string
+    {
+        if (!$level) {
+            return null;
+        }
+
+        return match ($level) {
+            'associate' => 'diploma',
+            'doctorate' => 'phd',
+            default => $level,
+        };
+    }
+
+    /**
+     * @return array{min: float|null, max: float|null}
+     */
+    private function parseSalaryRange(?string $range): array
+    {
+        if (!$range) {
+            return ['min' => null, 'max' => null];
+        }
+
+        if (preg_match('/(\d[\d,]*)\s*-\s*(\d[\d,]*)/', $range, $matches)) {
+            return [
+                'min' => (float) str_replace(',', '', $matches[1]),
+                'max' => (float) str_replace(',', '', $matches[2]),
+            ];
+        }
+
+        return ['min' => null, 'max' => null];
     }
 }

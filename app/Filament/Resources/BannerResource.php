@@ -26,11 +26,17 @@ class BannerResource extends Resource
 
     protected static ?string $navigationGroup = 'Banner Management';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 99;
 
-    protected static ?string $modelLabel = 'Banner Ad';
+    protected static ?string $modelLabel = 'Legacy Banner';
 
-    protected static ?string $pluralModelLabel = 'Banner Ads';
+    protected static ?string $pluralModelLabel = 'Legacy Banners';
+
+    /**
+     * Legacy `banner` table — superseded by BannerAdResource (`banner_ads`).
+     * Kept for API (/api/banner) compatibility; hidden from admin sidebar.
+     */
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Form $form): Form
     {
@@ -163,13 +169,12 @@ class BannerResource extends Resource
                 Forms\Components\Section::make('Status & Visibility')
                     ->schema([
                         Forms\Components\Select::make('status')
-                            ->label('Approval Status')
+                            ->label('Status')
                             ->options([
-                                'pending' => 'Pending',
-                                'approved' => 'Approved',
-                                'rejected' => 'Rejected',
+                                'active' => 'Active (visible)',
+                                'inactive' => 'Inactive (hidden)',
                             ])
-                            ->default('pending')
+                            ->default('active')
                             ->required(),
                         
                         Forms\Components\Toggle::make('is_active')
@@ -286,9 +291,8 @@ class BannerResource extends Resource
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
-                        'warning' => 'pending',
-                        'success' => 'approved',
-                        'danger' => 'rejected',
+                        'success' => 'active',
+                        'secondary' => 'inactive',
                     ])
                     ->formatStateUsing(fn ($state) => ucfirst($state)),
                 
@@ -308,7 +312,7 @@ class BannerResource extends Resource
                     ->sortable()
                     ->color(fn ($record) => $record->expires_at && $record->expires_at->isPast() ? 'danger' : null),
                 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Created By')
                     ->searchable()
                     ->limit(20),
@@ -322,9 +326,8 @@ class BannerResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
+                        'active' => 'Active',
+                        'inactive' => 'Inactive',
                     ]),
                 
                 Tables\Filters\SelectFilter::make('payment_status')
@@ -376,28 +379,28 @@ class BannerResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
                 
-                Tables\Actions\Action::make('approve')
-                    ->label('Approve')
+                Tables\Actions\Action::make('activate')
+                    ->label('Activate')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => $record->status === 'pending')
+                    ->visible(fn ($record) => $record->status === 'inactive')
                     ->action(function ($record) {
                         $record->update([
-                            'status' => 'approved',
+                            'status' => 'active',
                             'is_active' => true,
                         ]);
                     }),
                 
-                Tables\Actions\Action::make('reject')
-                    ->label('Reject')
+                Tables\Actions\Action::make('deactivate')
+                    ->label('Deactivate')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->visible(fn ($record) => $record->status === 'pending')
+                    ->visible(fn ($record) => $record->status === 'active')
                     ->action(function ($record) {
                         $record->update([
-                            'status' => 'rejected',
+                            'status' => 'inactive',
                             'is_active' => false,
                         ]);
                     }),
@@ -438,15 +441,15 @@ class BannerResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     
-                    Tables\Actions\BulkAction::make('approve_bulk')
-                        ->label('Approve Selected')
+                    Tables\Actions\BulkAction::make('activate_bulk')
+                        ->label('Activate Selected')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->action(function ($records) {
                             $records->each(function ($record) {
-                                if ($record->status === 'pending') {
+                                if ($record->status === 'inactive') {
                                     $record->update([
-                                        'status' => 'approved',
+                                        'status' => 'active',
                                         'is_active' => true,
                                     ]);
                                 }

@@ -10,6 +10,11 @@ class EditEvent extends EditRecord
 {
     protected static string $resource = EventResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return EventResource::normalizeImagesField($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

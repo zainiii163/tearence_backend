@@ -35,7 +35,8 @@ class AnalyticsRelationManager extends RelationManager
                     ->required(),
                 
                 Forms\Components\Select::make('user_id')
-                    ->relationship('user', 'name')
+                    ->relationship('user', 'first_name')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                     ->searchable()
                     ->preload()
                     ->nullable()

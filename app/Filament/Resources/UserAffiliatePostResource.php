@@ -29,7 +29,7 @@ class UserAffiliatePostResource extends Resource
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -129,7 +129,7 @@ class UserAffiliatePostResource extends Resource
                             ->columnSpanFull(),
 
                         Forms\Components\Select::make('moderated_by')
-                            ->relationship('moderator', 'name')
+                            ->relationship('moderator', 'first_name')
                             ->searchable()
                             ->preload()
                             ->nullable(),
@@ -151,7 +151,7 @@ class UserAffiliatePostResource extends Resource
                     ->sortable()
                     ->limit(50),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->searchable()
                     ->sortable()
                     ->badge(),

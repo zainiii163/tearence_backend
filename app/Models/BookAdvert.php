@@ -39,7 +39,15 @@ class BookAdvert extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get the pricing plan for the book.
+     */
+    public function pricingPlan(): BelongsTo
+    {
+        return $this->belongsTo(PricingPlan::class);
     }
 
     /**
@@ -279,8 +287,8 @@ class BookAdvert extends Model
      */
     public function getCoverImageUrlAttribute()
     {
-        if ($this->cover_image_url) {
-            return $this->cover_image_url;
+        if (isset($this->attributes['cover_image_url']) && $this->attributes['cover_image_url']) {
+            return $this->attributes['cover_image_url'];
         }
         return asset('placeholder.png');
     }
@@ -290,8 +298,8 @@ class BookAdvert extends Model
      */
     public function getAuthorPhotoUrlAttribute()
     {
-        if ($this->author_photo_url) {
-            return $this->author_photo_url;
+        if (isset($this->attributes['author_photo_url']) && $this->attributes['author_photo_url']) {
+            return $this->attributes['author_photo_url'];
         }
         return asset('placeholder.png');
     }

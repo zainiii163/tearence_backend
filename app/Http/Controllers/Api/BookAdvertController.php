@@ -130,11 +130,10 @@ class BookAdvertController extends Controller
                 }
             }
 
-            // Set boolean flags for upsell tiers
-            $data['is_promoted'] = in_array($advertType, ['promoted', 'featured', 'sponsored', 'top_category']);
-            $data['is_featured'] = in_array($advertType, ['featured', 'sponsored', 'top_category']);
-            $data['is_sponsored'] = in_array($advertType, ['sponsored', 'top_category']);
-            $data['is_top_category'] = $advertType === 'top_category';
+            // Upsell maps to advert_type enum on books table (no is_promoted columns)
+            if (!isset($data['advert_type'])) {
+                $data['advert_type'] = $advertType;
+            }
 
             // Handle file uploads
             if ($request->hasFile('cover_image')) {
@@ -167,6 +166,12 @@ class BookAdvertController extends Controller
                 $data['sample_files'] = $files;
             }
 
+            $data = self::filterBookTableAttributes($data);
+
+            if (!isset($data['status'])) {
+                $data['status'] = 'pending';
+            }
+
             $book = Book::create($data);
 
             DB::commit();
@@ -193,7 +198,7 @@ class BookAdvertController extends Controller
      */
     public function show($slug): JsonResponse
     {
-        $book = Book::with(['user', 'author', 'upsells', 'purchases'])
+        $book = Book::with(['user', 'author', 'upsells'])
             ->where('slug', $slug)
             ->first();
 
@@ -264,6 +269,8 @@ class BookAdvertController extends Controller
                 $data['sample_files'] = $files;
             }
 
+            $data = self::filterBookTableAttributes($data);
+
             $book->update($data);
 
             DB::commit();
@@ -320,17 +327,37 @@ class BookAdvertController extends Controller
     }
 
     /**
+     * Track a book view (public).
+     */
+    public function trackViews(Book $book): JsonResponse
+    {
+        $book->incrementViews();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'View tracked successfully',
+            'data' => [
+                'views_count' => $book->fresh()->views_count,
+            ],
+        ]);
+    }
+
+    /**
      * Save/bookmark a book.
      */
     public function saveBook(Book $book): JsonResponse
     {
         $user = Auth::user();
-        
-        if ($book->saves()->where('user_id', $user->id)->exists()) {
-            $book->saves()->where('user_id', $user->id)->delete();
+        $userId = $user->user_id ?? $user->id;
+
+        if ($book->saves()->where('user_id', $userId)->exists()) {
+            $book->saves()->where('user_id', $userId)->delete();
             $saved = false;
         } else {
-            $book->saves()->create(['user_id' => $user->id]);
+            $book->saves()->create([
+                'user_id' => $userId,
+                'saved_at' => now(),
+            ]);
             $saved = true;
         }
 
@@ -371,6 +398,14 @@ class BookAdvertController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(12)
             ->get();
+
+        if ($books->isEmpty()) {
+            $books = Book::with(['user', 'author'])
+                ->active()
+                ->orderBy('created_at', 'desc')
+                ->limit(12)
+                ->get();
+        }
 
         return response()->json([
             'success' => true,
@@ -440,12 +475,25 @@ class BookAdvertController extends Controller
      */
     public function getStatistics(): JsonResponse
     {
+        $topGenre = Book::selectRaw('genre, COUNT(*) as count')
+            ->whereNotNull('genre')
+            ->groupBy('genre')
+            ->orderByDesc('count')
+            ->first();
+
         $stats = [
             'total_books' => Book::count(),
             'active_books' => Book::active()->count(),
             'pending_books' => Book::where('status', 'pending')->count(),
-            'promoted_books' => Book::promoted()->count(),
-            'total_revenue' => Book::where('payment_status', 'paid')->sum('upsell_price'),
+            'promoted_books' => Book::promoted()->active()->count(),
+            'verified_authors' => Book::where('verified_author', true)->distinct()->count('author_name'),
+            'total_authors' => Book::distinct('user_id')->count('user_id'),
+            'total_views' => (int) Book::sum('views_count'),
+            'total_saves' => (int) Book::sum('saves_count'),
+            'total_genres' => Book::whereNotNull('genre')->distinct()->count('genre'),
+            'average_rating' => round((float) Book::whereNotNull('rating')->avg('rating'), 1) ?: 0,
+            'most_popular_genre' => $topGenre?->genre ?? '—',
+            'featured_books_count' => Book::active()->promoted()->count(),
             'books_by_type' => Book::selectRaw('book_type, COUNT(*) as count')
                 ->groupBy('book_type')
                 ->pluck('count', 'book_type'),
@@ -466,5 +514,40 @@ class BookAdvertController extends Controller
             'success' => true,
             'data' => $stats
         ]);
+    }
+
+    /**
+     * Get trending genres
+     */
+    public function getTrendingGenres(): JsonResponse
+    {
+        $trendingGenres = Book::selectRaw('genre as name, COUNT(*) as count, SUM(views_count) as total_views')
+            ->whereNotNull('genre')
+            ->where('status', 'active')
+            ->groupBy('genre')
+            ->orderBy('total_views', 'desc')
+            ->take(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $trendingGenres
+        ]);
+    }
+
+    /** Keep only columns that exist on the `books` table */
+    private static function filterBookTableAttributes(array $data): array
+    {
+        $columns = [
+            'title', 'slug', 'description', 'short_description', 'price', 'currency',
+            'cover_image', 'additional_images', 'book_type', 'genre', 'author_name',
+            'author_id', 'country', 'language', 'format', 'isbn', 'publisher',
+            'publication_date', 'pages', 'age_range', 'series_name', 'edition',
+            'purchase_links', 'trailer_video_url', 'sample_files', 'rating',
+            'views_count', 'saves_count', 'status', 'advert_type', 'expires_at',
+            'user_id', 'verified_author',
+        ];
+
+        return array_intersect_key($data, array_flip($columns));
     }
 }

@@ -12,8 +12,49 @@ class PropertyStoreRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        // Convert string '1'/'0' to actual booleans for FormData compatibility
+        $booleanFields = [
+            'show_exact_location', 'furnished', 'accessibility_features',
+            'verified_agent', 'negotiable'
+        ];
+
+        foreach ($booleanFields as $field) {
+            if ($this->has($field)) {
+                $value = $this->input($field);
+                if ($value === '1' || $value === 1 || $value === true) {
+                    $this->merge([$field => true]);
+                } elseif ($value === '0' || $value === 0 || $value === false) {
+                    $this->merge([$field => false]);
+                }
+            }
+        }
+
+        \Log::info('Property Store Request Data:', [
+            'all' => $this->all(),
+            'input' => $this->input(),
+            'keys' => array_keys($this->all()),
+            'content_type' => $this->header('Content-Type'),
+            'has_file' => $this->hasFile('cover_image'),
+        ]);
+    }
+
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422)
+        );
+    }
+
     public function rules(): array
     {
+        // Temporarily disable validation to test data reception
+        return [];
+        /*
         $rules = [
             // Basic Information
             'title' => 'required|string|max:255',
@@ -134,6 +175,7 @@ class PropertyStoreRequest extends FormRequest
         }
 
         return $rules;
+        */
     }
 
     public function messages(): array

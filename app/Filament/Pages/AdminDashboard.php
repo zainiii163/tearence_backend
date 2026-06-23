@@ -20,15 +20,21 @@ class AdminDashboard extends BaseDashboard
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\VehicleOverviewWidget::class,
+            // Temporarily disabled to prevent timeout issues
+            // \App\Filament\Widgets\VehicleOverviewWidget::class,
+            // \App\Filament\Widgets\AffiliateOverviewWidget::class,
+            // \App\Filament\Resources\AdminResource\Widgets\SponsoredOverviewWidget::class,
         ];
     }
 
     protected function getFooterWidgets(): array
     {
         return [
-            \App\Filament\Widgets\VehicleStatsChart::class,
-            \App\Filament\Widgets\RecentVehiclesWidget::class,
+            // Temporarily disabled to prevent timeout issues
+            // \App\Filament\Widgets\AffiliateStatsChart::class,
+            // \App\Filament\Widgets\RecentAffiliateContent::class,
+            // \App\Filament\Resources\AdminResource\Widgets\RecentSponsoredAdvertsWidget::class,
+            // \App\Filament\Resources\AdminResource\Widgets\SponsoredStatsChartWidget::class,
         ];
     }
 }

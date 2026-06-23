@@ -24,6 +24,8 @@ class Book extends Model
         'verified_author' => 'boolean',
     ];
 
+    protected $appends = ['cover_image_url'];
+
     /**
      * The database table used by the model.
      *
@@ -36,7 +38,7 @@ class Book extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     /**
@@ -61,14 +63,6 @@ class Book extends Model
     public function upsells(): HasMany
     {
         return $this->hasMany(BookUpsell::class);
-    }
-
-    /**
-     * Get the purchases for the book.
-     */
-    public function purchases(): HasMany
-    {
-        return $this->hasMany(BookPurchase::class);
     }
 
     /**

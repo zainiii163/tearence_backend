@@ -76,6 +76,9 @@ class BannerAdController extends Controller
         $sortOrder = $request->get('sort_order', 'desc');
 
         switch ($sortBy) {
+            case 'ctr':
+                $query->orderByRaw("CASE WHEN views_count > 0 THEN (clicks_count * 100.0 / views_count) ELSE 0 END {$sortOrder}");
+                break;
             case 'views':
                 $query->orderBy('views_count', $sortOrder);
                 break;
@@ -151,7 +154,7 @@ class BannerAdController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'business_name' => 'required|string|max:255',
@@ -161,7 +164,6 @@ class BannerAdController extends Controller
             'website_url' => 'nullable|url|max:500',
             'banner_type' => ['required', Rule::in(['image', 'animated', 'html5', 'video'])],
             'banner_size' => ['required', Rule::in(['728x90', '300x250', '160x600', '970x250', '468x60', '1080x1080'])],
-            'banner_image' => 'required|string|max:255',
             'destination_link' => 'required|url|max:500',
             'call_to_action' => 'nullable|string|max:100',
             'key_selling_points' => 'nullable|string|max:1000',
@@ -180,7 +182,16 @@ class BannerAdController extends Controller
             'promotion_start' => 'nullable|date',
             'promotion_end' => 'nullable|date|after_or_equal:promotion_start',
             'is_verified_business' => 'boolean',
-        ]);
+        ];
+
+        // Conditional validation for banner_image vs video based on banner_type
+        if ($request->banner_type === 'video') {
+            $rules['video'] = 'required|string|max:255';
+        } else {
+            $rules['banner_image'] = 'required|string|max:255';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -191,8 +202,14 @@ class BannerAdController extends Controller
         }
 
         try {
-            $bannerAd = BannerAd::create($request->all());
-            
+            $bannerData = $request->all();
+            // Set default status to 'active' if not provided
+            if (!isset($bannerData['status'])) {
+                $bannerData['status'] = 'active';
+            }
+
+            $bannerAd = BannerAd::create($bannerData);
+
             // If user is authenticated, associate the banner with them
             if (Auth::guard('api')->check()) {
                 $bannerAd->user_id = Auth::guard('api')->id();

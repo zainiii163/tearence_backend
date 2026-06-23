@@ -34,7 +34,8 @@ class AffiliateApplicationResource extends Resource
                             ->required(),
 
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -99,7 +100,8 @@ class AffiliateApplicationResource extends Resource
                             ->visible(fn (callable $get) => $get('status') === 'approved'),
 
                         Forms\Components\Select::make('reviewed_by')
-                            ->relationship('reviewer', 'name')
+                            ->relationship('reviewer', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
                             ->preload()
                             ->nullable(),
@@ -134,7 +136,7 @@ class AffiliateApplicationResource extends Resource
                     ->sortable()
                     ->limit(50),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->searchable()
                     ->sortable()
                     ->badge(),
@@ -196,7 +198,8 @@ class AffiliateApplicationResource extends Resource
                     ->preload(),
 
                 Tables\Filters\SelectFilter::make('reviewed_by')
-                    ->relationship('reviewer', 'name')
+                    ->relationship('reviewer', 'first_name')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                     ->searchable()
                     ->preload()
                     ->label('Reviewed By'),

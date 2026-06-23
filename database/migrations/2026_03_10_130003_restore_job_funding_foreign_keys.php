@@ -12,56 +12,74 @@ return new class extends Migration
     public function up(): void
     {
         // Add foreign key constraints to jobs table
-        Schema::table('jobs', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('job_category_id')->references('id')->on('job_categories')->onDelete('cascade');
-        });
+        try {
+            Schema::table('jobs', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+                $table->foreign('job_category_id')->references('id')->on('job_categories')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to job_seekers table
-        Schema::table('job_seekers', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        try {
+            Schema::table('job_seekers', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to job_applications table
-        Schema::table('job_applications', function (Blueprint $table) {
-            $table->foreign('job_id')->references('id')->on('jobs')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('job_seeker_id')->references('id')->on('job_seekers')->onDelete('cascade');
-        });
+        try {
+            Schema::table('job_applications', function (Blueprint $table) {
+                $table->foreign('job_id')->references('id')->on('jobs')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+                $table->foreign('job_seeker_id')->references('id')->on('job_seekers')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to funding_projects table
-        Schema::table('funding_projects', function (Blueprint $table) {
-            $table->foreign('customer_id')->references('id')->on('customer')->onDelete('cascade');
-        });
+        try {
+            Schema::table('funding_projects', function (Blueprint $table) {
+                $table->foreign('customer_id')->references('customer_id')->on('customer')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to funding_backers table
-        Schema::table('funding_backers', function (Blueprint $table) {
-            $table->foreign('funding_project_id')->references('id')->on('funding_projects')->onDelete('cascade');
-            $table->foreign('customer_id')->references('id')->on('customer')->onDelete('cascade');
-            $table->foreign('funding_reward_id')->references('id')->on('funding_rewards')->onDelete('set null');
-        });
+        try {
+            Schema::table('funding_backers', function (Blueprint $table) {
+                $table->foreign('funding_project_id')->references('id')->on('funding_projects')->onDelete('cascade');
+                $table->foreign('customer_id')->references('customer_id')->on('customer')->onDelete('cascade');
+                $table->foreign('funding_reward_id')->references('id')->on('funding_rewards')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to funding_upsells table
-        Schema::table('funding_upsells', function (Blueprint $table) {
-            $table->foreign('funding_project_id')->references('id')->on('funding_projects')->onDelete('cascade');
-            $table->foreign('customer_id')->references('id')->on('customer')->onDelete('cascade');
-        });
+        try {
+            Schema::table('funding_upsells', function (Blueprint $table) {
+                $table->foreign('funding_project_id')->references('id')->on('funding_projects')->onDelete('cascade');
+                $table->foreign('customer_id')->references('customer_id')->on('customer')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to promoted_adverts table
-        Schema::table('promoted_adverts', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        try {
+            Schema::table('promoted_adverts', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to promoted_advert_favorites table
-        Schema::table('promoted_advert_favorites', function (Blueprint $table) {
-            $table->foreign('promoted_advert_id')->references('id')->on('promoted_adverts')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        try {
+            Schema::table('promoted_advert_favorites', function (Blueprint $table) {
+                $table->foreign('promoted_advert_id')->references('id')->on('promoted_adverts')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to promoted_advert_analytics table
-        Schema::table('promoted_advert_analytics', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-        });
+        try {
+            Schema::table('promoted_advert_analytics', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
     }
 
     /**

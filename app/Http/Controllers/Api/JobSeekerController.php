@@ -124,7 +124,7 @@ class JobSeekerController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'title' => 'nullable|string|max:200',
+            'title' => 'required|string|max:200',
             'bio' => 'nullable|string',
             'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'cv_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',

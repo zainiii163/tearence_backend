@@ -153,7 +153,7 @@ class ProjectResource extends Resource
                     ->searchable()
                     ->limit(50),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Owner')
                     ->searchable()
                     ->sortable(),

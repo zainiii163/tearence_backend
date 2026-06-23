@@ -73,6 +73,12 @@ class ResortsTravel extends Model
         'is_approximate_location',
     ];
 
+    protected $appends = [
+        'main_image_url',
+        'logo_url',
+        'image_urls',
+    ];
+
     protected $casts = [
         'room_types' => 'array',
         'amenities' => 'array',

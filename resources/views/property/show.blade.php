@@ -37,7 +37,7 @@
                 <!-- Image Gallery -->
                 <div class="bg-white rounded-lg shadow-lg overflow-hidden">
                     <div class="relative">
-                        <img src="{{ $property->cover_image ? asset('storage/' . $property->cover_image) : 'https://via.placeholder.com/800x500' }}" 
+                        <img src="{{ $property->cover_image ? asset('storage/' . $property->cover_image) : 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'800\' height=\'500\' viewBox=\'0 0 800 500\'%3E%3Crect fill=\'%23e5e7eb\' width=\'800\' height=\'500\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'24\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E' }}" 
                              alt="{{ $property->title }}" class="w-full h-96 object-cover">
                         @if($property->advert_type !== 'standard')
                             <div class="absolute top-4 right-4">
@@ -541,7 +541,7 @@ async function loadSimilarProperties() {
 }
 
 function createSimilarPropertyCard(similarProperty) {
-    const imageUrl = similarProperty.cover_image ? `/storage/${similarProperty.cover_image}` : 'https://via.placeholder.com/300x200';
+    const imageUrl = similarProperty.cover_image ? `/storage/${similarProperty.cover_image}` : 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'200\' viewBox=\'0 0 300 200\'%3E%3Crect fill=\'%23e5e7eb\' width=\'300\' height=\'200\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'16\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E';
     const price = formatPrice(similarProperty.price, similarProperty.currency);
     
     return `

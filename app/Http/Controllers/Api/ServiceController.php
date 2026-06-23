@@ -8,6 +8,7 @@ use App\Models\ServicePackage;
 use App\Models\ServiceCategory;
 use App\Models\ServiceProvider;
 use App\Models\ServiceMedia;
+use App\Models\ServiceAddon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -18,87 +19,93 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::with(['user', 'serviceProvider', 'category', 'packages', 'addons', 'promotions', 'media'])
-            ->active();
+        try {
+            $query = Service::with(['user', 'serviceProvider', 'category', 'packages', 'addons', 'promotions', 'media']);
 
-        // Search
-        if ($request->search) {
-            $query->search($request->search);
-        }
-
-        // Filter by category
-        if ($request->category_id) {
-            $query->byCategory($request->category_id);
-        }
-
-        // Filter by country
-        if ($request->country) {
-            $query->byCountry($request->country);
-        }
-
-        // Filter by service type
-        if ($request->service_type) {
-            $query->byType($request->service_type);
-        }
-
-        // Filter by price range
-        if ($request->min_price) {
-            $query->where('starting_price', '>=', $request->min_price);
-        }
-        if ($request->max_price) {
-            $query->where('starting_price', '<=', $request->max_price);
-        }
-
-        // Filter by verified providers only
-        if ($request->verified_only) {
-            $query->verified();
-        }
-
-        // Filter by promotion type
-        if ($request->promotion_type) {
-            if ($request->promotion_type === 'promoted') {
-                $query->promoted();
-            } elseif ($request->promotion_type === 'featured') {
-                $query->featured();
+            // Search
+            if ($request->search) {
+                $query->search($request->search);
             }
+
+            // Filter by category
+            if ($request->category_id) {
+                $query->byCategory($request->category_id);
+            }
+
+            // Filter by country
+            if ($request->country) {
+                $query->byCountry($request->country);
+            }
+
+            // Filter by service type
+            if ($request->service_type) {
+                $query->byType($request->service_type);
+            }
+
+            // Filter by price range
+            if ($request->min_price) {
+                $query->where('starting_price', '>=', $request->min_price);
+            }
+            if ($request->max_price) {
+                $query->where('starting_price', '<=', $request->max_price);
+            }
+
+            // Filter by verified providers only
+            if ($request->verified_only) {
+                $query->verified();
+            }
+
+            // Filter by promotion type
+            if ($request->promotion_type) {
+                if ($request->promotion_type === 'promoted') {
+                    $query->promoted();
+                } elseif ($request->promotion_type === 'featured') {
+                    $query->featured();
+                }
+            }
+
+            // Sorting
+            $sortBy = $request->sort_by ?? 'created_at';
+            $sortOrder = $request->sort_order ?? 'desc';
+
+            switch ($sortBy) {
+                case 'rating':
+                    $query->orderBy('rating', $sortOrder);
+                    break;
+                case 'price_low':
+                    $query->orderBy('starting_price', 'asc');
+                    break;
+                case 'price_high':
+                    $query->orderBy('starting_price', 'desc');
+                    break;
+                case 'views':
+                    $query->orderBy('views', $sortOrder);
+                    break;
+                case 'enquiries':
+                    $query->orderBy('enquiries', $sortOrder);
+                    break;
+                case 'featured':
+                    $query->featured()->orderBy('created_at', 'desc');
+                    break;
+                case 'trending':
+                    $query->orderBy('views', 'desc')->orderBy('enquiries', 'desc');
+                    break;
+                default:
+                    $query->orderBy($sortBy, $sortOrder);
+            }
+
+            $services = $query->paginate($request->per_page ?? 12);
+
+            return response()->json([
+                'success' => true,
+                'data' => $services,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get services: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Sorting
-        $sortBy = $request->sort_by ?? 'created_at';
-        $sortOrder = $request->sort_order ?? 'desc';
-
-        switch ($sortBy) {
-            case 'rating':
-                $query->orderBy('rating', $sortOrder);
-                break;
-            case 'price_low':
-                $query->orderBy('starting_price', 'asc');
-                break;
-            case 'price_high':
-                $query->orderBy('starting_price', 'desc');
-                break;
-            case 'views':
-                $query->orderBy('views', $sortOrder);
-                break;
-            case 'enquiries':
-                $query->orderBy('enquiries', $sortOrder);
-                break;
-            case 'featured':
-                $query->featured()->orderBy('created_at', 'desc');
-                break;
-            case 'trending':
-                $query->orderBy('views', 'desc')->orderBy('enquiries', 'desc');
-                break;
-            default:
-                $query->orderBy($sortBy, $sortOrder);
-        }
-
-        $services = $query->paginate($request->per_page ?? 12);
-
-        return response()->json([
-            'success' => true,
-            'data' => $services,
-        ]);
     }
 
     public function show(Service $service): JsonResponse
@@ -207,7 +214,10 @@ class ServiceController extends Controller
 
         // Create packages if provided
         if ($request->packages) {
-            foreach ($request->packages as $index => $packageData) {
+            $sortOrder = 0;
+            // Convert object to array if it's an associative array
+            $packages = is_array($request->packages) ? array_values($request->packages) : [];
+            foreach ($packages as $packageData) {
                 ServicePackage::create([
                     'service_id' => $service->id,
                     'name' => $packageData['name'],
@@ -217,7 +227,7 @@ class ServiceController extends Controller
                     'delivery_time' => $packageData['delivery_time'],
                     'features' => $packageData['features'] ?? [],
                     'revisions' => $packageData['revisions'] ?? 1,
-                    'sort_order' => $packageData['sort_order'] ?? $index,
+                    'sort_order' => $sortOrder++,
                     'is_active' => true,
                 ]);
             }
@@ -386,7 +396,6 @@ class ServiceController extends Controller
     {
         $categories = ServiceCategory::where('is_active', true)
             ->orderBy('sort_order')
-            ->withCount('activeServices')
             ->get();
 
         return response()->json([

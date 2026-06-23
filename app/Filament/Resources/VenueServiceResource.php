@@ -204,9 +204,10 @@ class VenueServiceResource extends Resource
                 Forms\Components\Section::make('User Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->label('Posted By')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
+                            ->preload()
                             ->required(),
                     ])
                     ->columns(1),
@@ -265,7 +266,7 @@ class VenueServiceResource extends Resource
                 Tables\Columns\ToggleColumn::make('is_active')
                     ->label('Active'),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Posted By')
                     ->sortable()
                     ->toggleable(),

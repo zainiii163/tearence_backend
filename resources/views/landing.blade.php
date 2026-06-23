@@ -338,7 +338,7 @@
                 <div class="max-w-4xl mx-auto">
                     <div class="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8 card-hover cursor-pointer" onclick="viewListing('${listing.slug}')">
                         <div class="relative">
-                            <img src="https://via.placeholder.com/300x200" alt="${listing.title}" class="w-full h-48 object-cover rounded-t-lg">
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="${listing.title}" class="w-full h-48 object-cover rounded-t-lg">
                             ${badge}
                         </div>
                         <div class="p-4 md:p-6">

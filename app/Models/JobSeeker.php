@@ -14,54 +14,59 @@ class JobSeeker extends Model
 
     protected $fillable = [
         'user_id',
-        'pricing_plan_id',
-        'full_name',
-        'profession',
+        'title',
         'bio',
-        'profile_photo_url',
+        'profile_photo',
+        'cv_file',
+        'portfolio_link',
+        'linkedin_url',
+        'github_url',
+        'website_url',
+        'experience_level',
+        'years_of_experience',
+        'education_level',
+        'key_skills',
+        'desired_role',
+        'industries_interested',
+        'salary_expectation_min',
+        'salary_expectation_max',
+        'salary_currency',
+        'preferred_work_type',
+        'is_remote_available',
         'country',
         'city',
-        'state',
         'latitude',
         'longitude',
-        'years_of_experience',
-        'key_skills',
-        'education_level',
-        'education_details',
-        'experience_summary',
-        'desired_role',
-        'salary_expectation',
-        'work_type_preference',
-        'remote_availability',
-        'preferred_locations',
-        'preferred_industries',
-        'portfolio_link',
-        'linkedin_link',
-        'github_link',
-        'cv_file_url',
-        'additional_links',
-        'status',
-        'terms_accepted',
-        'accurate_info',
-        'verified_profile',
-        'views',
-        'contact_count',
-        'profile_views',
-        'promotion_type',
-        'promotion_expires_at',
+        'location_name',
+        'willing_to_relocate',
+        'is_active',
+        'is_featured',
+        'is_sponsored',
+        'is_promoted',
+        'featured_until',
+        'sponsored_until',
+        'promoted_until',
+        'views_count',
+        'profile_contacts_count',
+        'saves_count',
+        'last_contact_at',
     ];
 
     protected $casts = [
-        'preferred_locations' => 'array',
-        'preferred_industries' => 'array',
-        'additional_links' => 'array',
-        'remote_availability' => 'boolean',
-        'terms_accepted' => 'boolean',
-        'accurate_info' => 'boolean',
-        'verified_profile' => 'boolean',
+        'is_remote_available' => 'boolean',
+        'willing_to_relocate' => 'boolean',
+        'is_active' => 'boolean',
+        'is_featured' => 'boolean',
+        'is_sponsored' => 'boolean',
+        'is_promoted' => 'boolean',
+        'salary_expectation_min' => 'decimal:2',
+        'salary_expectation_max' => 'decimal:2',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
-        'promotion_expires_at' => 'datetime',
+        'featured_until' => 'datetime',
+        'sponsored_until' => 'datetime',
+        'promoted_until' => 'datetime',
+        'last_contact_at' => 'datetime',
     ];
 
     // Relationships
@@ -88,7 +93,7 @@ class JobSeeker extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('is_active', 1);
     }
 
     public function scopeByProfession($query, $profession)
@@ -112,23 +117,23 @@ class JobSeeker extends Model
 
     public function scopeRemote($query)
     {
-        return $query->where('remote_availability', true);
+        return $query->where('is_remote_available', true);
     }
 
     public function scopePromoted($query)
     {
-        return $query->where('promotion_type', '!=', 'basic')
+        return $query->where('is_featured', true)
                     ->where(function ($q) {
-                        $q->whereNull('promotion_expires_at')
-                          ->orWhere('promotion_expires_at', '>', now());
+                        $q->whereNull('featured_until')
+                          ->orWhere('featured_until', '>', now());
                     });
     }
 
     // Accessors
     public function getIsPromotionActiveAttribute()
     {
-        return $this->promotion_type !== 'basic' && 
-               (!$this->promotion_expires_at || $this->promotion_expires_at->isFuture());
+        return $this->is_featured && 
+               (!$this->featured_until || $this->featured_until->isFuture());
     }
 
     public function getSkillsArrayAttribute()
@@ -138,14 +143,19 @@ class JobSeeker extends Model
 
     public function getFormattedSalaryAttribute()
     {
-        if (!$this->salary_expectation) return 'Negotiable';
+        if (!$this->salary_expectation_min && !$this->salary_expectation_max) return 'Negotiable';
         
-        $range = explode('-', $this->salary_expectation);
-        if (count($range) === 2) {
-            return '$' . number_format($range[0]) . ' - $' . number_format($range[1]);
+        $currency = $this->salary_currency ?? 'USD';
+        
+        if ($this->salary_expectation_min && $this->salary_expectation_max) {
+            return $currency . ' ' . number_format($this->salary_expectation_min) . ' - ' . number_format($this->salary_expectation_max);
         }
         
-        return '$' . number_format($range[0]) . '+';
+        if ($this->salary_expectation_min) {
+            return $currency . ' ' . number_format($this->salary_expectation_min) . '+';
+        }
+        
+        return 'Negotiable';
     }
 
     public function getExperienceLabelAttribute()
@@ -163,33 +173,36 @@ class JobSeeker extends Model
     {
         return [
             'high_school' => 'High School',
-            'associate' => 'Associate Degree',
+            'diploma' => 'Diploma',
             'bachelor' => 'Bachelor\'s Degree',
             'master' => 'Master\'s Degree',
-            'doctorate' => 'Doctorate',
+            'phd' => 'PhD',
+            'none' => 'None',
         ][$this->education_level] ?? $this->education_level;
     }
 
     public function getWorkTypeLabelAttribute()
     {
         return [
-            'Full-time' => 'Full-time',
-            'Part-time' => 'Part-time',
-            'Contract' => 'Contract',
-            'Freelance' => 'Freelance',
-        ][$this->work_type_preference] ?? $this->work_type_preference;
+            'full_time' => 'Full-time',
+            'part_time' => 'Part-time',
+            'contract' => 'Contract',
+            'temporary' => 'Temporary',
+            'internship' => 'Internship',
+            'remote' => 'Remote',
+            'any' => 'Any',
+        ][$this->preferred_work_type] ?? $this->preferred_work_type;
     }
 
     // Methods
     public function incrementViews()
     {
-        $this->increment('views');
-        $this->increment('profile_views');
+        $this->increment('views_count');
     }
 
     public function incrementContacts()
     {
-        $this->increment('contact_count');
+        $this->increment('profile_contacts_count');
     }
 
     public function hasSkills($skills)
@@ -212,12 +225,6 @@ class JobSeeker extends Model
     protected static function boot()
     {
         parent::boot();
-
-        static::creating(function ($seeker) {
-            if (empty($seeker->status)) {
-                $seeker->status = 'active';
-            }
-        });
 
         static::deleting(function ($seeker) {
             $seeker->applications()->delete();

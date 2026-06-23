@@ -1,0 +1,713 @@
+{
+  "info": {
+    "name": "WorldwideAdverts Services Marketplace API",
+    "description": "Complete API collection for the WorldwideAdverts Services Marketplace - A Fiverr-style marketplace for services with advanced features including service posting, provider profiles, upsell management, and real-time analytics.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"provider\",\n  \"business_name\": \"Creative Studio Pro\",\n  \"country\": \"United States\",\n  \"city\": \"New York\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/auth/register"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/refresh"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/logout"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Services Management",
+      "item": [
+        {
+          "name": "Get All Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/services?page=1&limit=20&category_id=1&country=United States&min_price=50&max_price=500&service_type=freelance&promotion_type=featured&verified_only=true&sort_by=rating&sort_order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["services"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page"
+                },
+                {
+                  "key": "category_id",
+                  "value": "1",
+                  "description": "Filter by category"
+                },
+                {
+                  "key": "country",
+                  "value": "United States",
+                  "description": "Filter by country"
+                },
+                {
+                  "key": "min_price",
+                  "value": "50",
+                  "description": "Minimum price filter"
+                },
+                {
+                  "key": "max_price",
+                  "value": "500",
+                  "description": "Maximum price filter"
+                },
+                {
+                  "key": "service_type",
+                  "value": "freelance",
+                  "description": "Service type: freelance, local, business"
+                },
+                {
+                  "key": "promotion_type",
+                  "value": "featured",
+                  "description": "Promotion type: promoted, featured, sponsored, network_boost"
+                },
+                {
+                  "key": "verified_only",
+                  "value": "true",
+                  "description": "Filter verified providers only"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "rating",
+                  "description": "Sort by: created_at, rating, starting_price, views, enquiries"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc",
+                  "description": "Sort order: asc, desc"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/services/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category_id\": 1,\n  \"title\": \"Professional Logo Design\",\n  \"tagline\": \"Stunning logos that make your brand stand out\",\n  \"description\": \"Full service description here...\",\n  \"whats_included\": [\"3 logo concepts\", \"Unlimited revisions\", \"Source files\"],\n  \"whats_not_included\": [\"Printing services\", \"Additional branding materials\"],\n  \"requirements\": \"Please provide your brand guidelines and preferences\",\n  \"service_type\": \"freelance\",\n  \"starting_price\": 50,\n  \"currency\": \"USD\",\n  \"delivery_time\": 3,\n  \"country\": \"United States\",\n  \"city\": \"New York\",\n  \"languages\": [\"English\", \"Spanish\"],\n  \"packages\": [\n    {\n      \"name\": \"Basic\",\n      \"description\": \"1 logo concept with 2 revisions\",\n      \"price\": 50,\n      \"delivery_time\": 3,\n      \"features\": [\"PNG files\", \"Basic revisions\"]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/services"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Service",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Professional Logo Design\",\n  \"starting_price\": 75\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/services/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Service",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/services/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/services/my-services"
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Service Status",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/services/1/toggle-status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Featured Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/services/featured"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Popular Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/services/popular"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/services/categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Increment Enquiries",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/services/1/enquiries"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Categories Management",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/categories"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/categories/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/categories/graphic-design/services"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Provider Management",
+      "item": [
+        {
+          "name": "Get Provider Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1/services"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1/reviews"
+          },
+          "response": []
+        },
+        {
+          "name": "Follow Provider",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1/follow"
+          },
+          "response": []
+        },
+        {
+          "name": "Unfollow Provider",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1/follow"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Followers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/providers/1/followers"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reviews & Ratings",
+      "item": [
+        {
+          "name": "Get Service Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reviews/service/1?page=1&limit=10&sort=newest",
+              "host": ["{{baseUrl}}"],
+              "path": ["reviews", "service", "1"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "newest",
+                  "description": "Sort: newest, oldest, highest, lowest"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Excellent work, delivered on time!\",\n  \"service_title\": \"Professional Logo Design\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/reviews/service/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"comment\": \"Updated review comment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/reviews/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/reviews/1"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Promotions & Upsells",
+      "item": [
+        {
+          "name": "Get Promotion Tiers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/promotions/tiers"
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate Promotion Total",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tier\": \"featured\",\n  \"duration\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/promotions/calculate-total"
+          },
+          "response": []
+        },
+        {
+          "name": "Purchase Promotion",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_id\": 1,\n  \"tier\": \"featured\",\n  \"duration\": 30,\n  \"payment_method\": \"stripe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/promotions/purchase"
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Promotions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/promotions/my-promotions"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Promotion",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/promotions/1/cancel"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Search & Filtering",
+      "item": [
+        {
+          "name": "Search Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search/services?query=logo design&category_id=1&price_range[min]=50&price_range[max]=500&location=United States&service_type=freelance&delivery_time[max]=7&rating[min]=4&verified_only=true&sort[field]=rating&sort[order]=desc&pagination[page]=1&pagination[limit]=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["search", "services"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "logo design"
+                },
+                {
+                  "key": "category_id",
+                  "value": "1"
+                },
+                {
+                  "key": "price_range[min]",
+                  "value": "50"
+                },
+                {
+                  "key": "price_range[max]",
+                  "value": "500"
+                },
+                {
+                  "key": "location",
+                  "value": "United States"
+                },
+                {
+                  "key": "service_type",
+                  "value": "freelance"
+                },
+                {
+                  "key": "delivery_time[max]",
+                  "value": "7"
+                },
+                {
+                  "key": "rating[min]",
+                  "value": "4"
+                },
+                {
+                  "key": "verified_only",
+                  "value": "true"
+                },
+                {
+                  "key": "sort[field]",
+                  "value": "rating"
+                },
+                {
+                  "key": "sort[order]",
+                  "value": "desc"
+                },
+                {
+                  "key": "pagination[page]",
+                  "value": "1"
+                },
+                {
+                  "key": "pagination[limit]",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Search Suggestions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/search/suggestions?q=logo"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Popular Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/search/popular"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trending Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/search/trending"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics & Reporting",
+      "item": [
+        {
+          "name": "Get Dashboard Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/dashboard"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Provider Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/provider/1"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/service/1"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Upload & Media",
+      "item": [
+        {
+          "name": "Upload Service Media",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "type",
+                  "value": "thumbnail",
+                  "description": "Type: thumbnail, portfolio, pdf"
+                },
+                {
+                  "key": "service_id",
+                  "value": "1",
+                  "description": "Optional service ID"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/upload/service-media"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/upload/avatar"
+          },
+          "response": []
+        },
+        {
+          "name": "Get File Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/upload/file-id"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/upload/file-id"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

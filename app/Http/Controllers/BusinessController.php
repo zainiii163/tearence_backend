@@ -150,6 +150,14 @@ class BusinessController extends APIController
             $query = $query->skip($skip)->take($perPage)->get();
         }
 
+        // Convert business_logo to full URL for each business
+        $query->transform(function ($business) {
+            if ($business->business_logo) {
+                $business->business_logo = $this->fileUpload->getFile($business->business_logo, $this->folder);
+            }
+            return $business;
+        });
+
         $result = [
             'items' => $query,
             'total' => $total,
@@ -220,8 +228,9 @@ class BusinessController extends APIController
             'business_phone_number' => 'required',
             'business_address' => 'required',
             'business_email' => 'required',
+            'business_email' => 'email',
         ]);
-        
+
         if ($validator->fails()) {
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
         }
@@ -230,18 +239,36 @@ class BusinessController extends APIController
         if (!$user) {
             return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
         }
+        
+        \Log::info('Business creation - User ID: ' . $user->id . ', Customer ID: ' . ($user->customer_id ?? 'null'));
+        
         $customer_id = $user->customer_id;
+        
+        if (!$customer_id) {
+            return $this->errorResponse('Customer ID not found for user', Response::HTTP_BAD_REQUEST);
+        }
 
-        // upload business_logo
-        $fileName = $this->fileUpload->uploadFile($request->business_logo, $this->folder);
+        // upload business_logo if provided
+        $fileName = null;
+        if ($request->hasFile('business_logo') && $request->file('business_logo')->isValid()) {
+            $fileName = $this->fileUpload->uploadFile($request->business_logo, $this->folder);
+        }
 
         try {
             DB::beginTransaction();
+            
+            \Log::info('Creating business with data: ', [
+                'customer_id' => $customer_id,
+                'business_name' => $request->business_name,
+                'slug' => Str::slug($request->business_name),
+                'category_id' => $request->category_id,
+            ]);
 
             $query = new CustomerBusiness();
             $query->slug = Str::slug($request->business_name);
             $query->customer_id = $customer_id;
             $query->business_name = $request->business_name;
+            $query->business_description = $request->business_description;
             $query->business_phone_number = $request->business_phone_number;
             $query->business_address = $request->business_address;
             $query->business_email = $request->business_email;
@@ -253,13 +280,20 @@ class BusinessController extends APIController
             $query->business_company_registration = $request->business_company_registration;
             $query->business_company_name = $request->business_company_name;
             $query->business_company_no = $request->business_company_no;
+            $query->category_id = $request->category_id;
             $query->status = 'active';
+            
+            \Log::info('About to save business...');
             $query->save();
+            \Log::info('Business saved successfully with ID: ' . $query->id);
 
             DB::commit();
             return $this->successResponse($query, '', Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Business creation error: ' . $e->getMessage());
+            \Log::error('Request data: ' . json_encode($request->all()));
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -318,7 +352,10 @@ class BusinessController extends APIController
         if (is_null($query)) {
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
-        // $query->business_logo = $this->fileUpload->getFile($query->business_logo, $this->folder);
+        // Convert business_logo to full URL
+        if ($query->business_logo) {
+            $query->business_logo = $this->fileUpload->getFile($query->business_logo, $this->folder);
+        }
 
         return $this->successResponse($query, '', Response::HTTP_OK);
     }
@@ -399,6 +436,7 @@ class BusinessController extends APIController
             'business_phone_number' => 'required',
             'business_address' => 'required',
             'business_email' => 'required',
+            'business_email' => 'email',
         ]);
         
         if ($validator->fails()) {
@@ -410,10 +448,10 @@ class BusinessController extends APIController
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
 
-        // upload business_logo
+        // upload business_logo if provided
         $imageName = "";
-        if ($request->business_logo) {
-            if (Storage::disk($this->folder)->exists($query->business_logo)) {
+        if ($request->hasFile('business_logo') && $request->file('business_logo')->isValid()) {
+            if ($query->business_logo && Storage::disk($this->folder)->exists($query->business_logo)) {
                 Storage::disk($this->folder)->delete($query->business_logo);
             }
             $imageName = $this->fileUpload->uploadFile($request->business_logo, $this->folder);
@@ -425,6 +463,7 @@ class BusinessController extends APIController
                 $query->business_logo = $imageName;
             }
             $query->business_name = $request->business_name;
+            $query->business_description = $request->business_description;
             $query->business_phone_number = $request->business_phone_number;
             $query->business_address = $request->business_address;
             $query->business_email = $request->business_email;
@@ -435,10 +474,14 @@ class BusinessController extends APIController
             $query->business_company_registration = $request->business_company_registration;
             $query->business_company_name = $request->business_company_name;
             $query->business_company_no = $request->business_company_no;
+            $query->category_id = $request->category_id ?? null;
             $query->status = 'active';
             $query->save();
 
             DB::commit();
+            \Log::error('Business update error: ' . $e->getMessage());
+            \Log::error('Request data: ' . json_encode($request->all()));
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             return $this->successResponse($query, '', Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -568,6 +611,10 @@ class BusinessController extends APIController
         $businessExists = CustomerBusiness::where('customer_id', $customer_id);
         if ($businessExists->exists()) {
             $business = $businessExists->first();
+            // Convert business_logo to full URL
+            if ($business->business_logo) {
+                $business->business_logo = $this->fileUpload->getFile($business->business_logo, $this->folder);
+            }
         }
         
         return $this->successResponse($business, '', Response::HTTP_OK);

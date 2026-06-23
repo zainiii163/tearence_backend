@@ -52,9 +52,9 @@ class AuthenticatedSessionController extends Controller
         // Check if it's a customer user
         $customer = \App\Models\Customer::where('email', $credentials['email'])->first();
         
-        if ($customer && \Hash::check($credentials['password'], $customer->password)) {
-            // Authenticate customer user
-            \Illuminate\Support\Facades\Auth::guard('web')->attempt($credentials);
+        if ($customer && \Hash::check($credentials['password'], $customer->password_hash)) {
+            // Manually authenticate customer user
+            \Illuminate\Support\Facades\Auth::guard('web')->login($customer);
             $request->session()->regenerate();
             
             \Log::info('Customer login successful for: ' . $customer->email);

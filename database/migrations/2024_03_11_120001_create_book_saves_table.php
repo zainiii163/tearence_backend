@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('book_saves', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedInteger('user_id');
             $table->unsignedBigInteger('book_id');
             $table->timestamps();
             

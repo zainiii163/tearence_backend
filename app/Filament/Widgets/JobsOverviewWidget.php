@@ -13,7 +13,7 @@ class JobsOverviewWidget extends BaseWidget
     protected function getStats(): array
     {
         $totalJobs = Job::count();
-        $activeJobs = Job::where('status', 'active')
+        $activeJobs = Job::where('is_active', 1)
             ->where(function($query) {
                 $query->whereNull('expires_at')
                       ->orWhere('expires_at', '>', now());

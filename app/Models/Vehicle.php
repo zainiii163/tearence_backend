@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
 class Vehicle extends Model
 {
@@ -16,13 +17,6 @@ class Vehicle extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'deposit' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
-        'payload_capacity' => 'decimal:10,2',
-        'length' => 'decimal:8,2',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
         'is_active' => 'boolean',
         'is_promoted' => 'boolean',
         'is_featured' => 'boolean',
@@ -39,11 +33,11 @@ class Vehicle extends Model
     ];
 
     /**
-     * Get the user that created the vehicle.
+     * Get user that created vehicle.
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     /**
@@ -120,16 +114,32 @@ class Vehicle extends Model
     }
 
     /**
-     * Get main image URL.
+     * Resolve a stored image path to a public URL.
+     * Filament stores "vehicles/file.jpg" on the public disk; the API stores basename only.
      */
-    public function getMainImageUrlAttribute(): string
+    public static function imageUrl(?string $path): ?string
     {
-        if (!$this->main_image) {
-            return asset('placeholder.png');
+        if (!$path) {
+            return null;
         }
 
-        $fileUpload = new FileUploadHelper();
-        return $fileUpload->getFile($this->main_image, 'vehicles');
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        if (str_contains($path, '/')) {
+            return Storage::disk('public')->url($path);
+        }
+
+        return Storage::disk('vehicles')->url($path);
+    }
+
+    /**
+     * Get main image URL.
+     */
+    public function getMainImageUrlAttribute(): ?string
+    {
+        return self::imageUrl($this->main_image);
     }
 
     /**
@@ -141,13 +151,15 @@ class Vehicle extends Model
             return [];
         }
 
-        $fileUpload = new FileUploadHelper();
         $urls = [];
-        
         foreach ($this->additional_images as $image) {
-            $urls[] = $fileUpload->getFile($image, 'vehicles');
+            $url = self::imageUrl($image);
+
+            if ($url) {
+                $urls[] = $url;
+            }
         }
-        
+
         return $urls;
     }
 
@@ -182,7 +194,17 @@ class Vehicle extends Model
      */
     public function getFullNameAttribute(): string
     {
-        return "{$this->year} {$this->make->name} {$this->vehicleModel->name}";
+        // Handle cases where relationships aren't loaded
+        if (!$this->relationLoaded('make') && !$this->make) {
+            return $this->title ?? 'Unknown Vehicle';
+        }
+        
+        $makeName = $this->make?->name ?? 'Unknown Make';
+        $modelName = $this->vehicleModel?->name ?? '';
+        $year = $this->year ?? '';
+        
+        $fullName = trim("{$year} {$makeName} {$modelName}");
+        return $fullName ?: ($this->title ?? 'Unknown Vehicle');
     }
 
     /**
@@ -194,16 +216,40 @@ class Vehicle extends Model
     }
 
     /**
+     * Whether this vehicle should appear on the public website.
+     */
+    public function isPublishedOnWebsite(): bool
+    {
+        if (!$this->is_active || $this->status !== 'approved') {
+            return false;
+        }
+
+        if ($this->expires_at && now()->gt($this->expires_at)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Scope vehicles visible on the public website / API listings.
+     */
+    public function scopePublished($query)
+    {
+        return $query->where('is_active', true)
+            ->where('status', 'approved')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
+    }
+
+    /**
      * Scope a query to only include active vehicles.
      */
     public function scopeActive($query)
     {
-        return $query->where('is_active', true)
-                    ->where('status', 'approved')
-                    ->where(function ($q) {
-                        $q->whereNull('expires_at')
-                          ->orWhere('expires_at', '>', now());
-                    });
+        return $this->scopePublished($query);
     }
 
     /**
@@ -323,13 +369,20 @@ class Vehicle extends Model
     {
         $this->increment('views');
         
-        // Track in analytics
-        $this->analytics()->create([
-            'event_type' => 'view',
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'user_id' => auth()->id(),
-        ]);
+        // Track in analytics - only if vehicle_id exists
+        if ($this->id) {
+            try {
+                $this->analytics()->create([
+                    'event_type' => 'view',
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'user_id' => auth()->id(),
+                ]);
+            } catch (\Exception $e) {
+                // Log error but don't break the application
+                \Log::warning('Failed to track vehicle analytics: ' . $e->getMessage());
+            }
+        }
     }
 
     /**
@@ -339,13 +392,20 @@ class Vehicle extends Model
     {
         $this->increment('clicks');
         
-        // Track in analytics
-        $this->analytics()->create([
-            'event_type' => 'click',
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
-            'user_id' => auth()->id(),
-        ]);
+        // Track in analytics - only if vehicle_id exists
+        if ($this->id) {
+            try {
+                $this->analytics()->create([
+                    'event_type' => 'click',
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'user_id' => auth()->id(),
+                ]);
+            } catch (\Exception $e) {
+                // Log error but don't break the application
+                \Log::warning('Failed to track vehicle analytics: ' . $e->getMessage());
+            }
+        }
     }
 
     /**
@@ -382,5 +442,61 @@ class Vehicle extends Model
         }
         
         return $badges;
+    }
+
+    /**
+     * Get formatted price attribute.
+     */
+    public function getPriceAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted deposit attribute.
+     */
+    public function getDepositAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted paid_amount attribute.
+     */
+    public function getPaidAmountAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted payload_capacity attribute.
+     */
+    public function getPayloadCapacityAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted length attribute.
+     */
+    public function getLengthAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted latitude attribute.
+     */
+    public function getLatitudeAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted longitude attribute.
+     */
+    public function getLongitudeAttribute($value): float
+    {
+        return (float) $value;
     }
 }

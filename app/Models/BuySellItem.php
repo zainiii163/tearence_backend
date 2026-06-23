@@ -9,10 +9,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class BuySellItem extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasUuids;
+
+    protected $keyType = 'string';
+    
+    public $incrementing = false;
 
     protected $fillable = [
         'user_id',
@@ -215,6 +220,110 @@ class BuySellItem extends Model
             'date' => now()->toDateString(),
             'shares' => 1,
         ]);
+    }
+
+    /**
+     * Set key_features attribute as array from textarea input
+     */
+    public function setKeyFeaturesAttribute($value)
+    {
+        if (is_string($value)) {
+            $this->attributes['key_features'] = json_encode(array_filter(
+                array_map('trim', explode("\n", $value)),
+                'strlen'
+            ));
+        } else {
+            $this->attributes['key_features'] = json_encode($value);
+        }
+    }
+
+    /**
+     * Set usage_notes attribute as array from textarea input
+     */
+    public function setUsageNotesAttribute($value)
+    {
+        if (is_string($value)) {
+            $this->attributes['usage_notes'] = json_encode(array_filter(
+                array_map('trim', explode("\n", $value)),
+                'strlen'
+            ));
+        } else {
+            $this->attributes['usage_notes'] = json_encode($value);
+        }
+    }
+
+    /**
+     * Get key_features attribute as array
+     */
+    public function getKeyFeaturesAttribute($value)
+    {
+        return json_decode($value, true) ?? [];
+    }
+
+    /**
+     * Get usage_notes attribute as array
+     */
+    public function getUsageNotesAttribute($value)
+    {
+        return json_decode($value, true) ?? [];
+    }
+
+    /**
+     * Set meta_data attribute and clean malformed data
+     */
+    public function setMetaDataAttribute($value)
+    {
+        // Clean malformed array structures like [[], {"s":"arr"}]
+        if (is_array($value)) {
+            $cleanData = [];
+            foreach ($value as $item) {
+                if (is_array($item) && !isset($item['s'])) {
+                    $cleanData[] = $item;
+                }
+                // Skip malformed items like {"s":"arr"}
+            }
+            $this->attributes['meta_data'] = json_encode($cleanData);
+        } else {
+            $this->attributes['meta_data'] = json_encode($value);
+        }
+    }
+
+    /**
+     * Get meta_data attribute as array
+     */
+    public function getMetaDataAttribute($value)
+    {
+        $decoded = json_decode($value, true) ?? [];
+        
+        // Clean any remaining malformed data
+        if (is_array($decoded)) {
+            $cleanData = [];
+            foreach ($decoded as $item) {
+                if (is_array($item) && !isset($item['s'])) {
+                    $cleanData[] = $item;
+                }
+            }
+            return $cleanData;
+        }
+        
+        return $decoded;
+    }
+
+    /**
+     * Set promotion_expires_at attribute and fix datetime format
+     */
+    public function setPromotionExpiresAtAttribute($value)
+    {
+        if (is_string($value)) {
+            // Convert ISO format (2027-04-30T08:39) to MySQL format (2027-04-30 08:39:00)
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $value)) {
+                $this->attributes['promotion_expires_at'] = str_replace('T', ' ', $value) . ':00';
+            } else {
+                $this->attributes['promotion_expires_at'] = $value;
+            }
+        } else {
+            $this->attributes['promotion_expires_at'] = $value;
+        }
     }
 
     public static function boot()

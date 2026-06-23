@@ -41,22 +41,40 @@ class BuySellAdvertResource extends Resource
                             ->columnSpanFull(),
                         
                         Forms\Components\Select::make('category_id')
-                            ->relationship('category', 'name')
+                            ->label('Main Category')
+                            ->options(function () {
+                                return BuySellCategory::whereNull('parent_id')
+                                    ->where('is_active', true)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id');
+                            })
                             ->searchable()
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set) => $set('subcategory_id', null)),
                         
                         Forms\Components\Select::make('subcategory_id')
+                            ->label('Subcategory')
                             ->options(function (callable $get) {
                                 $categoryId = $get('category_id');
                                 if (!$categoryId) return [];
                                 
                                 return BuySellCategory::where('parent_id', $categoryId)
                                     ->where('is_active', true)
+                                    ->orderBy('name')
                                     ->pluck('name', 'id');
                             })
-                            ->searchable(),
+                            ->searchable()
+                            ->helperText(function (callable $get) {
+                                $categoryId = $get('category_id');
+                                if (!$categoryId) return 'Please select a main category first';
+                                
+                                $hasSubcategories = BuySellCategory::where('parent_id', $categoryId)
+                                    ->where('is_active', true)
+                                    ->exists();
+                                
+                                return $hasSubcategories ? 'Select a subcategory' : 'No subcategories available for this category';
+                            }),
                         
                         Forms\Components\Select::make('condition')
                             ->options([
@@ -459,6 +477,7 @@ class BuySellAdvertResource extends Resource
         return [
             'index' => Pages\ListBuySellAdverts::route('/'),
             'create' => Pages\CreateBuySellAdvert::route('/create'),
+            'stats' => Pages\BuySellAdvertStats::route('/stats'),
             'view' => Pages\ViewBuySellAdvert::route('/{record}'),
             'edit' => Pages\EditBuySellAdvert::route('/{record}/edit'),
         ];

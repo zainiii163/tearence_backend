@@ -92,7 +92,8 @@ class ServiceCategoryResource extends Resource
             ->emptyStateActions([
                 Tables\Actions\CreateAction::make(),
             ])
-            ->defaultSort(['sort_order' => 'asc', 'name' => 'asc']);
+            ->defaultSort('sort_order', 'asc')
+            ->defaultSort('name', 'asc');
     }
 
     public static function getRelations(): array

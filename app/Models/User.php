@@ -12,6 +12,13 @@ use App\Models\BuySellAdvert;
 use App\Models\BuySellSavedAdvert;
 use App\Models\BuySellAdvertView;
 use App\Models\BuySellAdvertReport;
+use App\Models\Community;
+use App\Models\CommunityMember;
+use App\Models\CommunityPost;
+use App\Models\Comment;
+use App\Models\SavedPost;
+use App\Models\UserReputation;
+use App\Models\CommunityFollow;
 
 class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
 {
@@ -20,11 +27,12 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Temporarily allow all panel access for debugging
-        return true;
-        
-        // Original logic:
-        // return $this->hasVerifiedEmail() && $this->isKycVerified();
+        // Check if user has admin permissions
+        return $this->is_super_admin ||
+            $this->can_manage_dashboard ||
+            $this->can_manage_users ||
+            $this->can_manage_listings ||
+            $this->can_manage_categories;
     }
 
     /**
@@ -40,7 +48,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
      */
     public function isAuthenticated(): bool
     {
-        return !is_null($this);
+        return auth()->check() && auth()->user()->id === $this->id;
     }
 
     /**
@@ -106,7 +114,6 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_manage_listings',
         'can_manage_dashboard',
         'can_view_analytics',
-        'is_active',
         'timezone',
         'avatar',
         'kyc_status',
@@ -152,7 +159,6 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_manage_listings' => 'boolean',
         'can_manage_dashboard' => 'boolean',
         'can_view_analytics' => 'boolean',
-        'is_active' => 'boolean',
         'email_verified' => 'boolean',
         'mobile_verified' => 'boolean',
     ];
@@ -286,7 +292,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         
         return true;
     }
-
+    
     /**
      * Increment user's post count
      */
@@ -426,5 +432,111 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
     public function buySellAdvertReports()
     {
         return $this->hasMany(BuySellAdvertReport::class, 'reporter_id');
+    }
+
+    /**
+     * Get user's community memberships
+     */
+    public function communityMemberships()
+    {
+        return $this->hasMany(CommunityMember::class, 'user_id');
+    }
+
+    /**
+     * Get communities the user is a member of
+     */
+    public function communities()
+    {
+        return $this->belongsToMany(Community::class, 'community_members', 'user_id', 'community_id')
+                    ->withPivot('role', 'joined_at')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get communities the user follows
+     */
+    public function followedCommunities()
+    {
+        return $this->belongsToMany(Community::class, 'community_follows', 'user_id', 'community_id')
+                    ->withPivot('followed_at')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get user's community posts
+     */
+    public function communityPosts()
+    {
+        return $this->hasMany(CommunityPost::class, 'user_id');
+    }
+
+    /**
+     * Get user's comments
+     */
+    public function comments()
+    {
+        return $this->hasMany(Comment::class, 'user_id');
+    }
+
+    /**
+     * Get user's saved posts
+     */
+    public function savedPosts()
+    {
+        return $this->hasMany(SavedPost::class, 'user_id');
+    }
+
+    /**
+     * Get user's reputation record
+     */
+    public function reputation()
+    {
+        return $this->hasOne(UserReputation::class, 'user_id');
+    }
+
+    /**
+     * Get or create user's reputation record
+     */
+    public function getReputation()
+    {
+        return $this->reputation ?? $this->reputation()->create();
+    }
+
+    /**
+     * Check if user is a member of a community
+     */
+    public function isMemberOf($communityId)
+    {
+        return $this->communities()->where('community_id', $communityId)->exists();
+    }
+
+    /**
+     * Check if user follows a community
+     */
+    public function followsCommunity($communityId)
+    {
+        return $this->followedCommunities()->where('community_id', $communityId)->exists();
+    }
+
+    /**
+     * Check if user is a moderator of a community
+     */
+    public function isModeratorOf($communityId)
+    {
+        return $this->communityMemberships()
+                    ->where('community_id', $communityId)
+                    ->whereIn('role', ['moderator', 'admin'])
+                    ->exists();
+    }
+
+    /**
+     * Check if user is an admin of a community
+     */
+    public function isAdminOf($communityId)
+    {
+        return $this->communityMemberships()
+                    ->where('community_id', $communityId)
+                    ->where('role', 'admin')
+                    ->exists();
     }
 }

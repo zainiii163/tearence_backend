@@ -15,6 +15,8 @@ class SponsoredCategory extends Model
         'icon',
         'color',
         'description',
+        'is_active',
+        'sort_order',
     ];
 
     /**
@@ -22,13 +24,13 @@ class SponsoredCategory extends Model
      */
     public function adverts()
     {
-        return $this->hasMany(SponsoredAdvert::class);
+        return $this->hasMany(SponsoredAdvert::class, 'category_id');
     }
 
     /**
-     * Get the adverts count for this category.
+     * Get active adverts count for this category.
      */
-    public function getAdvertsCountAttribute()
+    public function getActiveAdvertsCountAttribute()
     {
         return $this->adverts()->active()->count();
     }

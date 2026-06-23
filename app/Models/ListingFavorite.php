@@ -23,7 +23,7 @@ class ListingFavorite extends Model
      *
      * @var array
      */
-    protected $with = ['customer', 'listing'];
+    protected $with = [];
 
     /**
      * The database table used by the model.

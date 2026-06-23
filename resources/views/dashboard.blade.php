@@ -459,7 +459,7 @@
             return `
                 <div class="bg-white border rounded-lg overflow-hidden card-hover">
                     <div class="relative">
-                        <img src="https://via.placeholder.com/300x200" alt="${listing.title}" class="w-full h-48 object-cover">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Crect fill='%23e5e7eb' width='300' height='200'/%3E%3Ctext fill='%239ca3af' font-family='sans-serif' font-size='16' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" alt="${listing.title}" class="w-full h-48 object-cover">
                         ${badge}
                         <span class="absolute top-2 left-2 px-2 py-1 ${statusColor} text-white text-xs rounded-full">
                             ${listing.status}

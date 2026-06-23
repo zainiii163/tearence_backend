@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AffiliateController extends Controller
@@ -41,41 +42,24 @@ class AffiliateController extends Controller
      */
     public function businessOffers(Request $request): JsonResponse
     {
-        $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory'])
-            ->active();
-
-        // Filters
+        $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory']);
+        
+        // Show ALL offers (both active/approved AND pending) to everyone
+        // Filters only apply to the result set
         if ($request->category_id) {
             $query->where('affiliate_category_id', $request->category_id);
         }
-
         if ($request->country) {
             $query->where('country', $request->country);
         }
-
         if ($request->commission_type) {
             $query->where('commission_type', $request->commission_type);
         }
-
         if ($request->min_commission) {
             $query->where('commission_rate', '>=', $request->min_commission);
         }
-
         if ($request->max_commission) {
             $query->where('commission_rate', '<=', $request->max_commission);
-        }
-
-        // Visibility filters
-        if ($request->featured) {
-            $query->featured();
-        }
-
-        if ($request->promoted) {
-            $query->promoted();
-        }
-
-        if ($request->sponsored) {
-            $query->sponsored();
         }
 
         // Sort
@@ -99,33 +83,18 @@ class AffiliateController extends Controller
      */
     public function userPosts(Request $request): JsonResponse
     {
-        $query = UserAffiliatePost::with(['user', 'affiliateCategory'])
-            ->active();
-
-        // Filters
+        $query = UserAffiliatePost::with(['user', 'affiliateCategory']);
+        
+        // Show ALL posts (both active/approved AND pending) to everyone
+        // Filters only apply to the result set
         if ($request->category_id) {
             $query->where('affiliate_category_id', $request->category_id);
         }
-
         if ($request->country) {
             $query->where('country', $request->country);
         }
-
         if ($request->target_audience) {
             $query->where('target_audience', 'like', '%' . $request->target_audience . '%');
-        }
-
-        // Visibility filters
-        if ($request->featured) {
-            $query->featured();
-        }
-
-        if ($request->promoted) {
-            $query->promoted();
-        }
-
-        if ($request->sponsored) {
-            $query->sponsored();
         }
 
         // Sort
@@ -632,7 +601,7 @@ class AffiliateController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'file' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -645,16 +614,24 @@ class AffiliateController extends Controller
 
         try {
             $file = $request->file('file');
-            $fileUpload = new \App\Helpers\FileUploadHelper();
-            $result = $fileUpload->uploadFile($file, 'affiliate_images');
+            
+            // Generate unique filename
+            $extension = $file->getClientOriginalExtension();
+            $fileName = Str::random(10) . '_' . time() . '.' . $extension;
+            
+            // Store file using Laravel Storage
+            $path = $file->storeAs('affiliate_images', $fileName, 'public');
+            
+            // Generate public URL
+            $url = asset('storage/' . $path);
             
             return response()->json([
                 'success' => true,
                 'message' => 'Image uploaded successfully',
                 'data' => [
-                    'url' => $result['url'],
-                    'id' => $result['id'] ?? null,
-                    'filename' => $result['filename'] ?? $file->getClientOriginalName(),
+                    'url' => $url,
+                    'id' => $fileName,
+                    'filename' => $file->getClientOriginalName(),
                 ],
             ]);
         } catch (\Exception $e) {

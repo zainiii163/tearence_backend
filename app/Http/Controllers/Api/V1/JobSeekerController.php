@@ -7,6 +7,7 @@ use App\Models\JobSeeker;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class JobSeekerController extends Controller
 {
@@ -23,8 +24,8 @@ class JobSeekerController extends Controller
         // Search
         if ($request->search) {
             $query->where(function ($q) use ($request) {
-                $q->where('full_name', 'LIKE', "%{$request->search}%")
-                  ->orWhere('profession', 'LIKE', "%{$request->search}%")
+                $q->where('title', 'LIKE', "%{$request->search}%")
+                  ->orWhere('desired_role', 'LIKE', "%{$request->search}%")
                   ->orWhere('key_skills', 'LIKE', "%{$request->search}%")
                   ->orWhere('bio', 'LIKE', "%{$request->search}%");
             });
@@ -60,9 +61,8 @@ class JobSeekerController extends Controller
             $query->remote();
         }
 
-        // Promoted seekers first
-        $query->orderByRaw("CASE WHEN promotion_type != 'basic' AND (promotion_expires_at IS NULL OR promotion_expires_at > NOW()) THEN 0 ELSE 1 END")
-              ->orderBy('created_at', 'desc');
+        // Order by created_at
+        $query->orderBy('created_at', 'desc');
 
         $perPage = min($request->per_page ?? 20, 100);
         $seekers = $query->paginate($perPage);
@@ -150,33 +150,31 @@ class JobSeekerController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'full_name' => 'required|string|max:255',
-            'profession' => 'required|string|max:255',
-            'bio' => 'nullable|string|min:50',
-            'profile_photo' => 'nullable|string',
-            'country' => 'required|string|max:255',
-            'city' => 'required|string|max:255',
-            'state' => 'nullable|string|max:255',
+            'title' => 'required|string|max:200',
+            'bio' => 'nullable|string',
+            'profile_photo' => 'nullable|string|max:255',
+            'cv_file' => 'nullable|string|max:255',
+            'portfolio_link' => 'nullable|string|max:500',
+            'linkedin_url' => 'nullable|string|max:500',
+            'github_url' => 'nullable|string|max:500',
+            'website_url' => 'nullable|string|max:500',
+            'experience_level' => 'nullable|in:entry,junior,mid,senior,executive',
+            'years_of_experience' => 'nullable|integer',
+            'education_level' => 'nullable|in:high_school,diploma,bachelor,master,phd,none',
+            'key_skills' => 'nullable|string',
+            'desired_role' => 'nullable|string',
+            'industries_interested' => 'nullable|string',
+            'salary_expectation_min' => 'nullable|numeric',
+            'salary_expectation_max' => 'nullable|numeric',
+            'salary_currency' => 'nullable|string|size:3',
+            'preferred_work_type' => 'nullable|in:full_time,part_time,contract,temporary,internship,remote,any',
+            'is_remote_available' => 'boolean',
+            'country' => 'required|string|max:100',
+            'city' => 'required|string|max:100',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'years_of_experience' => 'required|string|in:0-1,1-3,3-5,5-10,10+',
-            'key_skills' => 'nullable|string',
-            'education_level' => 'nullable|string|in:high_school,associate,bachelor,master,doctorate',
-            'education_details' => 'nullable|string',
-            'experience_summary' => 'nullable|string',
-            'desired_role' => 'nullable|string|max:255',
-            'salary_expectation' => 'nullable|string',
-            'work_type_preference' => 'nullable|string|in:Full-time,Part-time,Contract,Freelance',
-            'remote_availability' => 'boolean',
-            'preferred_locations' => 'nullable|array',
-            'preferred_industries' => 'nullable|array',
-            'portfolio_link' => 'nullable|url',
-            'linkedin_link' => 'nullable|url',
-            'github_link' => 'nullable|url',
-            'cv_file' => 'nullable|string',
-            'additional_links' => 'nullable|array',
-            'terms_accepted' => 'accepted',
-            'accurate_info' => 'accepted',
+            'location_name' => 'nullable|string|max:255',
+            'willing_to_relocate' => 'boolean',
         ]);
 
         // Check if user already has a profile
@@ -191,20 +189,40 @@ class JobSeekerController extends Controller
             ], 422);
         }
 
-        $seeker = JobSeeker::create(array_merge($request->all(), [
+        $seeker = JobSeeker::create([
             'user_id' => Auth::id(),
-        ]));
+            'title' => $request->title,
+            'bio' => $request->bio,
+            'profile_photo' => $request->profile_photo,
+            'cv_file' => $request->cv_file,
+            'portfolio_link' => $request->portfolio_link,
+            'linkedin_url' => $request->linkedin_url,
+            'github_url' => $request->github_url,
+            'website_url' => $request->website_url,
+            'experience_level' => $request->experience_level,
+            'years_of_experience' => $request->years_of_experience,
+            'education_level' => $request->education_level,
+            'key_skills' => $request->key_skills,
+            'desired_role' => $request->desired_role,
+            'industries_interested' => $request->industries_interested,
+            'salary_expectation_min' => $request->salary_expectation_min,
+            'salary_expectation_max' => $request->salary_expectation_max,
+            'salary_currency' => $request->salary_currency ?? 'USD',
+            'preferred_work_type' => $request->preferred_work_type,
+            'is_remote_available' => $request->boolean('is_remote_available'),
+            'country' => $request->country,
+            'city' => $request->city,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'location_name' => $request->location_name,
+            'willing_to_relocate' => $request->boolean('willing_to_relocate'),
+            'is_active' => true,
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Job seeker profile created successfully',
-            'data' => [
-                'id' => $seeker->id,
-                'full_name' => $seeker->full_name,
-                'profession' => $seeker->profession,
-                'status' => $seeker->status,
-                'created_at' => $seeker->created_at,
-            ],
+            'data' => $seeker->load(['user']),
         ], 201);
     }
 
@@ -230,7 +248,7 @@ class JobSeekerController extends Controller
         $request->validate([
             'full_name' => 'sometimes|required|string|max:255',
             'profession' => 'sometimes|required|string|max:255',
-            'bio' => 'nullable|string|min:50',
+            'bio' => 'nullable|string',
             'profile_photo' => 'nullable|string',
             'country' => 'sometimes|required|string|max:255',
             'city' => 'sometimes|required|string|max:255',
@@ -386,6 +404,44 @@ class JobSeekerController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats,
+        ]);
+    }
+
+    /**
+     * Contact job seeker profile
+     */
+    public function contactProfile(Request $request, $id): JsonResponse
+    {
+        $seeker = JobSeeker::with(['user'])
+                          ->where('is_active', true)
+                          ->findOrFail($id);
+
+        // Increment contact count if column exists
+        if (Schema::hasColumn('job_seekers', 'profile_contacts_count')) {
+            $seeker->increment('profile_contacts_count');
+        }
+
+        $contactInfo = [
+            'linkedin' => $seeker->linkedin_url,
+            'portfolio' => $seeker->portfolio_link,
+            'github' => $seeker->github_url,
+            'website' => $seeker->website_url,
+        ];
+
+        // Add user contact info if user exists
+        if ($seeker->user) {
+            $contactInfo['email'] = $seeker->user->email;
+            $contactInfo['phone'] = $seeker->user->mobile_number ?? null;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile contact recorded successfully',
+            'data' => [
+                'seeker_id' => $seeker->id,
+                'seeker_name' => $seeker->user->name ?? 'Job Seeker',
+                'contact_info' => $contactInfo,
+            ],
         ]);
     }
 }

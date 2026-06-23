@@ -19,6 +19,9 @@ class BookController extends APIController
                 'index',
                 'show',
                 'scrape',
+                'statistics',
+                'trendingGenres',
+                'featured',
             ]
         ]);
     }
@@ -525,5 +528,63 @@ class BookController extends APIController
         ];
 
         return $this->successResponse($result, '', Response::HTTP_OK);
+    }
+
+    /**
+     * Get book statistics
+     */
+    public function statistics()
+    {
+        try {
+            $totalBooks = Book::count();
+            $activeBooks = Book::where('status', 'active')->count();
+            $totalValue = Book::where('status', 'active')->sum('price');
+            
+            $statistics = [
+                'total_books' => $totalBooks,
+                'active_books' => $activeBooks,
+                'total_value' => $totalValue,
+                'average_price' => $activeBooks > 0 ? round($totalValue / $activeBooks, 2) : 0,
+            ];
+
+            return $this->successResponse($statistics, '', Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get trending genres
+     */
+    public function trendingGenres()
+    {
+        try {
+            // Since books table doesn't have genre column, return empty array for now
+            // This can be enhanced later when genre functionality is added
+            $trendingGenres = [];
+
+            return $this->successResponse($trendingGenres, '', Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get featured books
+     */
+    public function featured(Request $request)
+    {
+        try {
+            $per_page = $request->get('per_page', 6);
+            
+            $featuredBooks = Book::where('status', 'active')
+                ->orderBy('created_at', 'desc')
+                ->limit($per_page)
+                ->get();
+
+            return $this->successResponse($featuredBooks, '', Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

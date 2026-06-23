@@ -15,7 +15,7 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth('api')->user();
+        $user = auth()->user();
         
         if (!$user) {
             return response()->json([

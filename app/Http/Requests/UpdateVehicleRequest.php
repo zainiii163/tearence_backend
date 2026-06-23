@@ -11,7 +11,13 @@ class UpdateVehicleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check() && $this->route('vehicle')->user_id === auth()->id();
+        $user = auth('api')->user();
+        if (!$user) {
+            return false;
+        }
+        
+        $userId = $user instanceof \App\Models\Customer ? $user->customer_id : $user->id;
+        return $this->route('vehicle')->user_id === $userId;
     }
 
     /**

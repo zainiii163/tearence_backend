@@ -35,18 +35,14 @@ class JobSeekerResource extends Resource
                             ->preload()
                             ->required(),
                         
-                        Forms\Components\TextInput::make('full_name')
+                        Forms\Components\TextInput::make('title')
                             ->required()
-                            ->maxLength(255),
-                        
-                        Forms\Components\TextInput::make('profession')
-                            ->required()
-                            ->maxLength(255),
+                            ->maxLength(200),
                         
                         Forms\Components\Textarea::make('bio')
                             ->columnSpanFull(),
                         
-                        Forms\Components\TextInput::make('profile_photo_url')
+                        Forms\Components\TextInput::make('profile_photo')
                             ->url()
                             ->helperText('Profile photo URL'),
                     ])
@@ -56,14 +52,11 @@ class JobSeekerResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('country')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(100),
                         
                         Forms\Components\TextInput::make('city')
                             ->required()
-                            ->maxLength(255),
-                        
-                        Forms\Components\TextInput::make('state')
-                            ->maxLength(255),
+                            ->maxLength(100),
                         
                         Forms\Components\TextInput::make('latitude')
                             ->numeric()
@@ -72,72 +65,83 @@ class JobSeekerResource extends Resource
                         Forms\Components\TextInput::make('longitude')
                             ->numeric()
                             ->step(0.000001),
+                        
+                        Forms\Components\TextInput::make('location_name')
+                            ->maxLength(255),
                     ])
                     ->columns(2),
 
                 Forms\Components\Section::make('Professional Details')
                     ->schema([
-                        Forms\Components\Select::make('years_of_experience')
-                            ->required()
+                        Forms\Components\Select::make('experience_level')
                             ->options([
-                                '0-1' => 'Less than 1 year',
-                                '1-3' => '1-3 years',
-                                '3-5' => '3-5 years',
-                                '5-10' => '5-10 years',
-                                '10+' => '10+ years',
+                                'entry' => 'Entry Level',
+                                'junior' => 'Junior',
+                                'mid' => 'Mid-Level',
+                                'senior' => 'Senior',
+                                'executive' => 'Executive',
                             ]),
                         
-                        Forms\Components\TextInput::make('key_skills')
-                            ->helperText('Comma-separated skills'),
+                        Forms\Components\TextInput::make('years_of_experience')
+                            ->numeric(),
                         
                         Forms\Components\Select::make('education_level')
                             ->options([
                                 'high_school' => 'High School',
-                                'associate' => 'Associate Degree',
+                                'diploma' => 'Diploma',
                                 'bachelor' => 'Bachelor\'s Degree',
                                 'master' => 'Master\'s Degree',
-                                'doctorate' => 'Doctorate',
+                                'phd' => 'PhD',
+                                'none' => 'None',
                             ]),
                         
-                        Forms\Components\Textarea::make('education_details')
+                        Forms\Components\Textarea::make('key_skills')
+                            ->helperText('Comma-separated skills')
                             ->columnSpanFull(),
                         
-                        Forms\Components\Textarea::make('experience_summary')
+                        Forms\Components\Textarea::make('desired_role')
+                            ->columnSpanFull(),
+                        
+                        Forms\Components\Textarea::make('industries_interested')
+                            ->helperText('Comma-separated industries')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
 
                 Forms\Components\Section::make('Job Preferences')
                     ->schema([
-                        Forms\Components\TextInput::make('desired_role')
-                            ->maxLength(255),
-                        
-                        Forms\Components\TextInput::make('salary_expectation')
-                            ->helperText('e.g., 80000-120000'),
-                        
-                        Forms\Components\Select::make('work_type_preference')
+                        Forms\Components\Select::make('preferred_work_type')
                             ->options([
-                                'Full-time' => 'Full-time',
-                                'Part-time' => 'Part-time',
-                                'Contract' => 'Contract',
-                                'Freelance' => 'Freelance',
+                                'full_time' => 'Full-time',
+                                'part_time' => 'Part-time',
+                                'contract' => 'Contract',
+                                'temporary' => 'Temporary',
+                                'internship' => 'Internship',
+                                'remote' => 'Remote',
+                                'any' => 'Any',
                             ]),
                         
-                        Forms\Components\Toggle::make('remote_availability'),
+                        Forms\Components\Toggle::make('remote_availability')
+                            ->label('Remote Available'),
                         
-                        Forms\Components\Repeater::make('preferred_locations')
-                            ->schema([
-                                Forms\Components\TextInput::make('location')
-                                    ->placeholder('e.g., New York, USA'),
-                            ])
-                            ->label('Preferred Locations'),
+                        Forms\Components\Toggle::make('willing_to_relocate')
+                            ->label('Willing to Relocate'),
                         
-                        Forms\Components\Repeater::make('preferred_industries')
-                            ->schema([
-                                Forms\Components\TextInput::make('industry')
-                                    ->placeholder('e.g., Technology, Healthcare'),
+                        Forms\Components\TextInput::make('salary_expectation_min')
+                            ->numeric()
+                            ->label('Min Salary Expectation'),
+                        
+                        Forms\Components\TextInput::make('salary_expectation_max')
+                            ->numeric()
+                            ->label('Max Salary Expectation'),
+                        
+                        Forms\Components\Select::make('salary_currency')
+                            ->options([
+                                'USD' => 'USD',
+                                'EUR' => 'EUR',
+                                'GBP' => 'GBP',
                             ])
-                            ->label('Preferred Industries'),
+                            ->default('USD'),
                     ])
                     ->columns(2),
 
@@ -147,56 +151,42 @@ class JobSeekerResource extends Resource
                             ->url()
                             ->helperText('Portfolio website URL'),
                         
-                        Forms\Components\TextInput::make('linkedin_link')
+                        Forms\Components\TextInput::make('linkedin_url')
                             ->url()
                             ->helperText('LinkedIn profile URL'),
                         
-                        Forms\Components\TextInput::make('github_link')
+                        Forms\Components\TextInput::make('github_url')
                             ->url()
                             ->helperText('GitHub profile URL'),
                         
-                        Forms\Components\TextInput::make('cv_file_url')
+                        Forms\Components\TextInput::make('website_url')
                             ->url()
-                            ->helperText('CV file URL'),
+                            ->helperText('Website URL'),
                         
-                        Forms\Components\Repeater::make('additional_links')
-                            ->schema([
-                                Forms\Components\TextInput::make('label')
-                                    ->placeholder('Link label'),
-                                Forms\Components\TextInput::make('url')
-                                    ->url()
-                                    ->placeholder('Link URL'),
-                            ])
-                            ->label('Additional Links'),
+                        Forms\Components\TextInput::make('cv_file')
+                            ->helperText('CV file URL'),
                     ])
                     ->columns(2),
 
                 Forms\Components\Section::make('Status & Promotion')
                     ->schema([
-                        Forms\Components\Select::make('status')
-                            ->required()
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'hidden' => 'Hidden',
-                            ]),
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Active'),
                         
-                        Forms\Components\Toggle::make('terms_accepted'),
+                        Forms\Components\Toggle::make('is_featured')
+                            ->label('Featured'),
                         
-                        Forms\Components\Toggle::make('accurate_info'),
+                        Forms\Components\Toggle::make('is_sponsored')
+                            ->label('Sponsored'),
                         
-                        Forms\Components\Toggle::make('verified_profile'),
+                        Forms\Components\Toggle::make('is_promoted')
+                            ->label('Promoted'),
                         
-                        Forms\Components\Select::make('promotion_type')
-                            ->options([
-                                'basic' => 'Basic',
-                                'promoted' => 'Promoted',
-                                'featured' => 'Featured',
-                                'sponsored' => 'Sponsored',
-                                'network' => 'Network-Wide Boost',
-                            ]),
+                        Forms\Components\DateTimePicker::make('featured_until'),
                         
-                        Forms\Components\DateTimePicker::make('promotion_expires_at'),
+                        Forms\Components\DateTimePicker::make('sponsored_until'),
+                        
+                        Forms\Components\DateTimePicker::make('promoted_until'),
                     ])
                     ->columns(2),
 
@@ -204,15 +194,18 @@ class JobSeekerResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('views')
                             ->numeric()
-                            ->disabled(),
+                            ->disabled()
+                            ->label('Views'),
                         
                         Forms\Components\TextInput::make('contact_count')
                             ->numeric()
-                            ->disabled(),
+                            ->disabled()
+                            ->label('Profile Contacts'),
                         
-                        Forms\Components\TextInput::make('profile_views')
+                        Forms\Components\TextInput::make('saves_count')
                             ->numeric()
-                            ->disabled(),
+                            ->disabled()
+                            ->label('Saves'),
                     ])
                     ->columns(3),
             ]);
@@ -222,13 +215,9 @@ class JobSeekerResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('full_name')
+                Tables\Columns\TextColumn::make('title')
                     ->searchable()
                     ->limit(50),
-                
-                Tables\Columns\TextColumn::make('profession')
-                    ->searchable()
-                    ->limit(30),
                 
                 Tables\Columns\TextColumn::make('country')
                     ->searchable(),
@@ -236,90 +225,69 @@ class JobSeekerResource extends Resource
                 Tables\Columns\TextColumn::make('city')
                     ->searchable(),
                 
-                Tables\Columns\TextColumn::make('years_of_experience')
+                Tables\Columns\TextColumn::make('experience_level')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        '0-1' => 'gray',
-                        '1-3' => 'blue',
-                        '3-5' => 'green',
-                        '5-10' => 'orange',
-                        '10+' => 'purple',
+                        'entry' => 'gray',
+                        'junior' => 'blue',
+                        'mid' => 'green',
+                        'senior' => 'orange',
+                        'executive' => 'purple',
                     }),
                 
                 Tables\Columns\IconColumn::make('remote_availability')
                     ->boolean()
                     ->label('Remote'),
                 
-                Tables\Columns\TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'warning',
-                        'hidden' => 'danger',
-                    }),
-                
-                Tables\Columns\TextColumn::make('promotion_type')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'basic' => 'gray',
-                        'promoted' => 'info',
-                        'featured' => 'warning',
-                        'sponsored' => 'success',
-                        'network' => 'primary',
-                    }),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->boolean()
+                    ->label('Active'),
                 
                 Tables\Columns\TextColumn::make('views')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Views'),
                 
                 Tables\Columns\TextColumn::make('contact_count')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->label('Contacts'),
                 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
+                Tables\Filters\SelectFilter::make('experience_level')
                     ->options([
-                        'active' => 'Active',
-                        'inactive' => 'Inactive',
-                        'hidden' => 'Hidden',
-                    ]),
-                
-                Tables\Filters\SelectFilter::make('years_of_experience')
-                    ->options([
-                        '0-1' => 'Less than 1 year',
-                        '1-3' => '1-3 years',
-                        '3-5' => '3-5 years',
-                        '5-10' => '5-10 years',
-                        '10+' => '10+ years',
+                        'entry' => 'Entry Level',
+                        'junior' => 'Junior',
+                        'mid' => 'Mid-Level',
+                        'senior' => 'Senior',
+                        'executive' => 'Executive',
                     ]),
                 
                 Tables\Filters\SelectFilter::make('education_level')
                     ->options([
                         'high_school' => 'High School',
-                        'associate' => 'Associate Degree',
+                        'diploma' => 'Diploma',
                         'bachelor' => 'Bachelor\'s Degree',
                         'master' => 'Master\'s Degree',
-                        'doctorate' => 'Doctorate',
+                        'phd' => 'PhD',
+                        'none' => 'None',
                     ]),
                 
-                Tables\Filters\SelectFilter::make('promotion_type')
-                    ->options([
-                        'basic' => 'Basic',
-                        'promoted' => 'Promoted',
-                        'featured' => 'Featured',
-                        'sponsored' => 'Sponsored',
-                        'network' => 'Network-Wide Boost',
-                    ]),
+                Tables\Filters\Filter::make('is_featured')
+                    ->query(fn (Builder $query): Builder => $query->where('is_featured', true))
+                    ->label('Featured'),
                 
-                Tables\Filters\Filter::make('verified_profile')
-                    ->query(fn (Builder $query): Builder => $query->where('verified_profile', true)),
+                Tables\Filters\Filter::make('is_sponsored')
+                    ->query(fn (Builder $query): Builder => $query->where('is_sponsored', true))
+                    ->label('Sponsored'),
                 
-                Tables\Filters\Filter::make('remote_available')
-                    ->query(fn (Builder $query): Builder => $query->where('remote_availability', true)),
+                Tables\Filters\Filter::make('remote_availability')
+                    ->query(fn (Builder $query): Builder => $query->where('remote_availability', true))
+                    ->label('Remote Available'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

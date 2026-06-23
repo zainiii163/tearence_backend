@@ -8,9 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('properties', function (Blueprint $table) {
+        if (!Schema::hasTable('properties')) {
+            Schema::create('properties', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->unsignedInteger('user_id');
+            try {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            } catch (\Exception $e) {}
             $table->string('title');
             $table->string('tagline')->nullable();
             $table->enum('category', ['buy', 'rent', 'lease', 'auction', 'invest']);
@@ -60,7 +64,8 @@ return new class extends Migration
             $table->index(['price', 'currency']);
             $table->index(['advert_type']);
             $table->index(['active', 'approved']);
-        });
+            });
+        }
     }
 
     public function down(): void

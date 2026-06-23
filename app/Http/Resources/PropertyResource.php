@@ -12,7 +12,6 @@ class PropertyResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'category_id' => $this->category_id,
             
             // Basic Information
             'title' => $this->title,
@@ -95,7 +94,7 @@ class PropertyResource extends JsonResource
             'formatted_price' => $this->formatted_price,
             'currency' => $this->currency,
             'negotiable' => $this->negotiable,
-            'deposit_required' => $this->deposit_required,
+            'deposit' => $this->deposit,
             'service_charges' => $this->service_charges,
             'maintenance_fees' => $this->maintenance_fees,
             
@@ -128,10 +127,9 @@ class PropertyResource extends JsonResource
             'verified_agent' => $this->verified_agent,
             
             // Status and Visibility
-            'status' => $this->status,
-            'featured' => $this->featured,
-            'promoted' => $this->promoted,
-            'sponsored' => $this->sponsored,
+            'advert_type' => $this->advert_type,
+            'active' => $this->active,
+            'approved' => $this->approved,
             'is_featured' => $this->is_featured,
             'is_promoted' => $this->is_promoted,
             'is_sponsored' => $this->is_sponsored,
@@ -140,22 +138,16 @@ class PropertyResource extends JsonResource
             'sponsored_until' => $this->sponsored_until,
             
             // Analytics
-            'views_count' => $this->views_count,
-            'inquiries_count' => $this->inquiries_count,
-            'saves_count' => $this->saves_count,
-            
-            // Approval
-            'approval_status' => $this->approval_status,
-            'rejection_reason' => $this->rejection_reason,
-            'approved_at' => $this->approved_at,
-            'approved_by' => $this->approved_by,
+            'views' => $this->views,
+            'enquiries' => $this->enquiries,
+            'saves' => $this->saves,
             
             // Timestamps
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             
             // Relationships
-            'user' => $this->when($this->relationLoaded('user'), function() {
+            'user' => $this->when($this->relationLoaded('user') && $this->user, function() {
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
@@ -163,22 +155,10 @@ class PropertyResource extends JsonResource
                 ];
             }),
             
-            'category_info' => $this->when($this->relationLoaded('category'), function() {
-                return [
-                    'id' => $this->category->id,
-                    'name' => $this->category->name,
-                    'slug' => $this->category->slug,
-                ];
-            }),
-            
-            'upsells' => $this->when($this->relationLoaded('upsells'), function() {
-                return PropertyUpsellResource::collection($this->upsells);
-            }),
-            
             // Additional computed fields
             'is_saved' => $this->when(auth()->check(), function() {
-                return auth()->user()->savedProperties()->where('property_id', $this->id)->exists();
-            }),
+                return $this->favourites()->where('user_id', auth()->id())->exists();
+            }, false),
         ];
     }
 }

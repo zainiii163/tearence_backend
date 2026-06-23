@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceActivity extends Model
 {
+    protected $table = 'service_activities';
+
     protected $fillable = [
         'service_id',
         'user_id',

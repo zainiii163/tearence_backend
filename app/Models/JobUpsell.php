@@ -163,10 +163,12 @@ class JobUpsell extends Model
 
         // Update the upsellable item's promotion status
         if ($this->upsellable) {
-            $this->upsellable->update([
-                'promotion_type' => $this->upsell_type,
-                'promotion_expires_at' => $this->expires_at,
-            ]);
+            $this->upsellable->withoutEvents(function () {
+                $this->upsellable->update([
+                    'promotion_type' => $this->upsell_type,
+                    'promotion_expires_at' => $this->expires_at,
+                ]);
+            });
         }
     }
 
@@ -179,10 +181,12 @@ class JobUpsell extends Model
 
         // Reset the upsellable item's promotion status
         if ($this->upsellable) {
-            $this->upsellable->update([
-                'promotion_type' => 'basic',
-                'promotion_expires_at' => null,
-            ]);
+            $this->upsellable->withoutEvents(function () {
+                $this->upsellable->update([
+                    'promotion_type' => 'basic',
+                    'promotion_expires_at' => null,
+                ]);
+            });
         }
     }
 
@@ -236,14 +240,18 @@ class JobUpsell extends Model
         static::updated(function ($upsell) {
             // Check if upsell expired and update status
             if ($upsell->isExpired() && $upsell->status === 'active') {
-                $upsell->update(['status' => 'expired']);
+                $upsell->withoutEvents(function () use ($upsell) {
+                    $upsell->update(['status' => 'expired']);
+                });
                 
                 // Reset the upsellable item's promotion status
                 if ($upsell->upsellable) {
-                    $upsell->upsellable->update([
-                        'promotion_type' => 'basic',
-                        'promotion_expires_at' => null,
-                    ]);
+                    $upsell->upsellable->withoutEvents(function () use ($upsell) {
+                        $upsell->upsellable->update([
+                            'promotion_type' => 'basic',
+                            'promotion_expires_at' => null,
+                        ]);
+                    });
                 }
             }
         });

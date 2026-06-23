@@ -14,6 +14,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Carbon\Carbon;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,16 +42,10 @@ class VehicleResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('Owner')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
                             ->searchable()
                             ->required()
                             ->default(fn() => Auth::id()),
-                        
-                        Forms\Components\Select::make('business_id')
-                            ->label('Business')
-                            ->relationship('business', 'name')
-                            ->searchable()
-                            ->nullable(),
                         
                         Forms\Components\Select::make('category_id')
                             ->label('Category')
@@ -120,8 +116,7 @@ class VehicleResource extends Resource
                             ->label('Year')
                             ->numeric()
                             ->required()
-                            ->min(1900)
-                            ->max(date('Y') + 1),
+                            ->rules(['min:1900', 'max:' . (date('Y') + 1)]),
                         
                         Forms\Components\TextInput::make('mileage')
                             ->label('Mileage')
@@ -152,15 +147,13 @@ class VehicleResource extends Resource
                             ->label('Doors')
                             ->numeric()
                             ->nullable()
-                            ->min(1)
-                            ->max(10),
+                            ->rules(['min:1', 'max:10']),
                         
                         Forms\Components\TextInput::make('seats')
                             ->label('Seats')
                             ->numeric()
                             ->nullable()
-                            ->min(1)
-                            ->max(20),
+                            ->rules(['min:1', 'max:20']),
                         
                         Forms\Components\TextInput::make('body_type')
                             ->label('Body Type')
@@ -192,8 +185,7 @@ class VehicleResource extends Resource
                             ->label('Axles')
                             ->numeric()
                             ->nullable()
-                            ->min(1)
-                            ->max(10),
+                            ->rules(['min:1', 'max:10']),
                         
                         Forms\Components\TextInput::make('emission_class')
                             ->label('Emission Class')
@@ -220,7 +212,7 @@ class VehicleResource extends Resource
                             ->label('Capacity')
                             ->numeric()
                             ->nullable()
-                            ->min(1),
+                            ->rules(['min:1']),
                         
                         Forms\Components\Toggle::make('trailer_included')
                             ->label('Trailer Included')
@@ -244,13 +236,13 @@ class VehicleResource extends Resource
                             ->label('Passenger Capacity')
                             ->numeric()
                             ->nullable()
-                            ->min(1),
+                            ->rules(['min:1']),
                         
                         Forms\Components\TextInput::make('luggage_capacity')
                             ->label('Luggage Capacity')
                             ->numeric()
                             ->nullable()
-                            ->min(0),
+                            ->rules(['min:0']),
                         
                         Forms\Components\Toggle::make('airport_pickup')
                             ->label('Airport Pickup')
@@ -299,7 +291,6 @@ class VehicleResource extends Resource
                             ->label('Main Image')
                             ->image()
                             ->maxSize(2048)
-                            ->imageEditor()
                             ->directory('vehicles')
                             ->columnSpan('full')
                             ->required(),
@@ -308,7 +299,6 @@ class VehicleResource extends Resource
                             ->label('Additional Images')
                             ->image()
                             ->maxSize(2048)
-                            ->imageEditor()
                             ->directory('vehicles')
                             ->multiple()
                             ->maxFiles(15)
@@ -342,14 +332,14 @@ class VehicleResource extends Resource
                             ->label('Latitude')
                             ->numeric()
                             ->step(0.000001)
-                            ->between(-90, 90)
+                            ->rules(['between:-90,90'])
                             ->nullable(),
                         
                         Forms\Components\TextInput::make('longitude')
                             ->label('Longitude')
                             ->numeric()
                             ->step(0.000001)
-                            ->between(-180, 180)
+                            ->rules(['between:-180,180'])
                             ->nullable(),
                         
                         Forms\Components\Toggle::make('show_exact_location')
@@ -390,7 +380,6 @@ class VehicleResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('features')
                             ->label('Features')
-                            ->simple()
                             ->schema([
                                 Forms\Components\TextInput::make('feature')
                                     ->label('Feature')
@@ -403,9 +392,8 @@ class VehicleResource extends Resource
                             ->label('Service History')
                             ->nullable(),
                         
-                        Forms\Components\TextInput::make('mot_expiry')
+                        Forms\Components\DatePicker::make('mot_expiry')
                             ->label('MOT Expiry')
-                            ->date()
                             ->nullable(),
                         
                         Forms\Components\TextInput::make('road_tax_status')
@@ -417,7 +405,7 @@ class VehicleResource extends Resource
                             ->label('Previous Owners')
                             ->numeric()
                             ->nullable()
-                            ->min(0),
+                            ->rules(['min:0']),
                     ])
                     ->columns(3)
                     ->columnSpan('full'),
@@ -431,7 +419,8 @@ class VehicleResource extends Resource
                                 'approved' => 'Approved',
                                 'rejected' => 'Rejected'
                             ])
-                            ->default('pending')
+                            ->default('approved')
+                            ->helperText('Only approved listings appear on the website.')
                             ->required(),
                         
                         Forms\Components\Toggle::make('is_active')
@@ -461,7 +450,7 @@ class VehicleResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('pricing_plan_id')
                             ->label('Pricing Plan')
-                            ->options(AdPricingPlan::where('ad_type', 'vehicle')->active()->pluck('name', 'id'))
+                            ->options(AdPricingPlan::where('ad_type', 'classified')->active()->pluck('name', 'id'))
                             ->reactive()
                             ->nullable(),
                         
@@ -472,7 +461,7 @@ class VehicleResource extends Resource
                                 'paid' => 'Paid',
                                 'failed' => 'Failed'
                             ])
-                            ->default('pending')
+                            ->default('paid')
                             ->required(),
                         
                         Forms\Components\TextInput::make('paid_amount')
@@ -493,6 +482,8 @@ class VehicleResource extends Resource
                         
                         Forms\Components\DateTimePicker::make('expires_at')
                             ->label('Expires At')
+                            ->default(now()->addDays(30))
+                            ->helperText('Must be in the future for the listing to show on the website.')
                             ->nullable(),
                     ])
                     ->columns(3)
@@ -504,27 +495,38 @@ class VehicleResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('main_image_url')
+                Tables\Columns\ImageColumn::make('main_image')
                     ->label('Image')
-                    ->defaultImageUrl(url('/placeholder.png'))
+                    ->disk('public')
+                    ->getStateUsing(function ($record) {
+                        if (!$record->main_image) {
+                            return null;
+                        }
+
+                        // API stores basename only; Filament stores "vehicles/filename.jpg"
+                        return str_contains($record->main_image, '/')
+                            ? $record->main_image
+                            : 'vehicles/' . $record->main_image;
+                    })
                     ->square()
                     ->size(80),
                 
                 Tables\Columns\TextColumn::make('title')
                     ->label('Title')
-                    ->searchable()
                     ->limit(50)
                     ->wrap(),
                 
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Vehicle')
-                    ->searchable()
                     ->limit(50)
-                    ->wrap(),
+                    ->getStateUsing(function ($record) {
+                        return $record->title ?? 
+                               ($record->year ? $record->year . ' ' . ($record->make?->name ?? 'Unknown') . ' ' . ($record->vehicleModel?->name ?? '') : 
+                               'Unknown Vehicle');
+                    }),
                 
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Category')
-                    ->searchable()
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('advert_type')
@@ -548,7 +550,6 @@ class VehicleResource extends Resource
                 
                 Tables\Columns\TextColumn::make('location')
                     ->label('Location')
-                    ->searchable()
                     ->limit(30),
                 
                 Tables\Columns\BadgeColumn::make('status')
@@ -595,9 +596,8 @@ class VehicleResource extends Resource
                     ->sortable()
                     ->alignCenter(),
                 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Owner')
-                    ->searchable()
                     ->limit(20),
                 
                 Tables\Columns\TextColumn::make('created_at')
@@ -768,9 +768,67 @@ class VehicleResource extends Resource
                 ]),
             ])
             ->emptyStateActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()
+                    ->mutateFormDataUsing(fn (array $data): array => static::prepareAdminPublicationData($data)),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->searchable()
+            ->modifyQueryUsing(function (Builder $query) {
+                if (request()->has('tableSearch') && !empty(request()->get('tableSearch'))) {
+                    $search = request()->get('tableSearch');
+                    $query->where(function (Builder $query) use ($search) {
+                        $query->where('title', 'like', "%{$search}%")
+                              ->orWhereHas('category', function (Builder $query) use ($search) {
+                                  $query->where('name', 'like', "%{$search}%");
+                              })
+                              ->orWhereHas('user', function (Builder $query) use ($search) {
+                                  $query->where('first_name', 'like', "%{$search}%")
+                                        ->orWhere('last_name', 'like', "%{$search}%");
+                              });
+                    });
+                }
+            });
+    }
+
+    /**
+     * Ensure admin-created vehicles are published on the public website.
+     */
+    public static function prepareAdminPublicationData(array $data): array
+    {
+        if (isset($data['main_image'])) {
+            $data['main_image'] = static::normalizeFileUploadValue($data['main_image']);
+        }
+
+        if (isset($data['additional_images']) && is_array($data['additional_images'])) {
+            $data['additional_images'] = array_values(array_filter(array_map(
+                fn ($image) => static::normalizeFileUploadValue($image),
+                $data['additional_images']
+            )));
+        }
+
+        $data['status'] = 'approved';
+        $data['is_active'] = true;
+        $data['payment_status'] = $data['payment_status'] ?? 'paid';
+
+        if ($data['payment_status'] === 'paid' && empty($data['paid_at'])) {
+            $data['paid_at'] = now();
+        }
+
+        $expiresAt = $data['expires_at'] ?? null;
+        if (empty($expiresAt) || Carbon::parse($expiresAt)->lte(now())) {
+            $data['expires_at'] = now()->addDays(30);
+        }
+
+        return $data;
+    }
+
+    protected static function normalizeFileUploadValue(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = Arr::first(Arr::flatten($value));
+        }
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     public static function getRelations(): array

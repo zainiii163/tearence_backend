@@ -18,6 +18,17 @@ class Category extends Model
 
     protected $primaryKey = 'category_id';
 
+    protected $fillable = [
+        'name',
+        'slug', 
+        'description',
+        'is_active',
+        'sort_order',
+        'parent_id',
+        'filter_config',
+        'posting_form_config'
+    ];
+
     protected $casts = [
         'filter_config' => 'array',
         'posting_form_config' => 'array',

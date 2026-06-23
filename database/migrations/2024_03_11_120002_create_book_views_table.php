@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::create('book_views', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('book_id');
-            $table->unsignedBigInteger('user_id')->nullable(); // NULL for anonymous views
+            $table->unsignedInteger('user_id')->nullable(); // NULL for anonymous views
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->timestamps();

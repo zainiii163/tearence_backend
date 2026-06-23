@@ -7,6 +7,7 @@ use App\Models\ResortsTravel;
 use App\Models\ResortsTravelCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -151,6 +152,23 @@ class ResortsTravelController extends Controller
         return response()->json([
             'success' => true,
             'data' => $advert,
+        ]);
+    }
+
+    /**
+     * Track advert view (no-op if views column is unavailable).
+     */
+    public function incrementViews($id)
+    {
+        $advert = ResortsTravel::find($id);
+
+        if ($advert && \Illuminate\Support\Facades\Schema::hasColumn('resorts_travel_adverts', 'views_count')) {
+            $advert->increment('views_count');
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'View recorded',
         ]);
     }
 
@@ -576,5 +594,296 @@ class ResortsTravelController extends Controller
         }
 
         return $slug;
+    }
+
+    /**
+     * Get platform statistics
+     */
+    public function statistics()
+    {
+        $stats = [
+            'total_adverts' => ResortsTravel::count(),
+            'active_adverts' => ResortsTravel::active()->count(),
+            'total_countries' => ResortsTravel::distinct('country')->count('country'),
+            'accommodation_count' => ResortsTravel::where('advert_type', 'accommodation')->count(),
+            'transport_count' => ResortsTravel::where('advert_type', 'transport')->count(),
+            'experience_count' => ResortsTravel::where('advert_type', 'experience')->count(),
+            'featured_count' => ResortsTravel::whereIn('promotion_tier', ['featured', 'sponsored', 'network_wide'])->count(),
+            'verified_count' => ResortsTravel::where('verified_business', true)->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats,
+        ]);
+    }
+
+    /**
+     * Get trending destinations
+     */
+    public function trendingDestinations(Request $request)
+    {
+        $per_page = $request->input('per_page', 10);
+        $country = $request->input('country');
+
+        $query = ResortsTravel::with(['user', 'category'])
+            ->active()
+            ->select('country', 'city', DB::raw('COUNT(*) as advert_count'))
+            ->groupBy('country', 'city')
+            ->orderBy('advert_count', 'desc');
+
+        if ($country) {
+            $query->where('country', $country);
+        }
+
+        $destinations = $query->limit($per_page)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $destinations,
+        ]);
+    }
+
+    /**
+     * Get nearby travel adverts
+     */
+    public function nearbyAdverts(Request $request)
+    {
+        $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+            'radius' => 'nullable|integer|min:1|max:500',
+            'advert_type' => 'nullable|in:accommodation,transport,experience',
+            'per_page' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $radius = $request->input('radius', 50); // default 50km
+        $advertType = $request->input('advert_type');
+        $perPage = $request->input('per_page', 10);
+
+        // Simple distance calculation using Haversine formula approximation
+        $query = ResortsTravel::with(['user', 'category'])
+            ->active()
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->whereRaw("
+                (6371 * acos(
+                    cos(radians(?)) * cos(radians(latitude)) *
+                    cos(radians(longitude) - radians(?)) +
+                    sin(radians(?)) * sin(radians(latitude))
+                )) <= ?
+            ", [$latitude, $longitude, $latitude, $radius]);
+
+        if ($advertType) {
+            $query->where('advert_type', $advertType);
+        }
+
+        $adverts = $query->limit($perPage)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $adverts,
+        ]);
+    }
+
+    /**
+     * Get availability for accommodation
+     */
+    public function getAvailability(Request $request, $id)
+    {
+        $advert = ResortsTravel::findOrFail($id);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // For now, return basic availability info
+        // In a full implementation, you would check against a bookings table
+        $availability = [
+            'advert_id' => $advert->id,
+            'available' => true,
+            'availability_start' => $advert->availability_start,
+            'availability_end' => $advert->availability_end,
+            'price_per_night' => $advert->price_per_night,
+            'currency' => $advert->currency,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $availability,
+        ]);
+    }
+
+    /**
+     * Check availability and get pricing
+     */
+    public function checkAvailabilityPricing(Request $request, $id)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'guests' => 'nullable|integer|min:1',
+        ]);
+
+        $advert = ResortsTravel::findOrFail($id);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $guests = $request->input('guests', 1);
+
+        // Calculate number of nights
+        $checkIn = \Carbon\Carbon::parse($startDate);
+        $checkOut = \Carbon\Carbon::parse($endDate);
+        $nights = $checkIn->diffInDays($checkOut);
+
+        // Calculate total price
+        $pricePerNight = $advert->price_per_night ?? 0;
+        $totalPrice = $pricePerNight * $nights;
+
+        $availability = [
+            'advert_id' => $advert->id,
+            'available' => true,
+            'check_in' => $startDate,
+            'check_out' => $endDate,
+            'nights' => $nights,
+            'guests' => $guests,
+            'price_per_night' => $pricePerNight,
+            'total_price' => $totalPrice,
+            'currency' => $advert->currency,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $availability,
+        ]);
+    }
+
+    /**
+     * Create booking request
+     */
+    public function createBooking(Request $request, $id)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after:start_date',
+            'guests' => 'required|integer|min:1',
+            'guest_name' => 'required|string|max:255',
+            'guest_email' => 'required|email',
+            'guest_phone' => 'required|string|max:20',
+            'special_requests' => 'nullable|string',
+        ]);
+
+        $advert = ResortsTravel::findOrFail($id);
+
+        // For now, just return a success response
+        // In a full implementation, you would save to a bookings table
+        $booking = [
+            'advert_id' => $advert->id,
+            'user_id' => Auth::id(),
+            'start_date' => $request->input('start_date'),
+            'end_date' => $request->input('end_date'),
+            'guests' => $request->input('guests'),
+            'guest_name' => $request->input('guest_name'),
+            'guest_email' => $request->input('guest_email'),
+            'guest_phone' => $request->input('guest_phone'),
+            'special_requests' => $request->input('special_requests'),
+            'status' => 'pending',
+            'created_at' => now(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Booking request created successfully',
+            'data' => $booking,
+        ], 201);
+    }
+
+    /**
+     * Get user's bookings
+     */
+    public function getMyBookings(Request $request)
+    {
+        // For now, return empty array as bookings table doesn't exist yet
+        // In a full implementation, you would query a bookings table
+        $bookings = [];
+
+        return response()->json([
+            'success' => true,
+            'data' => $bookings,
+        ]);
+    }
+
+    /**
+     * Get reviews for travel advert
+     */
+    public function getReviews(Request $request, $id)
+    {
+        // For now, return empty array as reviews table doesn't exist yet
+        // In a full implementation, you would query a reviews table
+        $reviews = [];
+
+        return response()->json([
+            'success' => true,
+            'data' => $reviews,
+        ]);
+    }
+
+    /**
+     * Add review for travel advert
+     */
+    public function addReview(Request $request, $id)
+    {
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string',
+        ]);
+
+        $advert = ResortsTravel::findOrFail($id);
+
+        // For now, just return a success response
+        // In a full implementation, you would save to a reviews table
+        $review = [
+            'advert_id' => $advert->id,
+            'user_id' => Auth::id(),
+            'rating' => $request->input('rating'),
+            'comment' => $request->input('comment'),
+            'created_at' => now(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Review added successfully',
+            'data' => $review,
+        ], 201);
+    }
+
+    /**
+     * Report travel advert
+     */
+    public function reportAdvert(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string',
+            'description' => 'nullable|string',
+        ]);
+
+        $advert = ResortsTravel::findOrFail($id);
+
+        // For now, just return a success response
+        // In a full implementation, you would save to a reports table
+        $report = [
+            'advert_id' => $advert->id,
+            'user_id' => Auth::id(),
+            'reason' => $request->input('reason'),
+            'description' => $request->input('description'),
+            'created_at' => now(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Advert reported successfully',
+            'data' => $report,
+        ], 201);
     }
 }

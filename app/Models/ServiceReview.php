@@ -12,13 +12,12 @@ class ServiceReview extends Model
 
     protected $fillable = [
         'service_id',
-        'order_id',
         'buyer_id',
-        'seller_id',
+        'provider_id',
         'rating',
         'comment',
-        'response',
-        'helpful_count',
+        'service_title',
+        'status',
     ];
 
     protected $casts = [
@@ -40,9 +39,9 @@ class ServiceReview extends Model
         return $this->belongsTo(User::class, 'buyer_id');
     }
 
-    public function seller(): BelongsTo
+    public function provider(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'seller_id');
+        return $this->belongsTo(User::class, 'provider_id');
     }
 
     // Helper methods

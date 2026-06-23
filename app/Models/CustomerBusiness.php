@@ -33,6 +33,7 @@ class CustomerBusiness extends Model
         'customer_id',
         'slug',
         'business_name',
+        'business_description',
         'business_phone_number',
         'business_address',
         'business_email',
@@ -45,11 +46,17 @@ class CustomerBusiness extends Model
         'business_company_registration',
         'personal_email',
         'personal_phone_number',
+        'category_id',
     ];
 
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id', 'category_id');
     }
 
     public function getBusinessLogoAttribute($value)

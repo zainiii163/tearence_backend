@@ -672,6 +672,25 @@ class BooksAdvertController extends Controller
     }
 
     /**
+     * Get trending genres
+     */
+    public function trendingGenres()
+    {
+        $trendingGenres = BookAdvert::selectRaw('genre as name, COUNT(*) as count, SUM(views_count) as total_views')
+            ->whereNotNull('genre')
+            ->where('status', 'active')
+            ->groupBy('genre')
+            ->orderBy('total_views', 'desc')
+            ->take(10)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $trendingGenres
+        ]);
+    }
+
+    /**
      * Get platform statistics
      */
     public function statistics()

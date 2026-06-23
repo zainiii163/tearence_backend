@@ -21,90 +21,123 @@ class PropertyController extends Controller
 {
     public function index(Request $request): PropertyCollection
     {
-        $query = Property::with(['user']);
+        try {
+            $query = Property::with(['user']);
 
-        // Apply filters
-        if ($request->filled('property_type')) {
-            $query->byPropertyType($request->property_type);
+            // Apply filters
+            if ($request->filled('property_type')) {
+                $query->byPropertyType($request->property_type);
+            }
+
+            if ($request->filled('category')) {
+                $query->byCategory($request->category);
+            }
+
+            if ($request->filled('country')) {
+                $query->byLocation($request->country, $request->city);
+            }
+
+            if ($request->filled('min_price') || $request->filled('max_price')) {
+                $query->priceRange($request->min_price, $request->max_price);
+            }
+
+            if ($request->filled('min_bedrooms') || $request->filled('max_bedrooms')) {
+                $query->bedrooms($request->min_bedrooms, $request->max_bedrooms);
+            }
+
+            if ($request->filled('search')) {
+                $searchTerm = $request->search;
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('title', 'LIKE', "%{$searchTerm}%")
+                      ->orWhere('description', 'LIKE', "%{$searchTerm}%")
+                      ->orWhere('city', 'LIKE', "%{$searchTerm}%")
+                      ->orWhere('country', 'LIKE', "%{$searchTerm}%");
+                });
+            }
+
+            // Show only active and approved properties for public
+            if (!$request->filled('include_all')) {
+                $query->active();
+            }
+
+            // Priority ordering: sponsored > promoted > featured > regular
+            $query->orderByRaw("
+                CASE 
+                    WHEN advert_type = 'sponsored' AND sponsored_until > NOW() THEN 1
+                    WHEN advert_type = 'featured' AND featured_until > NOW() THEN 2
+                    WHEN advert_type = 'promoted' AND promoted_until > NOW() THEN 3
+                    ELSE 4
+                END
+            ")->orderBy('created_at', 'desc');
+
+            $properties = $query->paginate($request->get('per_page', 12));
+
+            return new PropertyCollection($properties);
+        } catch (\Exception $e) {
+            \Log::error('Property index error: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            return response()->json([
+                'message' => 'Error fetching properties',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        if ($request->filled('category')) {
-            $query->byCategory($request->category);
-        }
-
-        if ($request->filled('country')) {
-            $query->byLocation($request->country, $request->city);
-        }
-
-        if ($request->filled('min_price') || $request->filled('max_price')) {
-            $query->priceRange($request->min_price, $request->max_price);
-        }
-
-        if ($request->filled('min_bedrooms') || $request->filled('max_bedrooms')) {
-            $query->bedrooms($request->min_bedrooms, $request->max_bedrooms);
-        }
-
-        if ($request->filled('search')) {
-            $searchTerm = $request->search;
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('title', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('description', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('city', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('country', 'LIKE', "%{$searchTerm}%");
-            });
-        }
-
-        // Show only active and approved properties for public
-        if (!$request->filled('include_all')) {
-            $query->active();
-        }
-
-        // Priority ordering: sponsored > promoted > featured > regular
-        $query->orderByRaw("
-            CASE 
-                WHEN advert_type = 'sponsored' AND sponsored_until > NOW() THEN 1
-                WHEN advert_type = 'featured' AND featured_until > NOW() THEN 2
-                WHEN advert_type = 'promoted' AND promoted_until > NOW() THEN 3
-                ELSE 4
-            END
-        ")->orderBy('created_at', 'desc');
-
-        $properties = $query->paginate($request->get('per_page', 12));
-
-        return new PropertyCollection($properties);
     }
 
     public function featured(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user'])
-            ->active()
-            ->featured()
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 12));
+        try {
+            $properties = Property::with(['user'])
+                ->active()
+                ->featured()
+                ->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 12));
 
-        return new PropertyCollection($properties);
+            return new PropertyCollection($properties);
+        } catch (\Exception $e) {
+            \Log::error('Property featured error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error fetching featured properties',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function promoted(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user'])
-            ->active()
-            ->promoted()
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 12));
+        try {
+            $properties = Property::with(['user'])
+                ->active()
+                ->promoted()
+                ->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 12));
 
-        return new PropertyCollection($properties);
+            return new PropertyCollection($properties);
+        } catch (\Exception $e) {
+            \Log::error('Property promoted error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error fetching promoted properties',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function sponsored(Request $request): PropertyCollection
     {
-        $properties = Property::with(['user'])
-            ->active()
-            ->sponsored()
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->get('per_page', 12));
+        try {
+            $properties = Property::with(['user'])
+                ->active()
+                ->sponsored()
+                ->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 12));
 
-        return new PropertyCollection($properties);
+            return new PropertyCollection($properties);
+        } catch (\Exception $e) {
+            \Log::error('Property sponsored error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error fetching sponsored properties',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show(Property $property): PropertyResource
@@ -124,12 +157,12 @@ class PropertyController extends Controller
         return new PropertyResource($property->load(['user']));
     }
 
-    public function store(PropertyStoreRequest $request): PropertyResource
+    public function store(PropertyStoreRequest $request): PropertyResource|JsonResponse
     {
         try {
             DB::beginTransaction();
 
-            $data = $request->validated();
+            $data = $request->all();
 
             // Handle cover image upload
             if ($request->hasFile('cover_image')) {
@@ -150,8 +183,10 @@ class PropertyController extends Controller
                 $data['seller_logo'] = $request->file('seller_logo')->store('properties/logos', 'public');
             }
 
-            // Set user ID
+            // Set user ID and default visibility
             $data['user_id'] = Auth::id();
+            $data['active'] = $data['active'] ?? true;
+            $data['approved'] = $data['approved'] ?? true;
 
             $property = Property::create($data);
 
@@ -167,7 +202,7 @@ class PropertyController extends Controller
         }
     }
 
-    public function update(PropertyUpdateRequest $request, Property $property): PropertyResource
+    public function update(PropertyUpdateRequest $request, Property $property): PropertyResource|JsonResponse
     {
         // Check if user owns this property
         if ($property->user_id !== Auth::id()) {
@@ -326,11 +361,6 @@ class PropertyController extends Controller
 
     public function contactAgent(Property $property, Request $request): JsonResponse
     {
-        $request->validate([
-            'message' => 'required|string|max:1000',
-            'phone' => 'nullable|string|max:20',
-        ]);
-
         // Track analytics
         PropertyAnalytic::create([
             'property_id' => $property->id,
@@ -338,19 +368,37 @@ class PropertyController extends Controller
             'user_id' => Auth::id(),
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
-            'metadata' => [
-                'message' => $request->message,
-                'phone' => $request->phone,
-            ],
         ]);
 
         // Increment inquiry count
         $property->increment('enquiries');
 
-        // TODO: Send email notification to property owner
-        // TODO: Send confirmation email to user
+        // Return contact information
+        $contactInfo = [
+            'agent_name' => $property->agent_name ?? 'Property Agent',
+            'agent_email' => $property->agent_email,
+            'agent_phone' => $property->agent_phone,
+            'agency_name' => $property->agency_name,
+            'agency_phone' => $property->agency_phone,
+            'agency_email' => $property->agency_email,
+            'whatsapp' => $property->whatsapp_number,
+        ];
 
-        return response()->json(['message' => 'Message sent to agent successfully']);
+        // Add user contact info if property has user relationship
+        if ($property->user) {
+            $contactInfo['owner_email'] = $property->user->email;
+            $contactInfo['owner_phone'] = $property->user->mobile_number ?? null;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contact information retrieved successfully',
+            'data' => [
+                'property_id' => $property->id,
+                'property_title' => $property->title,
+                'contact_info' => $contactInfo,
+            ],
+        ]);
     }
 
     public function trackEvent(Property $property, Request $request): JsonResponse
@@ -374,31 +422,43 @@ class PropertyController extends Controller
 
     public function getPropertyTypes(): JsonResponse
     {
-        return response()->json(Property::getPropertyTypes());
+        return response()->json(['data' => $this->mapToOptions(Property::getPropertyTypes())]);
     }
 
     public function getCategories(): JsonResponse
     {
-        return response()->json(Property::getCategories());
+        return response()->json(['data' => $this->mapToOptions(Property::getCategories())]);
     }
 
     public function getCommercialTypes(): JsonResponse
     {
-        return response()->json(Property::getCommercialTypes());
+        return response()->json(['data' => $this->mapToOptions(Property::getCommercialTypes())]);
     }
 
     public function getLandTypes(): JsonResponse
     {
-        return response()->json(Property::getLandTypes());
+        return response()->json(['data' => $this->mapToOptions(Property::getLandTypes())]);
     }
 
     public function getPlanningPermissions(): JsonResponse
     {
-        return response()->json(Property::getPlanningPermissions());
+        return response()->json(['data' => $this->mapToOptions(Property::getPlanningPermissions())]);
     }
 
     public function getViewTypes(): JsonResponse
     {
-        return response()->json(Property::getViewTypes());
+        return response()->json(['data' => $this->mapToOptions(Property::getViewTypes())]);
+    }
+
+    /**
+     * Convert ['key' => 'Label'] association into [{id, name, label}, ...]
+     */
+    protected function mapToOptions(array $map): array
+    {
+        $out = [];
+        foreach ($map as $id => $label) {
+            $out[] = ['id' => $id, 'name' => $label, 'label' => $label];
+        }
+        return $out;
     }
 }

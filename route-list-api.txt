@@ -1,0 +1,9 @@
+﻿
+Parse error: syntax error, unexpected token "=", expecting end of file in Command line code on line 1
+php : PHP Parse error:  syntax error, unexpected token "=", expecting end of file in Command line code on line 1
+At C:\Users\hanzo\AppData\Local\Temp\ps-script-36e7865d-aadd-4d32-aadb-5197c203520f.ps1:78 char:36
++ ... -New_main"; php -r "$routes=json_decode(file_get_contents('C:/Users/h ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PHP Parse error... code on line 1:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

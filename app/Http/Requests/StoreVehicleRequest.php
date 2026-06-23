@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreVehicleRequest extends FormRequest
@@ -11,7 +12,12 @@ class StoreVehicleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check();
+        $user = auth('api')->user();
+        if (!$user) {
+            return false;
+        }
+        
+        return $user->can('create', Vehicle::class);
     }
 
     /**
@@ -26,7 +32,8 @@ class StoreVehicleRequest extends FormRequest
             'business_id' => 'nullable|exists:businesses,id',
             'category_id' => 'required|exists:vehicle_categories,id',
             'make_id' => 'required|exists:vehicle_makes,id',
-            'model_id' => 'required|exists:vehicle_models,id',
+            'model_id' => 'required_without:custom_model|exists:vehicle_models,id',
+            'custom_model' => 'required_without:model_id|string|max:255',
             'title' => 'required|string|max:255',
             'tagline' => 'nullable|string|max:255',
             'description' => 'nullable|string',
@@ -70,8 +77,8 @@ class StoreVehicleRequest extends FormRequest
             'negotiable' => 'boolean',
             'deposit' => 'nullable|numeric|min:0',
             
-            // Media
-            'main_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            // Media — accept uploaded file or pre-uploaded path string
+            'main_image' => 'required',
             'additional_images' => 'array|max:15',
             'additional_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'video_link' => 'nullable|url|max:255',
@@ -117,6 +124,8 @@ class StoreVehicleRequest extends FormRequest
             'make_id.exists' => 'Selected vehicle make is invalid.',
             'model_id.required' => 'Please select a vehicle model.',
             'model_id.exists' => 'Selected vehicle model is invalid.',
+            'custom_model.required' => 'Please specify a custom model name.',
+            'custom_model.max' => 'Custom model name cannot exceed 255 characters.',
             'advert_type.required' => 'Please select an advert type.',
             'advert_type.in' => 'Invalid advert type selected.',
             'title.required' => 'Vehicle title is required.',
@@ -129,10 +138,24 @@ class StoreVehicleRequest extends FormRequest
             'country.required' => 'Country is required.',
             'city.required' => 'City is required.',
             'main_image.required' => 'Main vehicle image is required.',
-            'main_image.image' => 'Main image must be an image file.',
+            'main_image.file' => 'Main image must be a file.',
+            'main_image.max' => 'Main image may not be greater than 2MB.',
             'additional_images.max' => 'You can upload maximum 15 additional images.',
             'latitude.between' => 'Latitude must be between -90 and 90.',
             'longitude.between' => 'Longitude must be between -180 and 180.',
         ];
+    }
+
+    /**
+     * Handle a failed validation attempt.
+     */
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422)
+        );
     }
 }

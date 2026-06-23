@@ -19,11 +19,25 @@ class CustomerBusinessResource extends Resource
 {
     protected static ?string $model = CustomerBusiness::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-briefcase';
+    protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
 
-    protected static ?string $navigationGroup = 'Customer Management';
+    protected static ?string $navigationGroup = 'Business Management';
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?string $label = 'Businesses';
+
+    protected static ?string $pluralLabel = 'Businesses';
+
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
+    public static function canCreate(): bool
+    {
+        return true;
+    }
 
     public static function form(Form $form): Form
     {
@@ -46,6 +60,12 @@ class CustomerBusinessResource extends Resource
                             ->searchable()
                             ->required()
                             ->preload(),
+                        Forms\Components\Select::make('category_id')
+                            ->label('Business Category')
+                            ->relationship('category', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Select a category'),
                         Forms\Components\TextInput::make('slug')
                             ->maxLength(255)
                             ->helperText('Leave empty to auto-generate from business name'),
@@ -136,10 +156,14 @@ class CustomerBusinessResource extends Resource
                     ->label('Business Name')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('category.name')
+                    ->label('Category')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Customer')
                     ->searchable()
-                    ->sortable()
                     ->formatStateUsing(function ($record) {
                         return $record->customer ? $record->customer->first_name . ' ' . $record->customer->last_name : '-';
                     }),

@@ -18,7 +18,7 @@ class FundingOverviewWidget extends BaseWidget
         $totalFunding = Project::sum('current_funding');
         $totalGoals = Project::sum('funding_goal');
         $pendingReview = Project::where('status', 'draft')->whereNotNull('submitted_at')->count();
-        $activePromotions = ProjectPromotion::where('status', 'active')->count();
+        $activePromotions = ProjectPromotion::count();
 
         // Calculate average funding progress
         $avgProgress = $totalGoals > 0 ? ($totalFunding / $totalGoals) * 100 : 0;
@@ -26,8 +26,8 @@ class FundingOverviewWidget extends BaseWidget
         // Get recent projects count (last 30 days)
         $recentProjects = Project::where('created_at', '>=', now()->subDays(30))->count();
 
-        // Get promotion revenue
-        $promotionRevenue = ProjectPromotion::where('status', 'active')->sum('amount_paid');
+        // Get promotion revenue (not available yet)
+        $promotionRevenue = 0;
 
         return [
             Stat::make('Total Projects', number_format($totalProjects))
@@ -51,8 +51,8 @@ class FundingOverviewWidget extends BaseWidget
                 ->descriptionIcon('heroicon-m-clock')
                 ->color($pendingReview > 0 ? 'warning' : 'success'),
 
-            Stat::make('Active Promotions', number_format($activePromotions))
-                ->description('Generating $' . number_format($promotionRevenue, 2))
+            Stat::make('Total Promotions', number_format($activePromotions))
+                ->description('All promotions')
                 ->descriptionIcon('heroicon-m-rocket-launch')
                 ->color('info'),
 

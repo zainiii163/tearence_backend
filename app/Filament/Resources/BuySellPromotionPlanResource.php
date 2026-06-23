@@ -176,6 +176,7 @@ class BuySellPromotionPlanResource extends Resource
                         }),
                 ]),
             ])
+            ->defaultSort('sort_order', 'asc')
             ->reorderable('sort_order');
     }
 

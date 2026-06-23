@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\BookAdvert;
+use App\Models\Book;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -17,30 +17,27 @@ class RecentBooksWidget extends BaseWidget
     {
         return $table
             ->query(
-                BookAdvert::query()
+                Book::query()
                     ->with('user')
                     ->latest()
                     ->limit(10)
             )
             ->columns([
-                Tables\Columns\ImageColumn::make('cover_image_url')
+                Tables\Columns\ImageColumn::make('cover_image')
                     ->label('Cover')
+                    ->disk('public')
                     ->size(40)
                     ->circular(),
                 Tables\Columns\TextColumn::make('title')
                     ->searchable()
                     ->limit(50),
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('author_name')
                     ->label('Author')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge(),
                 Tables\Columns\TextColumn::make('advert_type')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'basic' => 'gray',
-                        'promoted' => 'blue',
-                        'featured' => 'yellow',
-                        'sponsored' => 'red',
-                    }),
+                    ->badge(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -48,7 +45,7 @@ class RecentBooksWidget extends BaseWidget
             ])
             ->actions([
                 Tables\Actions\Action::make('view')
-                    ->url(fn (BookAdvert $record): string => route('filament.admin.resources.books-adverts.view', $record))
+                    ->url(fn (Book $record): string => route('filament.admin.resources.book-adverts.view', $record))
                     ->icon('heroicon-o-eye'),
             ]);
     }

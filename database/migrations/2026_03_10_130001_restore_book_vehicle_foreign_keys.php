@@ -12,52 +12,68 @@ return new class extends Migration
     public function up(): void
     {
         // Add foreign key constraints to books table
-        Schema::table('books', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('author_id')->references('id')->on('authors')->onDelete('set null');
-            $table->foreign('pricing_plan_id')->references('id')->on('ad_pricing_plans')->onDelete('set null');
-        });
+        try {
+            Schema::table('books', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+                $table->foreign('author_id')->references('id')->on('authors')->onDelete('set null');
+                $table->foreign('pricing_plan_id')->references('id')->on('ad_pricing_plans')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to book_saves table
-        Schema::table('book_saves', function (Blueprint $table) {
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        try {
+            Schema::table('book_saves', function (Blueprint $table) {
+                $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to book_upsells table
-        Schema::table('book_upsells', function (Blueprint $table) {
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        try {
+            Schema::table('book_upsells', function (Blueprint $table) {
+                $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to authors table
-        Schema::table('authors', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-        });
+        try {
+            Schema::table('authors', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to vehicles table
-        Schema::table('vehicles', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('vehicle_category_id')->references('id')->on('vehicle_categories')->onDelete('cascade');
-        });
+        try {
+            Schema::table('vehicles', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+                $table->foreign('vehicle_category_id')->references('id')->on('vehicle_categories')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to vehicle_favourites table
-        Schema::table('vehicle_favourites', function (Blueprint $table) {
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
-        });
+        try {
+            Schema::table('vehicle_favourites', function (Blueprint $table) {
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+                $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to vehicle_analytics table
-        Schema::table('vehicle_analytics', function (Blueprint $table) {
-            $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-        });
+        try {
+            Schema::table('vehicle_analytics', function (Blueprint $table) {
+                $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
 
         // Add foreign key constraints to vehicle_enquiries table
-        Schema::table('vehicle_enquiries', function (Blueprint $table) {
-            $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
-        });
+        try {
+            Schema::table('vehicle_enquiries', function (Blueprint $table) {
+                $table->foreign('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
+                $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            });
+        } catch (\Exception $e) {}
     }
 
     /**

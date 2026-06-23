@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\EventsVenuesSyncService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -73,11 +74,26 @@ class Venue extends Model
                 $venue->slug = Str::slug($venue->name) . '-' . uniqid();
             }
         });
+
+        static::saved(function (Venue $venue) {
+            app(EventsVenuesSyncService::class)->syncVenue($venue);
+        });
+
+        static::deleted(function (Venue $venue) {
+            app(EventsVenuesSyncService::class)->removeBySource(
+                EventsVenuesSyncService::SOURCE_VENUE,
+                $venue->id
+            );
+        });
+
+        static::restored(function (Venue $venue) {
+            app(EventsVenuesSyncService::class)->syncVenue($venue);
+        });
     }
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     public function events()

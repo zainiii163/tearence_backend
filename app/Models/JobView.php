@@ -102,43 +102,36 @@ class JobView extends Model
                         ->first();
         
         if (!$recentView) {
-            $view = self::create([
+            return self::create([
                 'job_id' => $jobId,
                 'user_id' => $userId,
                 'ip_address' => $ipAddress,
                 'user_agent' => $userAgent,
                 'referrer' => $referrer,
-                'country' => $this->getCountryFromIp($ipAddress),
-                'city' => $this->getCityFromIp($ipAddress),
-                'device_type' => $this->getDeviceTypeFromUserAgent($userAgent),
+                'country' => self::getCountryFromIp($ipAddress),
+                'city' => self::getCityFromIp($ipAddress),
+                'device_type' => self::getDeviceTypeFromUserAgent($userAgent),
             ]);
-            
-            // Increment job's views count
-            $job = Job::find($jobId);
-            if ($job) {
-                $job->incrementViews();
-            }
-            
-            return $view;
         }
         
         return null;
     }
 
-    private function getCountryFromIp($ip)
+    private static function getCountryFromIp($ip)
     {
         // This is a placeholder - you would integrate with a GeoIP service
         // like MaxMind GeoIP, IP-API, etc.
         return null;
     }
 
-    private function getCityFromIp($ip)
+    private static function getCityFromIp($ip)
     {
         // This is a placeholder - you would integrate with a GeoIP service
+        // like MaxMind GeoIP, IP-API, etc.
         return null;
     }
 
-    private function getDeviceTypeFromUserAgent($userAgent)
+    private static function getDeviceTypeFromUserAgent($userAgent)
     {
         if (preg_match('/Mobile|Android|iPhone|iPad|iPod/', $userAgent)) {
             if (preg_match('/iPad/', $userAgent)) {
@@ -150,12 +143,4 @@ class JobView extends Model
         return 'desktop';
     }
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::created(function ($view) {
-            $view->job->incrementViews();
-        });
-    }
 }

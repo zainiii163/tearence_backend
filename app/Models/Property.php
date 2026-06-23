@@ -55,6 +55,25 @@ class Property extends Model
         'enquiries',
         'active',
         'approved',
+        'slug',
+        // Location extras
+        'region', 'show_exact_location',
+        // Residential
+        'bedrooms', 'bathrooms', 'property_size', 'size_unit', 'furnished', 'parking_spaces',
+        // Commercial
+        'commercial_type', 'floor_area', 'footfall_rating', 'accessibility_features',
+        // Industrial
+        'zoning_type', 'warehouse_size', 'loading_bays', 'power_capacity', 'ceiling_height',
+        // Land
+        'land_size', 'land_type', 'planning_permission', 'soil_quality',
+        // Luxury
+        'premium_features', 'security_features', 'view_type',
+        // Investment
+        'rental_yield', 'occupancy_rate', 'current_rental_income', 'roi_percentage',
+        // Pricing extras
+        'deposit_required',
+        // Description split fields
+        'overview', 'key_features', 'nearby_amenities', 'additional_notes',
     ];
 
     protected $casts = [
@@ -62,18 +81,34 @@ class Property extends Model
         'longitude' => 'decimal:8',
         'price' => 'decimal:2',
         'deposit' => 'decimal:2',
+        'deposit_required' => 'decimal:2',
         'service_charges' => 'decimal:2',
         'maintenance_fees' => 'decimal:2',
         'negotiable' => 'boolean',
         'verified_agent' => 'boolean',
+        'furnished' => 'boolean',
+        'accessibility_features' => 'boolean',
+        'show_exact_location' => 'boolean',
         'additional_images' => 'array',
         'specifications' => 'array',
         'amenities' => 'array',
         'location_highlights' => 'array',
         'transport_links' => 'array',
+        'premium_features' => 'array',
+        'security_features' => 'array',
         'promoted_until' => 'datetime',
         'featured_until' => 'datetime',
         'sponsored_until' => 'datetime',
+        'property_size' => 'decimal:2',
+        'floor_area' => 'decimal:2',
+        'warehouse_size' => 'decimal:2',
+        'power_capacity' => 'decimal:2',
+        'ceiling_height' => 'decimal:2',
+        'land_size' => 'decimal:2',
+        'rental_yield' => 'decimal:2',
+        'occupancy_rate' => 'decimal:2',
+        'current_rental_income' => 'decimal:2',
+        'roi_percentage' => 'decimal:2',
     ];
 
     protected $dates = [
@@ -197,8 +232,8 @@ class Property extends Model
             $unit = $this->size_unit === 'sq_ft' ? 'sq ft' : 'm²';
             return number_format($this->property_size) . ' ' . $unit;
         }
-        
-        return null;
+
+        return '';
     }
 
     public function getFullAddressAttribute(): string
@@ -215,17 +250,17 @@ class Property extends Model
 
     public function getIsFeaturedAttribute(): bool
     {
-        return $this->featured && $this->featured_until && $this->featured_until->isFuture();
+        return $this->advert_type === 'featured' && $this->featured_until && $this->featured_until->isFuture();
     }
 
     public function getIsPromotedAttribute(): bool
     {
-        return $this->promoted && $this->promoted_until && $this->promoted_until->isFuture();
+        return $this->advert_type === 'promoted' && $this->promoted_until && $this->promoted_until->isFuture();
     }
 
     public function getIsSponsoredAttribute(): bool
     {
-        return $this->sponsored && $this->sponsored_until && $this->sponsored_until->isFuture();
+        return $this->advert_type === 'sponsored' && $this->sponsored_until && $this->sponsored_until->isFuture();
     }
 
     public function scopeActive($query)
@@ -325,5 +360,53 @@ class Property extends Model
                 $property->slug = Str::slug($property->title) . '-' . uniqid();
             }
         });
+    }
+
+    /**
+     * Get formatted latitude attribute.
+     */
+    public function getLatitudeAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted longitude attribute.
+     */
+    public function getLongitudeAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted price attribute.
+     */
+    public function getPriceAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted deposit attribute.
+     */
+    public function getDepositAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted service_charges attribute.
+     */
+    public function getServiceChargesAttribute($value): float
+    {
+        return (float) $value;
+    }
+
+    /**
+     * Get formatted maintenance_fees attribute.
+     */
+    public function getMaintenanceFeesAttribute($value): float
+    {
+        return (float) $value;
     }
 }

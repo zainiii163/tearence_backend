@@ -39,7 +39,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage',
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -59,49 +59,63 @@ return [
         'listings' => [
             'driver' => 'local',
             'root' => storage_path('app/public/listings'),
-            'url' => env('APP_URL').'/storage/listings',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/listings',
             'visibility' => 'public',
         ],
 
         'blog' => [
             'driver' => 'local',
             'root' => storage_path('app/public/blog'),
-            'url' => env('APP_URL').'/storage/blog',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/blog',
             'visibility' => 'public',
         ],
 
         'affiliates' => [
             'driver' => 'local',
             'root' => storage_path('app/public/affiliates'),
-            'url' => env('APP_URL').'/storage/affiliates',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/affiliates',
             'visibility' => 'public',
         ],
 
         'business' => [
             'driver' => 'local',
             'root' => storage_path('app/public/business'),
-            'url' => env('APP_URL').'/storage/business',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/business',
             'visibility' => 'public',
         ],
 
         'banner' => [
             'driver' => 'local',
             'root' => storage_path('app/public/banner'),
-            'url' => env('APP_URL').'/storage/banner',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/banner',
             'visibility' => 'public',
         ],
 
         'store' => [
             'driver' => 'local',
             'root' => storage_path('app/public/store'),
-            'url' => env('APP_URL').'/storage/store',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/store',
             'visibility' => 'public',
         ],
 
         'avatar' => [
             'driver' => 'local',
             'root' => storage_path('app/public/avatar'),
-            'url' => env('APP_URL').'/storage/avatar',
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/avatar',
+            'visibility' => 'public',
+        ],
+
+        'vehicles' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/vehicles'),
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/vehicles',
+            'visibility' => 'public',
+        ],
+
+        'sponsored' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/sponsored'),
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/sponsored',
             'visibility' => 'public',
         ],
     ],

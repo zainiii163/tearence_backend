@@ -12,8 +12,10 @@ class BuySellSavedAdvert extends Model
 {
     use HasFactory;
 
+    protected $table = 'buysell_saved_adverts';
+
     protected $keyType = 'string';
-    
+
     public $incrementing = false;
 
     protected $fillable = [

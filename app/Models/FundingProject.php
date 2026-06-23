@@ -13,19 +13,19 @@ class FundingProject extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'customer_id',
         'title',
         'tagline',
         'project_type',
         'category',
         'description',
-        'problem_solving',
+        'problem_solved',
         'vision_mission',
-        'why_now',
+        'why_matters_now',
         'cover_image',
         'additional_images',
         'country',
-        'city',
+        'region',
         'funding_goal',
         'currency',
         'minimum_contribution',
@@ -35,22 +35,27 @@ class FundingProject extends Model
         'team_members',
         'identity_verification',
         'business_registration_number',
-        'business_registration_document',
         'website',
         'social_links',
-        'pitch_video',
-        'documents',
+        'pitch_video_url',
+        'verification_documents',
         'is_verified',
         'is_active',
         'is_featured',
         'is_sponsored',
         'is_promoted',
-        'amount_raised',
-        'backer_count',
+        'current_funded',
+        'backers_count',
         'views_count',
         'shares_count',
-        'funding_starts_at',
-        'funding_ends_at',
+        'funding_deadline',
+        'published_at',
+        'status',
+        'risk_level',
+        'revenue_model',
+        'forecasts',
+        'risk_disclosures',
+        'slug',
     ];
 
     protected $casts = [
@@ -59,7 +64,7 @@ class FundingProject extends Model
         'milestones' => 'array',
         'team_members' => 'array',
         'social_links' => 'array',
-        'documents' => 'array',
+        'verification_documents' => 'array',
         'is_verified' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
@@ -67,9 +72,9 @@ class FundingProject extends Model
         'is_promoted' => 'boolean',
         'funding_goal' => 'decimal:2',
         'minimum_contribution' => 'decimal:2',
-        'amount_raised' => 'decimal:2',
-        'funding_starts_at' => 'datetime',
-        'funding_ends_at' => 'datetime',
+        'current_funded' => 'decimal:2',
+        'funding_deadline' => 'datetime',
+        'published_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -112,28 +117,27 @@ class FundingProject extends Model
         if ($this->funding_goal == 0) {
             return 0;
         }
-        return round(($this->amount_raised / $this->funding_goal) * 100, 2);
+        return round(($this->current_funded / $this->funding_goal) * 100, 2);
     }
 
     public function isFunded(): bool
     {
-        return $this->amount_raised >= $this->funding_goal;
+        return $this->current_funded >= $this->funding_goal;
     }
 
     public function getDaysRemainingAttribute(): ?int
     {
-        if (!$this->funding_ends_at) {
+        if (!$this->funding_deadline) {
             return null;
         }
-        $days = now()->diffInDays($this->funding_ends_at, false);
+        $days = now()->diffInDays($this->funding_deadline, false);
         return max(0, (int)$days);
     }
 
     public function isActive(): bool
     {
         return $this->is_active
-            && (!$this->funding_ends_at || $this->funding_ends_at->isFuture())
-            && (!$this->funding_starts_at || $this->funding_starts_at->isPast());
+            && (!$this->funding_deadline || $this->funding_deadline->isFuture());
     }
 
     public function getCompletedPledgesAmount(): float

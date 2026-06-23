@@ -16,8 +16,8 @@ return new class extends Migration
         Schema::create('book_payments', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('book_id');
-            $table->unsignedBigInteger('user_id');
-            $table->unsignedInteger('plan_id');
+            $table->unsignedInteger('user_id');
+            $table->unsignedBigInteger('plan_id');
             $table->decimal('amount', 10, 2);
             $table->string('currency', 3)->default('USD');
             $table->string('payment_method', 50)->nullable();

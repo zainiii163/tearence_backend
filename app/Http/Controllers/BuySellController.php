@@ -167,6 +167,30 @@ class BuySellController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
+        // Handle category_id - accept UUID or slug for backward compatibility
+        $categoryId = $request->category_id;
+        if ($categoryId) {
+            // Check if it's not already a valid UUID
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $categoryId)) {
+                // Try to find category by slug
+                $category = BuySellCategory::where('slug', $categoryId)->first();
+                if ($category) {
+                    $request->merge(['category_id' => $category->id]);
+                }
+            }
+        }
+
+        // Handle subcategory_id similarly
+        $subcategoryId = $request->subcategory_id;
+        if ($subcategoryId) {
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $subcategoryId)) {
+                $subcategory = BuySellCategory::where('slug', $subcategoryId)->first();
+                if ($subcategory) {
+                    $request->merge(['subcategory_id' => $subcategory->id]);
+                }
+            }
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|min:3|max:255',
             'description' => 'required|string|min:10|max:5000',
@@ -246,6 +270,30 @@ class BuySellController extends Controller
         }
 
         $advert = BuySellAdvert::where('user_id', Auth::id())->findOrFail($id);
+
+        // Handle category_id - accept UUID or slug for backward compatibility
+        $categoryId = $request->category_id;
+        if ($categoryId) {
+            // Check if it's not already a valid UUID
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $categoryId)) {
+                // Try to find category by slug
+                $category = BuySellCategory::where('slug', $categoryId)->first();
+                if ($category) {
+                    $request->merge(['category_id' => $category->id]);
+                }
+            }
+        }
+
+        // Handle subcategory_id similarly
+        $subcategoryId = $request->subcategory_id;
+        if ($subcategoryId) {
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $subcategoryId)) {
+                $subcategory = BuySellCategory::where('slug', $subcategoryId)->first();
+                if ($subcategory) {
+                    $request->merge(['subcategory_id' => $subcategory->id]);
+                }
+            }
+        }
 
         $validated = $request->validate([
             'title' => 'sometimes|string|min:3|max:255',

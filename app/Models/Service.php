@@ -105,6 +105,11 @@ class Service extends Model
 
     public function thumbnail(): HasMany
     {
+        return $this->media()->thumbnail();
+    }
+
+    public function getThumbnailAttribute()
+    {
         return $this->media()->thumbnail()->first();
     }
 
@@ -121,6 +126,21 @@ class Service extends Model
     public function documents(): HasMany
     {
         return $this->media()->documents();
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ServiceReview::class);
+    }
+
+    public function approvedReviews(): HasMany
+    {
+        return $this->reviews()->where('status', 'approved');
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(ServiceActivity::class);
     }
 
     public function scopeActive(Builder $query): Builder
@@ -178,7 +198,7 @@ class Service extends Model
 
     public function getProviderPhotoAttribute(): string
     {
-        return $this->serviceProvider?->getProfilePhotoAttribute() ?: $this->user?->profile_photo_url ?: '';
+        return $this->serviceProvider?->getProfilePhotoAttribute() ?: $this->user?->avatar ?: '';
     }
 
     public function getThumbnailUrlAttribute(): string

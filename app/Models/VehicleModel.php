@@ -22,7 +22,7 @@ class VehicleModel extends Model
      */
     public function make(): BelongsTo
     {
-        return $this->belongsTo(VehicleMake::class);
+        return $this->belongsTo(VehicleMake::class, 'make_id');
     }
 
     /**

@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class VenueResource extends Resource
@@ -197,18 +198,18 @@ class VenueResource extends Resource
                 // Media
                 Forms\Components\Section::make('Media')
                     ->schema([
-                        Forms\Components\Repeater::make('images')
+                        Forms\Components\FileUpload::make('images')
                             ->label('Venue Images')
-                            ->schema([
-                                Forms\Components\TextInput::make('url')
-                                    ->label('Image URL')
-                                    ->url()
-                                    ->required(),
-                            ])
-                            ->columns(1)
-                            ->collapsed()
-                            ->collapsible()
-                            ->nullable(),
+                            ->image()
+                            ->disk('public')
+                            ->directory('venues')
+                            ->visibility('public')
+                            ->multiple()
+                            ->reorderable()
+                            ->maxFiles(10)
+                            ->maxSize(5120)
+                            ->helperText('Upload at least one image (JPEG, PNG, GIF, or WebP). The first image is shown on the website.')
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('floor_plan')
                             ->label('Floor Plan URL')
@@ -248,7 +249,8 @@ class VenueResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('Posted By')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
                             ->required(),
                     ])
@@ -260,8 +262,9 @@ class VenueResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('images.0')
+                Tables\Columns\ImageColumn::make('thumbnail')
                     ->label('Image')
+                    ->getStateUsing(fn (Venue $record): ?string => static::firstImageUrl($record->images))
                     ->circular()
                     ->defaultImageUrl(url('/placeholder.png')),
 
@@ -299,7 +302,7 @@ class VenueResource extends Resource
                 Tables\Columns\ToggleColumn::make('is_active')
                     ->label('Active'),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Posted By')
                     ->sortable()
                     ->toggleable(),
@@ -379,5 +382,71 @@ class VenueResource extends Resource
             'view' => Pages\ViewVenue::route('/{record}'),
             'edit' => Pages\EditVenue::route('/{record}/edit'),
         ];
+    }
+
+    public static function normalizeImagesField(array $data): array
+    {
+        if (array_key_exists('images', $data)) {
+            $data['images'] = static::normalizeUploadedImages($data['images']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  mixed  $images
+     * @return array<int, string>
+     */
+    public static function normalizeUploadedImages(mixed $images): array
+    {
+        if (! is_array($images)) {
+            return [];
+        }
+
+        $paths = [];
+
+        foreach ($images as $item) {
+            if (is_string($item) && $item !== '') {
+                $paths[] = ltrim($item, '/');
+            } elseif (is_array($item) && ! empty($item['url'])) {
+                $paths[] = $item['url'];
+            } elseif (is_array($item)) {
+                $flat = Arr::first(Arr::flatten($item), fn ($v) => is_string($v) && $v !== '');
+
+                if (is_string($flat)) {
+                    $paths[] = ltrim($flat, '/');
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    public static function firstImageUrl(mixed $images): ?string
+    {
+        $paths = static::normalizeUploadedImages($images);
+
+        if ($paths !== []) {
+            return static::resolveImageUrl($paths[0]);
+        }
+
+        if (is_array($images) && isset($images[0]['url'])) {
+            return $images[0]['url'];
+        }
+
+        return null;
+    }
+
+    public static function resolveImageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 }

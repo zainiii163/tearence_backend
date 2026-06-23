@@ -80,6 +80,15 @@ class BuySellController extends Controller
 
         $adverts = $query->paginate($perPage, ['*'], 'page', $page);
 
+        // Log first advert's images for debugging
+        if ($adverts->count() > 0) {
+            \Log::info('First advert images:', [
+                'id' => $adverts->first()->id,
+                'images' => $adverts->first()->images,
+                'title' => $adverts->first()->title
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -101,6 +110,16 @@ class BuySellController extends Controller
         $advert = BuySellAdvert::with(['category', 'subcategory', 'user'])
             ->active()
             ->findOrFail($id);
+
+        // Log advert data for debugging
+        \Log::info('Showing advert:', [
+            'id' => $advert->id,
+            'images' => $advert->images,
+            'brand' => $advert->brand,
+            'model' => $advert->model,
+            'color' => $advert->color,
+            'dimensions' => $advert->dimensions,
+        ]);
 
         // Track view
         $advert->incrementView(
@@ -137,6 +156,30 @@ class BuySellController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // Handle category_id - accept UUID or slug for backward compatibility
+        $categoryId = $request->category_id;
+        if ($categoryId) {
+            // Check if it's not already a valid UUID
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $categoryId)) {
+                // Try to find category by slug
+                $category = BuySellCategory::where('slug', $categoryId)->first();
+                if ($category) {
+                    $request->merge(['category_id' => $category->id]);
+                }
+            }
+        }
+
+        // Handle subcategory_id similarly
+        $subcategoryId = $request->subcategory_id;
+        if ($subcategoryId) {
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $subcategoryId)) {
+                $subcategory = BuySellCategory::where('slug', $subcategoryId)->first();
+                if ($subcategory) {
+                    $request->merge(['subcategory_id' => $subcategory->id]);
+                }
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|min:3|max:255',
             'description' => 'required|string|min:10|max:5000',
@@ -187,7 +230,31 @@ class BuySellController extends Controller
         $data['ip_address'] = $request->ip();
         $data['user_agent'] = $request->userAgent();
 
+        // Handle images array - ensure it's properly formatted
+        if ($request->has('images')) {
+            $images = $request->input('images');
+            // If images is an associative array from FormData, convert to indexed array
+            if (is_array($images)) {
+                $data['images'] = array_values($images);
+            }
+        }
+
+        // Log all specification fields for debugging
+        \Log::info('Creating advert with data:', [
+            'images' => $data['images'] ?? null,
+            'brand' => $data['brand'] ?? null,
+            'model' => $data['model'] ?? null,
+            'color' => $data['color'] ?? null,
+            'dimensions' => $data['dimensions'] ?? null,
+            'weight' => $data['weight'] ?? null,
+            'material' => $data['material'] ?? null,
+            'usage_duration' => $data['usage_duration'] ?? null,
+            'reason_for_selling' => $data['reason_for_selling'] ?? null,
+        ]);
+
         $advert = BuySellAdvert::create($data);
+
+        \Log::info('Advert created with images:', ['advert_id' => $advert->id, 'images' => $advert->images]);
 
         return response()->json([
             'success' => true,
@@ -208,6 +275,30 @@ class BuySellController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized'
             ], 403);
+        }
+
+        // Handle category_id - accept UUID or slug for backward compatibility
+        $categoryId = $request->category_id;
+        if ($categoryId) {
+            // Check if it's not already a valid UUID
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $categoryId)) {
+                // Try to find category by slug
+                $category = BuySellCategory::where('slug', $categoryId)->first();
+                if ($category) {
+                    $request->merge(['category_id' => $category->id]);
+                }
+            }
+        }
+
+        // Handle subcategory_id similarly
+        $subcategoryId = $request->subcategory_id;
+        if ($subcategoryId) {
+            if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $subcategoryId)) {
+                $subcategory = BuySellCategory::where('slug', $subcategoryId)->first();
+                if ($subcategory) {
+                    $request->merge(['subcategory_id' => $subcategory->id]);
+                }
+            }
         }
 
         $validator = Validator::make($request->all(), [
@@ -574,6 +665,32 @@ class BuySellController extends Controller
         ]);
     }
 
+    /**
+     * Increment advert view count
+     */
+    public function view($id): JsonResponse
+    {
+        $advert = BuySellAdvert::active()->find($id);
+        if (!$advert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Advert not found'
+            ], 404);
+        }
+
+        $advert->incrementView(
+            Auth::id(),
+            request()->ip(),
+            request()->userAgent(),
+            request()->referrer
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'View count incremented'
+        ]);
+    }
+
     public function stats(): JsonResponse
     {
         $stats = [
@@ -592,6 +709,75 @@ class BuySellController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats
+        ]);
+    }
+
+    public function activities(): JsonResponse
+    {
+        $activities = collect();
+        $counter = 0;
+
+        // Recent adverts posted
+        $recentAdverts = BuySellAdvert::with(['category', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        foreach ($recentAdverts as $advert) {
+            $activities->push([
+                'id' => 'posted_' . $advert->id . '_' . $counter++,
+                'type' => 'item_posted',
+                'user' => $advert->user ? $advert->user->name : 'Anonymous',
+                'action' => 'posted a new item',
+                'item' => $advert->title,
+                'location' => $advert->city,
+                'timestamp' => $advert->created_at,
+            ]);
+        }
+
+        // Recently saved adverts
+        $recentSaves = BuySellSavedAdvert::with(['advert', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        foreach ($recentSaves as $save) {
+            $activities->push([
+                'id' => 'saved_' . $save->id . '_' . $counter++,
+                'type' => 'item_saved',
+                'user' => $save->user ? $save->user->name : 'Anonymous',
+                'action' => 'saved an item',
+                'item' => $save->advert->title,
+                'location' => $save->advert->city,
+                'timestamp' => $save->created_at,
+            ]);
+        }
+
+        // Trending items (high views)
+        $trendingItems = BuySellAdvert::with(['category', 'user'])
+            ->where('views_count', '>', 10)
+            ->orderBy('views_count', 'desc')
+            ->limit(3)
+            ->get();
+
+        foreach ($trendingItems as $item) {
+            $activities->push([
+                'id' => 'trending_' . $item->id . '_' . $counter++,
+                'type' => 'item_featured',
+                'user' => $item->user ? $item->user->name : 'Anonymous',
+                'action' => 'item is trending',
+                'item' => $item->title,
+                'location' => $item->city,
+                'timestamp' => $item->updated_at,
+            ]);
+        }
+
+        // Sort by timestamp and limit
+        $activities = $activities->sortByDesc('timestamp')->take(10)->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $activities,
         ]);
     }
 }

@@ -1,0 +1,195 @@
+{
+    "message": "The route api/vehicles/1/favourite/check could not be found.",
+    "exception": "Symfony\\Component\\HttpKernel\\Exception\\NotFoundHttpException",
+    "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\AbstractRouteCollection.php",
+    "line": 44,
+    "trace": [
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\RouteCollection.php",
+            "line": 162,
+            "function": "handleMatchedRoute",
+            "class": "Illuminate\\Routing\\AbstractRouteCollection",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php",
+            "line": 761,
+            "function": "match",
+            "class": "Illuminate\\Routing\\RouteCollection",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php",
+            "line": 748,
+            "function": "findRoute",
+            "class": "Illuminate\\Routing\\Router",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Routing\\Router.php",
+            "line": 737,
+            "function": "dispatchToRoute",
+            "class": "Illuminate\\Routing\\Router",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php",
+            "line": 200,
+            "function": "dispatch",
+            "class": "Illuminate\\Routing\\Router",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 144,
+            "function": "{closure:Illuminate\\Foundation\\Http\\Kernel::dispatchToRouter():197}",
+            "class": "Illuminate\\Foundation\\Http\\Kernel",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\livewire\\livewire\\src\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware.php",
+            "line": 19,
+            "function": "{closure:Illuminate\\Pipeline\\Pipeline::prepareDestination():142}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Livewire\\Features\\SupportDisablingBackButtonCache\\DisableBackButtonCacheMiddleware",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\app\\Http\\Middleware\\HandleCors.php",
+            "line": 52,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "App\\Http\\Middleware\\HandleCors",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest.php",
+            "line": 21,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull.php",
+            "line": 31,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest.php",
+            "line": 21,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\TrimStrings.php",
+            "line": 40,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\TrimStrings",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize.php",
+            "line": 27,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance.php",
+            "line": 99,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Http\\Middleware\\TrustProxies.php",
+            "line": 39,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 183,
+            "function": "handle",
+            "class": "Illuminate\\Http\\Middleware\\TrustProxies",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Pipeline\\Pipeline.php",
+            "line": 119,
+            "function": "{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():158}:159}",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php",
+            "line": 175,
+            "function": "then",
+            "class": "Illuminate\\Pipeline\\Pipeline",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Http\\Kernel.php",
+            "line": 144,
+            "function": "sendRequestThroughRouter",
+            "class": "Illuminate\\Foundation\\Http\\Kernel",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\public\\index.php",
+            "line": 51,
+            "function": "handle",
+            "class": "Illuminate\\Foundation\\Http\\Kernel",
+            "type": "->"
+        },
+        {
+            "file": "D:\\tearnce\\wwa-api-main\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\resources\\server.php",
+            "line": 16,
+            "function": "require_once"
+        }
+    ]
+}

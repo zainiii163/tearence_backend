@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class BuySellAdvert extends Model
 {
-    use HasFactory, SoftDeletes;
+    protected $table = 'buysell_adverts';
+
+    use HasFactory, SoftDeletes, HasUuids;
 
     protected $keyType = 'string';
     
@@ -206,6 +209,49 @@ class BuySellAdvert extends Model
     public function getMainImageAttribute()
     {
         return $this->images[0] ?? null;
+    }
+
+    public function getImagesAttribute($value)
+    {
+        // Normalize images data to always return an array of valid URLs
+        if (empty($value)) {
+            return [];
+        }
+
+        // If already an array, process it
+        if (is_array($value)) {
+            $validUrls = [];
+            foreach ($value as $item) {
+                // Handle both string URLs and nested arrays
+                $url = is_array($item) ? ($item['url'] ?? null) : $item;
+                // Only include valid URLs (starts with http or /)
+                if (is_string($url) && (str_starts_with($url, 'http') || str_starts_with($url, '/'))) {
+                    $validUrls[] = $url;
+                }
+            }
+            return $validUrls;
+        }
+
+        // If JSON string, decode and process
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $validUrls = [];
+                foreach ($decoded as $key => $item) {
+                    // Skip non-numeric keys (malformed data)
+                    if (!is_numeric($key)) {
+                        continue;
+                    }
+                    $url = is_array($item) ? ($item['url'] ?? null) : $item;
+                    if (is_string($url) && (str_starts_with($url, 'http') || str_starts_with($url, '/'))) {
+                        $validUrls[] = $url;
+                    }
+                }
+                return $validUrls;
+            }
+        }
+
+        return [];
     }
 
     public function getIsExpiredAttribute()

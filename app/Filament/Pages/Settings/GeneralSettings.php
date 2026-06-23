@@ -32,6 +32,15 @@ class GeneralSettings extends Page implements HasForms
 
     protected static string $view = 'filament.pages.settings.general-settings';
 
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin;
+    }
+
     public ?array $data = [];
 
     public function mount(): void

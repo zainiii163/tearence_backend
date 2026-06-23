@@ -33,17 +33,17 @@ class HandleCors
         if ($request->isMethod('OPTIONS')) {
             $response = response('', 200);
             
-            // Set CORS headers for preflight
+            // Always set CORS headers for preflight to allow the request
             if ($origin && in_array($origin, $allowedOrigins)) {
                 $response->headers->set('Access-Control-Allow-Origin', $origin);
+                $response->headers->set('Access-Control-Allow-Credentials', 'true');
             } else {
                 $response->headers->set('Access-Control-Allow-Origin', '*');
             }
             
             $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Request-ID');
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Request-ID, Cache-Control, Pragma, Expires');
             $response->headers->set('Access-Control-Max-Age', '86400');
-            $response->headers->set('Access-Control-Allow-Credentials', 'true');
             
             return $response;
         }
@@ -53,15 +53,15 @@ class HandleCors
         // Set CORS headers for actual requests
         if ($origin && in_array($origin, $allowedOrigins)) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
+            $response->headers->set('Access-Control-Allow-Credentials', 'true');
         } else {
             $response->headers->set('Access-Control-Allow-Origin', '*');
         }
         
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Request-ID');
+        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, X-Request-ID, Cache-Control, Pragma, Expires');
         $response->headers->set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Authorization');
         $response->headers->set('Access-Control-Max-Age', '86400');
-        $response->headers->set('Access-Control-Allow-Credentials', 'true');
 
         return $response;
     }

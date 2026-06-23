@@ -123,7 +123,7 @@ class VehicleEnquiryResource extends Resource
                     ])
                     ->formatStateUsing(fn ($state) => ucfirst($state)),
                 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('User')
                     ->searchable()
                     ->limit(20)

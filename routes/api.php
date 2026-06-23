@@ -40,6 +40,8 @@ use App\Http\Controllers\Admin\CategoryPostController;
 
 use App\Http\Controllers\Api\BooksAdvertController;
 
+use App\Http\Controllers\Api\ImagesAdvertController;
+
 use App\Http\Controllers\Admin\PostModerationController;
 
 use App\Http\Controllers\Admin\NotificationController;
@@ -96,6 +98,8 @@ use App\Http\Controllers\UserAnalyticsController;
 
 use App\Http\Controllers\Api\ResortsTravelController;
 
+use App\Http\Controllers\CalculatorController;
+
 use App\Http\Controllers\Api\ResortsTravelCategoryController;
 
 use App\Http\Controllers\Api\BuySellPromotionController;
@@ -125,6 +129,8 @@ use App\Http\Controllers\Api\BannerMarketplaceController;
 use App\Http\Controllers\Api\BookAdvertController;
 
 use App\Http\Controllers\Api\AuthorController;
+
+use App\Http\Controllers\Api\VehiclesAdvertController;
 
 use App\Http\Controllers\Api\VehicleController;
 
@@ -156,13 +162,36 @@ use App\Http\Controllers\Api\BuySellUploadController;
 
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
 
+use App\Http\Controllers\Api\PromotedAdvertController;
+
 use App\Http\Controllers\Api\FundingProjectController;
 
 use App\Http\Controllers\Api\FundingPledgeController;
 
+use App\Http\Controllers\Api\DonationController;
+
 use App\Http\Controllers\AdminAnalyticsController;
 
+use App\Http\Controllers\Api\ServiceReviewController;
+
+use App\Http\Controllers\Api\ProviderController;
+
+use App\Http\Controllers\Api\SearchController;
+
+use App\Http\Controllers\Api\PromotionController;
+
+use App\Http\Controllers\Api\FileUploadController;
+
+use App\Http\Controllers\Api\EventsVenuesController;
+
+use App\Http\Controllers\Api\CommunityController;
+
+use App\Http\Controllers\Api\CommunityPostController;
+
+use App\Http\Controllers\Api\CommentController;
+
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 
 
@@ -198,7 +227,7 @@ Route::group([
 
     // auth
 
-    Route::group(['prefix' => 'auth', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'auth', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/logout', [AuthController::class, 'logout']);
 
@@ -252,6 +281,17 @@ Route::group([
 
     });
 
+    // Health check endpoint
+    Route::get('/health', function () {
+        return response()->json([
+            'status' => 'OK',
+            'message' => 'API is working',
+            'timestamp' => now(),
+            'app_url' => config('app.url'),
+            'environment' => config('app.env')
+        ]);
+    });
+
 
 
     // CORS test endpoint
@@ -263,10 +303,12 @@ Route::group([
         ]);
     });
 
-
+    // Test route to verify registration
+    Route::get('/test-route', function () {
+        return response()->json(['message' => 'Test route works']);
+    });
 
     // Health check endpoint
-
     Route::get('/health', function () {
 
         return response()->json([
@@ -285,7 +327,83 @@ Route::group([
 
     });
 
+    // Debug authentication endpoint
+    Route::get('/debug-auth', function (Request $request) {
+        return response()->json([
+            'authenticated' => auth('api')->check(),
+            'user' => auth('api')->user() ? [
+                'id' => auth('api')->user()->customer_id,
+                'email' => auth('api')->user()->email,
+                'name' => auth('api')->user()->first_name . ' ' . auth('api')->user()->last_name,
+                'type' => get_class(auth('api')->user()),
+            ] : null,
+            'token_present' => $request->bearerToken() ? 'Yes' : 'No',
+            'auth_header' => $request->header('Authorization'),
+            'guard_check' => [
+                'default' => auth()->check(),
+                'api' => auth('api')->check(),
+            ],
+            'guards' => array_keys(config('auth.guards')),
+        ]);
+    });
 
+    // Debug policy endpoint
+    Route::get('/debug-policy', function (Request $request) {
+        $user = auth('api')->user();
+        if (!$user) {
+            return response()->json(['error' => 'Not authenticated via API guard'], 401);
+        }
+        
+        return response()->json([
+            'user_info' => [
+                'id' => $user->customer_id,
+                'email' => $user->email,
+                'type' => get_class($user),
+            ],
+            'policy_checks' => [
+                'can_create_vehicle' => $user->can('create', \App\Models\Vehicle::class),
+                'is_authenticated_method' => $user->isAuthenticated(),
+                'is_admin_method' => $user->isAdmin(),
+            ],
+            'auth_checks' => [
+                'auth_api_check' => auth('api')->check(),
+                'auth_default_check' => auth()->check(),
+            ],
+        ]);
+    })->middleware('auth:api');
+
+    // Test vehicle store authorization
+    Route::get('/test-vehicle-store-auth', function (Request $request) {
+        // Simulate the StoreVehicleRequest authorization check
+        $user = auth('api')->user();
+        if (!$user) {
+            return response()->json([
+                'error' => 'Not authenticated',
+                'auth_api_check' => auth('api')->check(),
+                'auth_default_check' => auth()->check(),
+                'bearer_token' => $request->bearerToken() ? 'Present' : 'Missing',
+            ], 401);
+        }
+        
+        // Test the policy check that's failing
+        try {
+            $canCreate = $user->can('create', \App\Models\Vehicle::class);
+            return response()->json([
+                'success' => true,
+                'can_create_vehicle' => $canCreate,
+                'user_type' => get_class($user),
+                'user_id' => $user->customer_id,
+                'is_authenticated_method' => $user->isAuthenticated(),
+                'is_admin_method' => $user->isAdmin(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Policy check failed',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    })->middleware('auth:api');
 
     // ads listing
 
@@ -321,7 +439,7 @@ Route::group([
 
     // listing approval
 
-    Route::group(['prefix' => 'listing-approval', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'listing-approval', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/pending', [ListingApprovalController::class, 'pending']);
 
@@ -341,7 +459,7 @@ Route::group([
 
     // KYC verification
 
-    Route::group(['prefix' => 'kyc', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'kyc', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/status', [KycController::class, 'status']);
 
@@ -361,7 +479,7 @@ Route::group([
 
     // Ad moderation and management
 
-    Route::group(['prefix' => 'ads', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'ads', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/cleanup-old-ads', [ListingApprovalController::class, 'deleteOldAds']);
 
@@ -499,7 +617,7 @@ Route::group([
 
     // business
 
-    Route::group(['prefix' => 'business', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'business', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/', [BusinessController::class, 'store']);
 
@@ -513,11 +631,11 @@ Route::group([
 
     Route::group(['prefix' => 'business'], function () {
 
-        Route::get('/{slug}', [BusinessController::class, 'getBySlug']);
-
         Route::get('/', [BusinessController::class, 'index']);
 
         Route::get('/{id}', [BusinessController::class, 'show']);
+
+        Route::get('/{slug}', [BusinessController::class, 'getBySlug']);
 
         Route::get('/{customer_id}/detail', [BusinessController::class, 'detail']);
 
@@ -615,43 +733,120 @@ Route::group([
 
 
 
-    // books-adverts (new comprehensive system)
+    // vehicles-adverts (new comprehensive system)
 
-    Route::group(['prefix' => 'books-adverts'], function () {
+    Route::group(['prefix' => 'vehicles-adverts'], function () {
 
-        // Public routes
+        // Public routes - specific routes must come before dynamic routes
 
-        Route::get('/', [BooksAdvertController::class, 'index']);
+        Route::get('/', [VehiclesAdvertController::class, 'index']);
 
-        Route::get('/{slug}', [BooksAdvertController::class, 'show']);
+        Route::get('/featured', [VehiclesAdvertController::class, 'featured']);
 
-        Route::get('/featured', [BooksAdvertController::class, 'featured']);
+        Route::get('/most-viewed', [VehiclesAdvertController::class, 'mostViewed']);
 
-        Route::get('/genre/{genre}', [BooksAdvertController::class, 'byGenre']);
+        Route::get('/recent', [VehiclesAdvertController::class, 'recent']);
 
-        Route::get('/pricing-plans', [BooksAdvertController::class, 'pricingPlans']);
+        Route::get('/vehicle-types', [VehiclesAdvertController::class, 'getVehicleTypes']);
 
-        Route::get('/statistics', [BooksAdvertController::class, 'statistics']);
+        Route::get('/categories', [VehiclesAdvertController::class, 'getCategories']);
+
+        Route::get('/categories-for-filters', [VehiclesAdvertController::class, 'getCategoriesForFilters']);
+
+        Route::get('/makes', [VehiclesAdvertController::class, 'getVehicleMakes']);
+
+        Route::get('/models/{makeId}', [VehiclesAdvertController::class, 'getVehicleModels']);
+
+        Route::get('/promotion-tiers', [VehiclesAdvertController::class, 'getPromotionTiers']);
+
+        Route::get('/statistics', [VehiclesAdvertController::class, 'getStatistics']);
+
+        Route::post('/upload', [VehiclesAdvertController::class, 'uploadImage']);
+
+        Route::get('/slug/{slug}', [VehiclesAdvertController::class, 'showBySlug']);
+
+        // Authenticated static routes before /{id}
+        Route::middleware('jwt.auth')->group(function () {
+            Route::get('/my-vehicles', [VehiclesAdvertController::class, 'myVehicles']);
+        });
+
+        Route::get('/{id}', [VehiclesAdvertController::class, 'show']);
+
+        Route::post('/{id}/views', [VehiclesAdvertController::class, 'trackViews']);
+
+        Route::post('/{id}/contact', [VehiclesAdvertController::class, 'contactSeller']);
 
 
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [BooksAdvertController::class, 'store']);
+            Route::post('/', [VehiclesAdvertController::class, 'store']);
 
-            Route::put('/{id}', [BooksAdvertController::class, 'update']);
+            Route::put('/{id}', [VehiclesAdvertController::class, 'update']);
 
-            Route::delete('/{id}', [BooksAdvertController::class, 'destroy']);
+            Route::delete('/{id}', [VehiclesAdvertController::class, 'destroy']);
 
-            Route::get('/my-books', [BooksAdvertController::class, 'myBooks']);
+            Route::post('/{id}/save', [VehiclesAdvertController::class, 'saveVehicle']);
 
-            Route::post('/{id}/save', [BooksAdvertController::class, 'save']);
+            Route::post('/{id}/payment', [VehiclesAdvertController::class, 'processPayment']);
 
-            Route::post('/{id}/views', [BooksAdvertController::class, 'view']);
+        });
 
-            Route::post('/{id}/payment', [BooksAdvertController::class, 'payment']);
+    });
+
+
+
+    // images-adverts (Stock Images & Media category)
+
+    Route::group(['prefix' => 'images-adverts'], function () {
+
+        // Public routes
+
+        Route::get('/', [ImagesAdvertController::class, 'index']);
+
+        Route::get('/featured', [ImagesAdvertController::class, 'featuredImages']);
+
+        Route::get('/trending', [ImagesAdvertController::class, 'trendingImages']);
+
+        Route::get('/popular', [ImagesAdvertController::class, 'popularImages']);
+
+        Route::get('/categories', [ImagesAdvertController::class, 'categories']);
+
+        Route::get('/license-types', [ImagesAdvertController::class, 'licenseTypes']);
+
+        Route::get('/promotion-tiers', [ImagesAdvertController::class, 'promotionTiers']);
+
+        Route::get('/statistics', [ImagesAdvertController::class, 'statistics']);
+
+        Route::get('/{slug}', [ImagesAdvertController::class, 'show']);
+
+        Route::post('/upload', [ImagesAdvertController::class, 'uploadImage']);
+
+        Route::post('/upload-multiple', [ImagesAdvertController::class, 'uploadMultipleImages']);
+
+        Route::post('/{id}/views', [ImagesAdvertController::class, 'incrementViews']);
+
+        Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
+
+        Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment']);
+
+
+
+        // Authenticated routes
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::post('/', [ImagesAdvertController::class, 'store']);
+
+            Route::put('/{id}', [ImagesAdvertController::class, 'update']);
+
+            Route::delete('/{id}', [ImagesAdvertController::class, 'destroy']);
+
+            Route::get('/my-images', [ImagesAdvertController::class, 'myImages']);
+
+            Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
 
         });
 
@@ -667,15 +862,19 @@ Route::group([
 
         Route::get('/{id}', [BookController::class, 'show']);
 
-        Route::post('/', [BookController::class, 'store'])->middleware('auth:customer');
+        Route::post('/', [BookController::class, 'store'])->middleware('auth:api');
 
-        Route::post('/{id}/purchase', [BookController::class, 'purchase'])->middleware('auth:customer');
+        Route::post('/{id}/purchase', [BookController::class, 'purchase'])->middleware('auth:api');
 
         Route::get('/download/{token}', [BookController::class, 'download']);
 
-        Route::get('/my-purchases', [BookController::class, 'myPurchases'])->middleware('auth:customer');
+        Route::get('/my-purchases', [BookController::class, 'myPurchases'])->middleware('auth:api');
 
-        Route::get('/statistics', [BookController::class, 'statistics'])->middleware('auth:api');
+        Route::get('/statistics', [BookController::class, 'statistics']);
+
+        Route::get('/trending-genres', [BookController::class, 'trendingGenres']);
+
+        Route::get('/featured', [BookController::class, 'featured']);
 
         Route::post('/scrape', [BookController::class, 'scrape']);
 
@@ -713,7 +912,7 @@ Route::group([
 
     // ad pricing plans
 
-    Route::group(['prefix' => 'ad-pricing-plans', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'ad-pricing-plans', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [AdPricingPlanController::class, 'index']);
 
@@ -729,7 +928,7 @@ Route::group([
 
     // candidate profiles
 
-    Route::group(['prefix' => 'candidate-profile', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'candidate-profile', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/my-profile', [CandidateProfileController::class, 'myProfile']);
 
@@ -753,7 +952,7 @@ Route::group([
 
     // job upsells
 
-    Route::group(['prefix' => 'job-upsell', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'job-upsell', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [JobUpsellController::class, 'index']); // List all job upsells for user
 
@@ -769,7 +968,7 @@ Route::group([
 
     // candidate upsells
 
-    Route::group(['prefix' => 'candidate-upsell', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'candidate-upsell', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [CandidateUpsellController::class, 'index']);
 
@@ -785,7 +984,7 @@ Route::group([
 
     // job alerts
 
-    Route::group(['prefix' => 'job-alert', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'job-alert', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [JobAlertController::class, 'index']);
 
@@ -819,7 +1018,7 @@ Route::group([
 
     // dashboard
 
-    Route::group(['prefix' => 'dashboard', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'dashboard', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/user', [DashboardController::class, 'userDashboard']);
 
@@ -831,7 +1030,7 @@ Route::group([
 
     // analytics
 
-    Route::group(['prefix' => 'analytics', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'analytics', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/revenue', [AnalyticsController::class, 'revenue']);
 
@@ -855,7 +1054,7 @@ Route::group([
 
     // chat
 
-    Route::group(['prefix' => 'chat', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'chat', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/conversations', [ChatController::class, 'getConversations']);
 
@@ -867,7 +1066,7 @@ Route::group([
 
     // staff management
 
-    Route::group(['prefix' => 'staff', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'staff', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [StaffManagementController::class, 'index']);
 
@@ -895,7 +1094,7 @@ Route::group([
 
     // listing upsells
 
-    Route::group(['prefix' => 'upsell', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'upsell', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/options', [ListingUpsellController::class, 'getUpsellOptions']);
 
@@ -941,23 +1140,23 @@ Route::group([
 
         Route::get('/categories', [ServiceController::class, 'getCategories']);
 
+        Route::get('/promotion-options', [ServiceController::class, 'getPromotionOptions']);
+
+        Route::get('/my-services', [ServiceController::class, 'myServices'])->middleware('jwt.auth');
+
         Route::get('/{service}', [ServiceController::class, 'show']);
 
         Route::post('/{service}/enquiries', [ServiceController::class, 'incrementEnquiries']);
 
-        Route::get('/promotion-options', [ServiceController::class, 'getPromotionOptions']);
 
 
-
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [ServiceController::class, 'store']);
 
             Route::put('/{service}', [ServiceController::class, 'update']);
 
             Route::delete('/{service}', [ServiceController::class, 'destroy']);
-
-            Route::get('/my-services', [ServiceController::class, 'myServices']);
 
             Route::post('/{service}/toggle-status', [ServiceController::class, 'toggleStatus']);
 
@@ -981,13 +1180,12 @@ Route::group([
 
         Route::get('/marketplace-stats', [ServiceAnalyticsController::class, 'getMarketplaceStats']);
 
+    });
 
+    // services-solutions (alias for frontend compatibility)
+    Route::group(['prefix' => 'services-solutions'], function () {
 
-        Route::group(['middleware' => 'auth:api'], function () {
-
-            Route::get('/service/{service}', [ServiceAnalyticsController::class, 'getServiceAnalytics']);
-
-        });
+        Route::get('/trending', [ServiceAnalyticsController::class, 'getTrendingServices']);
 
     });
 
@@ -995,7 +1193,7 @@ Route::group([
 
     // service comparison
 
-    Route::group(['prefix' => 'service-comparison', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'service-comparison', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/compare', [ServiceComparisonController::class, 'compare']);
 
@@ -1007,7 +1205,7 @@ Route::group([
 
     // service orders
 
-    Route::group(['prefix' => 'service-orders', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'service-orders', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [ServiceOrderController::class, 'index']);
 
@@ -1037,6 +1235,120 @@ Route::group([
 
 
 
+    // service reviews
+    Route::group(['prefix' => 'reviews'], function () {
+
+        Route::get('/service/{serviceId}', [ServiceReviewController::class, 'index']);
+
+        
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::post('/service/{serviceId}', [ServiceReviewController::class, 'store']);
+
+            Route::put('/{reviewId}', [ServiceReviewController::class, 'update']);
+
+            Route::delete('/{reviewId}', [ServiceReviewController::class, 'destroy']);
+
+        });
+
+    });
+
+
+
+    // providers
+    Route::group(['prefix' => 'providers'], function () {
+
+        Route::get('/{id}', [ProviderController::class, 'show']);
+
+        Route::get('/{id}/services', [ProviderController::class, 'services']);
+
+        Route::get('/{id}/reviews', [ProviderController::class, 'reviews']);
+
+        Route::get('/{id}/followers', [ProviderController::class, 'followers']);
+
+        Route::get('/{id}/following', [ProviderController::class, 'following']);
+
+        
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::post('/{id}/follow', [ProviderController::class, 'follow']);
+
+            Route::delete('/{id}/follow', [ProviderController::class, 'unfollow']);
+
+        });
+
+    });
+
+
+
+    // search and filtering
+    Route::group(['prefix' => 'search'], function () {
+
+        Route::get('/services', [SearchController::class, 'services']);
+
+        Route::get('/suggestions', [SearchController::class, 'suggestions']);
+
+        Route::get('/popular', [SearchController::class, 'popular']);
+
+        Route::get('/trending', [SearchController::class, 'trending']);
+
+    });
+
+
+
+    // promotions
+    Route::group(['prefix' => 'promotions'], function () {
+
+        Route::get('/tiers', [PromotionController::class, 'tiers']);
+
+        Route::post('/calculate-total', [PromotionController::class, 'calculateTotal']);
+
+        
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::post('/purchase', [PromotionController::class, 'purchase']);
+
+            Route::get('/my-promotions', [PromotionController::class, 'myPromotions']);
+
+            Route::post('/{id}/cancel', [PromotionController::class, 'cancel']);
+
+        });
+
+    });
+
+
+
+    // analytics
+    Route::group(['prefix' => 'analytics'], function () {
+
+        Route::get('/dashboard', [ServiceAnalyticsController::class, 'dashboard']);
+
+        Route::get('/provider/{id}', [ServiceAnalyticsController::class, 'provider']);
+
+        Route::get('/service/{id}', [ServiceAnalyticsController::class, 'service']);
+
+    });
+
+
+
+    // file upload
+    Route::group(['prefix' => 'upload', 'middleware' => 'jwt.auth'], function () {
+
+        Route::post('/service-media', [FileUploadController::class, 'uploadServiceMedia']);
+
+        Route::post('/avatar', [FileUploadController::class, 'uploadAvatar']);
+
+        Route::delete('/{fileId}', [FileUploadController::class, 'delete']);
+
+        Route::get('/{fileId}', [FileUploadController::class, 'getFileInfo']);
+
+    });
+
+
+
     // affiliate programs
 
     Route::group(['prefix' => 'affiliate-programs'], function () {
@@ -1055,7 +1367,7 @@ Route::group([
 
 
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [AffiliateProgramController::class, 'store']);
 
@@ -1071,6 +1383,8 @@ Route::group([
 
         });
 
+    }); // affiliate-programs
+
 
 
     // affiliate posts (new comprehensive system)
@@ -1079,7 +1393,7 @@ Route::group([
 
         // Public routes
 
-        Route::get('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'index']);
+        Route::get('/list', [App\Http\Controllers\Api\AffiliatePostController::class, 'index']);
 
         Route::get('/{id}', [App\Http\Controllers\Api\AffiliatePostController::class, 'show']);
 
@@ -1095,7 +1409,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'store']);
 
@@ -1109,85 +1423,42 @@ Route::group([
 
     });
 
-
-
-    // affiliates hub (comprehensive system)
-
+    // Main affiliate system routes (comprehensive system)
     Route::group(['prefix' => 'affiliates'], function () {
 
         // Public routes
-
         Route::get('/categories', [ApiAffiliateController::class, 'categories']);
-
         Route::get('/business-offers', [ApiAffiliateController::class, 'businessOffers']);
-
         Route::get('/business-offers/{id}', [ApiAffiliateController::class, 'businessOffer']);
-
         Route::get('/user-posts', [ApiAffiliateController::class, 'userPosts']);
-
         Route::get('/user-posts/{id}', [ApiAffiliateController::class, 'userPost']);
-
         Route::get('/upsell-plans', [ApiAffiliateController::class, 'upsellPlans']);
-
         Route::get('/search', [ApiAffiliateController::class, 'search']);
-
         Route::post('/track-click', [ApiAffiliateController::class, 'trackClick']);
 
-
-
         // Authenticated routes
-
-        Route::group(['middleware' => 'auth:api'], function () {
-
+        Route::group(['middleware' => 'jwt.auth'], function () {
             // File upload
-
             Route::post('/upload-image', [ApiAffiliateController::class, 'uploadImage']);
-
             
-
             // Business offer management
-
             Route::post('/business-offers', [ApiAffiliateController::class, 'createBusinessOffer']);
-
             Route::put('/business-offers/{id}', [ApiAffiliateController::class, 'updateBusinessOffer']);
-
             Route::delete('/business-offers/{id}', [ApiAffiliateController::class, 'deleteBusinessOffer']);
-
             
-
             // User post management
-
             Route::post('/user-posts', [ApiAffiliateController::class, 'createUserPost']);
-
             Route::put('/user-posts/{id}', [ApiAffiliateController::class, 'updateUserPost']);
-
             Route::delete('/user-posts/{id}', [ApiAffiliateController::class, 'deleteUserPost']);
-
             
-
             // Applications
-
             Route::post('/business-offers/{offerId}/apply', [ApiAffiliateController::class, 'applyToPromote']);
-
             Route::get('/my-applications', [ApiAffiliateController::class, 'myApplications']);
-
             
-
-            // User's content
-
+            // User's own content
             Route::get('/my-business-offers', [ApiAffiliateController::class, 'myBusinessOffers']);
-
             Route::get('/my-user-posts', [ApiAffiliateController::class, 'myUserPosts']);
-
         });
-
-    });
-
-
-
-    // affiliate upsell management
-
-    Route::group(['prefix' => 'affiliate-upsells', 'middleware' => 'auth:api'], function () {
 
         Route::get('/plans', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getPlans']);
 
@@ -1207,7 +1478,14 @@ Route::group([
 
     });
 
-
+    // Test route to verify API routes are working
+    Route::get('/test-api', function() {
+        return response()->json([
+            'success' => true,
+            'message' => 'API routes are working',
+            'timestamp' => now()
+        ]);
+    });
 
     // stores
 
@@ -1215,7 +1493,7 @@ Route::group([
 
         // Authenticated routes first to avoid conflicts
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::get('/my-store', [StoreController::class, 'myStore']);
 
@@ -1245,7 +1523,7 @@ Route::group([
 
     // Admin category post management
 
-    Route::group(['prefix' => 'admin/category-posts', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'admin/category-posts', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/category/{categoryId}', [CategoryPostController::class, 'getCategoryPosts']);
 
@@ -1269,7 +1547,7 @@ Route::group([
 
     // Admin post moderation
 
-    Route::group(['prefix' => 'admin/moderation', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'admin/moderation', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/dashboard', [PostModerationController::class, 'getModerationDashboard']);
 
@@ -1295,7 +1573,7 @@ Route::group([
 
     // Admin notifications
 
-    Route::group(['prefix' => 'admin/notifications', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'admin/notifications', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [NotificationController::class, 'index']);
 
@@ -1331,7 +1609,7 @@ Route::group([
 
         // Protected endpoints (auth required)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::get('/my', [ReferralController::class, 'getMyReferral']);
 
@@ -1351,7 +1629,7 @@ Route::group([
 
     // User Analytics Dashboard
 
-    Route::group(['prefix' => 'user-analytics', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'user-analytics', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/dashboard', [UserAnalyticsController::class, 'getDashboard']);
 
@@ -1367,7 +1645,7 @@ Route::group([
 
     // Admin Analytics Dashboard (with role-based permissions)
 
-    Route::group(['prefix' => 'admin-analytics', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'admin-analytics', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/dashboard', [AdminAnalyticsController::class, 'getDashboard']);
 
@@ -1425,7 +1703,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [EventController::class, 'store']);
 
@@ -1461,7 +1739,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [VenueController::class, 'store']);
 
@@ -1497,7 +1775,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [VenueServiceController::class, 'store']);
 
@@ -1523,7 +1801,7 @@ Route::group([
 
     // Upsell/Promotion System
 
-    Route::group(['prefix' => 'upsells', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'upsells', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/promotion-tiers', [UpsellController::class, 'getPromotionTiers']);
 
@@ -1563,7 +1841,7 @@ Route::group([
 
     Route::group(['prefix' => 'resorts-travel'], function () {
 
-        // Public routes
+        // Public routes - specific routes must come before dynamic ones
 
         Route::get('/', [ResortsTravelController::class, 'index']);
 
@@ -1575,15 +1853,32 @@ Route::group([
 
         Route::get('/promotion-tiers', [ResortsTravelController::class, 'promotionTiers']);
 
-        Route::get('/categories', [ResortsTravelCategoryController::class, 'index']);
+        Route::get('/statistics', [ResortsTravelController::class, 'statistics']);
 
+        Route::get('/trending', [ResortsTravelController::class, 'trendingDestinations']);
+
+        Route::get('/nearby', [ResortsTravelController::class, 'nearbyAdverts']);
+
+        Route::get('/my-adverts', [ResortsTravelController::class, 'myAdverts'])->middleware('jwt.auth');
+
+        Route::get('/my-bookings', [ResortsTravelController::class, 'getMyBookings'])->middleware('jwt.auth');
+
+        Route::get('/{id}/availability', [ResortsTravelController::class, 'getAvailability']);
+
+        Route::get('/{id}/check-availability', [ResortsTravelController::class, 'checkAvailabilityPricing']);
+
+        Route::get('/{id}/reviews', [ResortsTravelController::class, 'getReviews']);
+
+        Route::post('/{id}/views', [ResortsTravelController::class, 'incrementViews']);
+
+        // Dynamic slug route must come last
         Route::get('/{slug}', [ResortsTravelController::class, 'show']);
 
 
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [ResortsTravelController::class, 'store']);
 
@@ -1591,11 +1886,15 @@ Route::group([
 
             Route::delete('/{id}', [ResortsTravelController::class, 'destroy']);
 
-            Route::get('/my-adverts', [ResortsTravelController::class, 'myAdverts']);
-
             Route::post('/upload-images', [ResortsTravelController::class, 'uploadImages']);
 
             Route::post('/upload-logo', [ResortsTravelController::class, 'uploadLogo']);
+
+            Route::post('/{id}/book', [ResortsTravelController::class, 'createBooking']);
+
+            Route::post('/{id}/reviews', [ResortsTravelController::class, 'addReview']);
+
+            Route::post('/{id}/report', [ResortsTravelController::class, 'reportAdvert']);
 
         });
 
@@ -1623,7 +1922,7 @@ Route::group([
 
         // Admin routes (require auth)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [ResortsTravelCategoryController::class, 'store']);
 
@@ -1651,25 +1950,28 @@ Route::group([
 
         Route::get('/recent', [BannerAdController::class, 'recent']);
 
+        Route::get('/promotion-options', [BannerAdController::class, 'promotionOptions']);
+
+        // Authenticated static routes before /{slug}
+        Route::middleware('jwt.auth')->group(function () {
+            Route::get('/my-banners', [BannerAdController::class, 'myBanners']);
+        });
+
         Route::get('/{slug}', [BannerAdController::class, 'show']);
 
         Route::post('/{slug}/track-click', [BannerAdController::class, 'trackClick']);
-
-        Route::get('/promotion-options', [BannerAdController::class, 'promotionOptions']);
 
 
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BannerAdController::class, 'store']);
 
             Route::put('/{id}', [BannerAdController::class, 'update']);
 
             Route::delete('/{id}', [BannerAdController::class, 'destroy']);
-
-            Route::get('/my-banners', [BannerAdController::class, 'myBanners']);
 
         });
 
@@ -1679,7 +1981,7 @@ Route::group([
 
     // Banner Upload System
 
-    Route::group(['prefix' => 'banner-upload', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'banner-upload', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/banner-image', [BannerUploadController::class, 'uploadBannerImage']);
 
@@ -1715,7 +2017,7 @@ Route::group([
 
         // Admin routes (require auth and permissions)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BannerCategoryController::class, 'store']);
 
@@ -1747,9 +2049,9 @@ Route::group([
 
 
 
-    // Promoted Adverts System - Temporarily disabled
+    // Promoted Adverts System
 
-    /*Route::group(['prefix' => 'promoted-adverts'], function () {
+    Route::group(['prefix' => 'promoted-adverts'], function () {
 
         // Public routes
 
@@ -1763,23 +2065,31 @@ Route::group([
 
         Route::get('/recent', [PromotedAdvertController::class, 'recent']);
 
-        Route::get('/{slug}', [PromotedAdvertController::class, 'show']);
-
-        Route::post('/{slug}/track-click', [PromotedAdvertController::class, 'trackClick']);
-
         Route::get('/promotion-options', [PromotedAdvertController::class, 'promotionOptions']);
+
+        Route::get('/statistics', [PromotedAdvertController::class, 'statistics']);
+
+        Route::get('/live-activity', [PromotedAdvertController::class, 'liveActivity']);
+
+        Route::get('/trending-countries', [PromotedAdvertController::class, 'trendingCountries']);
+
+        Route::get('/trending-categories', [PromotedAdvertController::class, 'trendingCategories']);
+
+        Route::get('/{slug}', [PromotedAdvertController::class, 'show'])->where('slug', '^[a-zA-Z0-9-_]+$');
+
+        Route::post('/{slug}/track-click', [PromotedAdvertController::class, 'trackClick'])->where('slug', '^[a-zA-Z0-9-_]+$');
 
 
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [PromotedAdvertController::class, 'store']);
 
-            Route::put('/{id}', [PromotedAdvertController::class, 'update']);
+            Route::put('/{id}', [PromotedAdvertController::class, 'update'])->where('id', '^[0-9]+$');
 
-            Route::delete('/{id}', [PromotedAdvertController::class, 'destroy']);
+            Route::delete('/{id}', [PromotedAdvertController::class, 'destroy'])->where('id', '^[0-9]+$');
 
             Route::get('/my-adverts', [PromotedAdvertController::class, 'myAdverts']);
 
@@ -1787,11 +2097,11 @@ Route::group([
 
             Route::post('/upload-logo', [PromotedAdvertController::class, 'uploadLogo']);
 
-            Route::post('/{id}/toggle-favorite', [PromotedAdvertController::class, 'toggleFavorite']);
+            Route::post('/{id}/toggle-favorite', [PromotedAdvertController::class, 'toggleFavorite'])->where('id', '^[0-9]+$');
 
         });
 
-    });*/
+    });
 
 
 
@@ -1805,15 +2115,15 @@ Route::group([
 
         Route::get('/popular', [PromotedAdvertCategoryController::class, 'popular']);
 
-        Route::get('/{slug}', [PromotedAdvertCategoryController::class, 'show']);
+        Route::get('/{slug}', [PromotedAdvertCategoryController::class, 'show'])->where('slug', '^[a-zA-Z0-9-_]+$');
 
-        Route::get('/{slug}/adverts', [PromotedAdvertCategoryController::class, 'categoryAdverts']);
+        Route::get('/{slug}/adverts', [PromotedAdvertCategoryController::class, 'categoryAdverts'])->where('slug', '^[a-zA-Z0-9-_]+$');
 
 
 
         // Admin routes (require auth)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [PromotedAdvertCategoryController::class, 'store']);
 
@@ -1841,13 +2151,21 @@ Route::group([
 
         Route::get('/pricing-plans', [BookAdvertController::class, 'getPricingPlans']);
 
+        Route::get('/statistics', [BookAdvertController::class, 'getStatistics']);
+
+        Route::get('/trending-genres', [BookAdvertController::class, 'getTrendingGenres']);
+
+        Route::post('/{book}/views', [BookAdvertController::class, 'trackViews']);
+
+        Route::get('/my-books', [BookAdvertController::class, 'myBooks'])->middleware('jwt.auth');
+
         Route::get('/{slug}', [BookAdvertController::class, 'show']);
 
 
 
         // Authenticated user routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BookAdvertController::class, 'store']);
 
@@ -1857,11 +2175,7 @@ Route::group([
 
             Route::post('/{book}/save', [BookAdvertController::class, 'saveBook']);
 
-            Route::get('/my-books', [BookAdvertController::class, 'myBooks']);
-
             Route::post('/{book}/payment', [BookAdvertController::class, 'processPayment']);
-
-            Route::get('/statistics', [BookAdvertController::class, 'getStatistics']);
 
         });
 
@@ -1873,9 +2187,13 @@ Route::group([
 
     Route::group(['prefix' => 'buysell'], function () {
 
-        // Public routes
+        // Public routes - specific routes first
 
         Route::get('/', [BuySellController::class, 'index']);
+
+        Route::get('/stats', [BuySellController::class, 'stats']);
+
+        Route::get('/statistics', [BuySellController::class, 'statistics']);
 
         Route::get('/browse', [BuySellController::class, 'browse']);
 
@@ -1883,29 +2201,31 @@ Route::group([
 
         Route::get('/recent', [BuySellController::class, 'recent']);
 
-        Route::get('/{slug}', [BuySellController::class, 'show']);
-
         Route::get('/promotion-plans', [BuySellController::class, 'promotionPlans']);
 
         Route::get('/search', [BuySellController::class, 'search']);
 
-        Route::get('/statistics', [BuySellController::class, 'statistics']);
+        Route::get('/activities', [BuySellController::class, 'activities']);
+
+        // Authenticated static routes before /{slug}
+        Route::middleware('jwt.auth')->group(function () {
+            Route::get('/my-adverts', [BuySellController::class, 'myAdverts']);
+            Route::get('/saved-adverts', [BuySellController::class, 'savedAdverts']);
+        });
+
+        Route::get('/{slug}', [BuySellController::class, 'show']);
 
 
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BuySellController::class, 'store']);
 
             Route::put('/{id}', [BuySellController::class, 'update']);
 
             Route::delete('/{id}', [BuySellController::class, 'destroy']);
-
-            Route::get('/my-adverts', [BuySellController::class, 'myAdverts']);
-
-            Route::get('/saved-adverts', [BuySellController::class, 'savedAdverts']);
 
             Route::post('/{id}/save', [BuySellController::class, 'saveAdvert']);
 
@@ -1947,7 +2267,7 @@ Route::group([
 
         // Admin routes (require auth and permissions)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BuySellCategoryController::class, 'store']);
 
@@ -1965,9 +2285,11 @@ Route::group([
 
     Route::group(['prefix' => 'buy-sell-items'], function () {
 
-        // Public routes
+        // Public routes - specific routes first
 
         Route::get('/', [BuySellItemController::class, 'index']);
+
+        Route::get('/stats', [BuySellItemController::class, 'stats']);
 
         Route::get('/featured', [BuySellItemController::class, 'featured']);
 
@@ -1977,7 +2299,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BuySellItemController::class, 'store']);
 
@@ -2007,7 +2329,7 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/purchase', [BuySellPromotionController::class, 'purchase']);
 
@@ -2025,7 +2347,7 @@ Route::group([
 
     // Buy & Sell Upload System
 
-    Route::group(['prefix' => 'buysell-upload', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'buysell-upload', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/images', [BuySellUploadController::class, 'uploadImages']);
 
@@ -2059,7 +2381,7 @@ Route::group([
 
         // Admin routes (require auth and permissions)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [AuthorController::class, 'store']);
 
@@ -2072,14 +2394,25 @@ Route::group([
     });
 
 
+    // Legacy/Compatibility Vehicle Routes (without v1 prefix)
+    Route::get('/vehicles', [VehicleController::class, 'index']);
 
-    // Vehicles Adverts System
+    // Legacy Vehicle Routes (direct access at v1 level)
+    Route::get('/vehicle-makes', [VehicleController::class, 'getMakes']);
+    Route::get('/vehicle-makes/{id}/models', [VehicleController::class, 'getModels']);
+    Route::get('/vehicle-categories', [VehicleController::class, 'getCategories']);
+
+// Vehicles Adverts System
 
     Route::group(['prefix' => 'vehicles'], function () {
 
         // Public routes
 
         Route::get('/', [VehicleController::class, 'index']);
+
+        Route::get('/categories', [VehicleCategoryController::class, 'index']);
+
+        Route::get('/makes', [VehicleController::class, 'getMakes']);
 
         Route::get('/featured', [VehicleController::class, 'getFeaturedVehicles']);
 
@@ -2089,25 +2422,43 @@ Route::group([
 
         Route::get('/recent', [VehicleController::class, 'getRecentVehicles']);
 
+        Route::get('/stats', [VehicleController::class, 'getStats']);
+
         Route::get('/{id}', [VehicleController::class, 'show']);
 
         Route::get('/{id}/related', [VehicleController::class, 'getRelatedVehicles']);
 
+        // Button functionality endpoints
+        Route::post('/{id}/view', [VehicleController::class, 'incrementViews']);
+        Route::post('/{id}/click', [VehicleController::class, 'incrementClicks']);
+        
+        // Favourite endpoints (check is public, toggle requires auth)
+        Route::get('/{id}/favourite/check', [VehicleController::class, 'checkFavourite']);
 
 
         // Data endpoints
 
         Route::get('/makes', [VehicleController::class, 'getMakes']);
 
+        Route::get('/makes/{id}/models', [VehicleController::class, 'getModels']);
+
+        Route::get('/vehicle-makes/{id}/models', [VehicleController::class, 'getModels']);
+
         Route::get('/models/{makeId}', [VehicleController::class, 'getModels']);
 
         Route::get('/categories', [VehicleController::class, 'getCategories']);
 
+        Route::get('/popular-makes', [VehicleController::class, 'getPopularMakes']);
 
+        // Public favourite check (doesn't require authentication)
+        Route::get('/{id}/favourite/check', [VehicleController::class, 'checkFavourite']);
 
-        // Authenticated user routes
+        // Legacy routes for vehicle-makes and vehicle-categories (direct access)
+        Route::get('/vehicle-makes', [VehicleController::class, 'getMakes']);
+        Route::get('/vehicle-makes/{id}/models', [VehicleController::class, 'getModels']);
+        Route::get('/vehicle-categories', [VehicleController::class, 'getCategories']);
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [VehicleController::class, 'store']);
 
@@ -2120,6 +2471,8 @@ Route::group([
             Route::get('/saved', [VehicleController::class, 'savedVehicles']);
 
             Route::post('/{id}/save', [VehicleController::class, 'saveVehicle']);
+
+            Route::post('/{id}/favourite', [VehicleController::class, 'toggleFavourite']);
 
             Route::post('/{id}/toggle-status', [VehicleController::class, 'toggleStatus']);
 
@@ -2151,7 +2504,7 @@ Route::group([
 
         // Admin routes (require auth and permissions)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [VehicleCategoryController::class, 'store']);
 
@@ -2188,7 +2541,7 @@ Route::group([
 
         // Admin routes (require auth and permissions)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [JobCategoryController::class, 'store']);
 
@@ -2206,6 +2559,24 @@ Route::group([
 
     Route::group(['prefix' => 'job-seekers'], function () {
 
+        // Authenticated routes (literal paths must be registered before /{id})
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::get('/my-profile', [JobSeekerController::class, 'myProfile']);
+
+            Route::get('/statistics', [JobSeekerController::class, 'statistics']);
+
+            Route::post('/', [JobSeekerController::class, 'store']);
+
+            Route::put('/{id}', [JobSeekerController::class, 'update'])->where('id', '[0-9]+');
+
+            Route::delete('/{id}', [JobSeekerController::class, 'destroy'])->where('id', '[0-9]+');
+
+        });
+
+
+
         // Public routes
 
         Route::get('/', [JobSeekerController::class, 'index']);
@@ -2214,97 +2585,49 @@ Route::group([
 
         Route::get('/sponsored', [JobSeekerController::class, 'sponsoredProfiles']);
 
-        Route::get('/{id}', [JobSeekerController::class, 'show']);
+        Route::get('/{id}', [JobSeekerController::class, 'show'])->where('id', '[0-9]+');
 
-        Route::post('/{id}/contact', [JobSeekerController::class, 'contactProfile']);
-
-
-
-        // Authenticated routes
-
-        Route::group(['middleware' => 'auth:api'], function () {
-
-            Route::post('/', [JobSeekerController::class, 'store']);
-
-            Route::put('/{id}', [JobSeekerController::class, 'update']);
-
-            Route::delete('/{id}', [JobSeekerController::class, 'destroy']);
-
-            Route::get('/my-profile', [JobSeekerController::class, 'myProfile']);
-
-            Route::get('/statistics', [JobSeekerController::class, 'statistics']);
-
-        });
+        Route::post('/{id}/contact', [JobSeekerController::class, 'contactProfile'])->where('id', '[0-9]+');
 
     });
 
 
 
     // Sponsored Adverts System
-
-    Route::group(['prefix' => 'sponsored'], function () {
-        
-        // Public routes
-        Route::get('/stats', [SponsoredAdvertController::class, 'stats']);
-        Route::get('/homepage-stats', [SponsoredAdvertController::class, 'stats']); // Alias for frontend compatibility
-        Route::get('/activity', [SponsoredAdvertController::class, 'activity']);
-        Route::get('/live-activity', [SponsoredAdvertController::class, 'activity']); // Alias for frontend compatibility
-        Route::get('/categories', [SponsoredCategoryController::class, 'index']);
-        Route::get('/adverts', [SponsoredAdvertController::class, 'index']);
-        Route::get('/adverts/search', [SponsoredAdvertController::class, 'search']);
-        Route::get('/adverts/featured', [SponsoredAdvertController::class, 'featured']);
-        Route::get('/adverts/category/{slug}', [SponsoredAdvertController::class, 'byCategory']);
-        Route::get('/adverts/{id}', [SponsoredAdvertController::class, 'show']);
-        Route::get('/categories/{slug}', [SponsoredCategoryController::class, 'show']);
-
-        // Authenticated routes
-        Route::group(['middleware' => 'auth:api'], function () {
-            Route::post('/adverts', [SponsoredAdvertController::class, 'store']);
-            Route::put('/adverts/{id}', [SponsoredAdvertController::class, 'update']);
-            Route::delete('/adverts/{id}', [SponsoredAdvertController::class, 'destroy']);
-            Route::get('/adverts/my-adverts', [SponsoredAdvertController::class, 'userAdverts']);
-            Route::post('/adverts/{advertId}/save', [SponsoredAdvertController::class, 'save']);
-            Route::get('/adverts/saved', [SponsoredAdvertController::class, 'saved']);
-            Route::post('/adverts/{advertId}/track', [SponsoredAdvertController::class, 'track']);
-            Route::get('/adverts/{advertId}/analytics', [SponsoredAdvertController::class, 'analytics']);
-            
-            // Category management (admin only)
-            Route::post('/categories', [SponsoredCategoryController::class, 'store']);
-            Route::put('/categories/{id}', [SponsoredCategoryController::class, 'update']);
-            Route::delete('/categories/{id}', [SponsoredCategoryController::class, 'destroy']);
-        });
-
-    });
-
-    // Sponsored Adverts System - Frontend Compatibility Route
-    // This provides the /sponsored-adverts prefix that the frontend expects
     Route::group(['prefix' => 'sponsored-adverts'], function () {
         
-        // Public routes - map to same controllers
-        Route::get('/homepage-stats', [SponsoredAdvertController::class, 'stats']);
-        Route::get('/live-activity', [SponsoredAdvertController::class, 'activity']);
-        Route::get('/categories', [SponsoredCategoryController::class, 'index']);
+        // Public routes
         Route::get('/', [SponsoredAdvertController::class, 'index']);
-        Route::get('/search', [SponsoredAdvertController::class, 'search']);
         Route::get('/featured', [SponsoredAdvertController::class, 'featured']);
-        Route::get('/category/{slug}', [SponsoredAdvertController::class, 'byCategory']);
-        Route::get('/{id}', [SponsoredAdvertController::class, 'show']);
+        Route::get('/statistics', [SponsoredAdvertController::class, 'statistics']);
+        Route::get('/categories', [SponsoredAdvertController::class, 'categories']);
+        Route::get('/trending-categories', [SponsoredAdvertController::class, 'trendingCategories']);
+        Route::get('/pricing-plans', [SponsoredAdvertController::class, 'pricingPlans']);
 
-        // Authenticated routes
-        Route::group(['middleware' => 'auth:api'], function () {
+        // Authenticated static routes must come before /{slug}
+        Route::middleware('jwt.auth')->group(function () {
+            Route::get('/my-adverts', [SponsoredAdvertController::class, 'myAdverts']);
+            Route::patch('/{id}/status', [SponsoredAdvertController::class, 'updateStatus']);
+            Route::post('/upload-image', [SponsoredAdvertController::class, 'uploadImage']);
+        });
+
+        Route::post('/{id}/track-view', [SponsoredAdvertController::class, 'trackView']);
+        Route::get('/{slug}', [SponsoredAdvertController::class, 'show']);
+
+        // Authenticated dynamic routes
+        Route::group(['middleware' => 'jwt.auth'], function () {
             Route::post('/', [SponsoredAdvertController::class, 'store']);
             Route::put('/{id}', [SponsoredAdvertController::class, 'update']);
             Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
-            Route::get('/my-adverts', [SponsoredAdvertController::class, 'userAdverts']);
-            Route::post('/{advertId}/save', [SponsoredAdvertController::class, 'save']);
-            Route::get('/saved', [SponsoredAdvertController::class, 'saved']);
-            Route::post('/{advertId}/track', [SponsoredAdvertController::class, 'track']);
-            Route::get('/{advertId}/analytics', [SponsoredAdvertController::class, 'analytics']);
+            Route::post('/{id}/save', [SponsoredAdvertController::class, 'saveAdvert']);
+            Route::post('/{id}/payment', [SponsoredAdvertController::class, 'processPayment']);
         });
-
     });
 
-
+    // Simple test route outside any group
+    Route::get('/sponsored-adverts-simple-test', function() {
+        return response()->json(['message' => 'Simple test working']);
+    });
 
     // Sponsored Pricing Plans
 
@@ -2342,11 +2665,7 @@ Route::group([
 
         Route::get('/sponsored', [PropertyController::class, 'sponsored']);
 
-        Route::get('/{id}', [PropertyController::class, 'show']);
-
-
-
-        // Public data routes
+        // Public data routes (must come before /{property})
 
         Route::get('/data/property-types', [PropertyController::class, 'getPropertyTypes']);
 
@@ -2360,33 +2679,31 @@ Route::group([
 
         Route::get('/data/view-types', [PropertyController::class, 'getViewTypes']);
 
+        // Authenticated routes (specific paths must come before /{property})
 
-
-        // Public interaction routes
-
-        Route::post('/{id}/contact-agent', [PropertyController::class, 'contactAgent']);
-
-        Route::post('/{id}/track-event', [PropertyController::class, 'trackEvent']);
-
-
-
-        // Authenticated routes
-
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [PropertyController::class, 'store']);
 
-            Route::put('/{id}', [PropertyController::class, 'update']);
-
-            Route::delete('/{id}', [PropertyController::class, 'destroy']);
-
             Route::get('/my-properties', [PropertyController::class, 'myProperties']);
-
-            Route::post('/{id}/save', [PropertyController::class, 'saveProperty']);
 
             Route::get('/saved-properties', [PropertyController::class, 'savedProperties']);
 
+            Route::put('/{property}', [PropertyController::class, 'update']);
+
+            Route::delete('/{property}', [PropertyController::class, 'destroy']);
+
+            Route::post('/{property}/save', [PropertyController::class, 'saveProperty']);
+
         });
+
+        // Public show + interaction (catch-all last)
+
+        Route::get('/{property}', [PropertyController::class, 'show']);
+
+        Route::post('/{property}/contact-agent', [PropertyController::class, 'contactAgent']);
+
+        Route::post('/{property}/track-event', [PropertyController::class, 'trackEvent']);
 
     });
 
@@ -2394,7 +2711,7 @@ Route::group([
 
     // Property Upsells System
 
-    Route::group(['prefix' => 'property-upsells', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'property-upsells', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/', [PropertyUpsellController::class, 'index']);
 
@@ -2446,11 +2763,18 @@ Route::group([
 
         Route::get('/search', [FeaturedAdvertController::class, 'advancedSearch']);
 
+        Route::post('/upload-image', [FeaturedAdvertController::class, 'uploadImage']);
+
         Route::get('/statistics', [FeaturedAdvertController::class, 'statistics']);
 
         Route::get('/live-activity', [FeaturedAdvertController::class, 'liveActivity']);
 
         Route::get('/analytics', [FeaturedAdvertController::class, 'analytics']);
+
+        // Authenticated static routes before /{id}
+        Route::middleware('jwt.auth')->group(function () {
+            Route::get('/my-adverts', [FeaturedAdvertController::class, 'myFeaturedAdverts']);
+        });
 
         Route::get('/{id}', [FeaturedAdvertController::class, 'show']);
 
@@ -2462,15 +2786,13 @@ Route::group([
 
         // Authenticated routes (customer)
 
-        Route::group(['middleware' => 'auth:customer'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [FeaturedAdvertController::class, 'store']);
 
             Route::put('/{id}', [FeaturedAdvertController::class, 'update']);
 
             Route::delete('/{id}', [FeaturedAdvertController::class, 'destroy']);
-
-            Route::get('/my-adverts', [FeaturedAdvertController::class, 'myFeaturedAdverts']);
 
         });
 
@@ -2496,7 +2818,7 @@ Route::group([
 
             // Authenticated routes (customer)
 
-            Route::group(['middleware' => 'auth:customer'], function () {
+            Route::group(['middleware' => 'jwt.auth'], function () {
 
                 Route::post('/from-featured/{featuredAdvertId}', [FeaturedAdvertBannerController::class, 'createFromFeatured']);
 
@@ -2517,6 +2839,7 @@ Route::group([
         Route::get('/', [FundingProjectController::class, 'index']);
 
         Route::get('/metadata', [FundingProjectController::class, 'getMetadata']);
+        Route::get('/statistics', [FundingProjectController::class, 'getStatistics']);
 
         Route::get('/featured', [FundingProjectController::class, 'getFeaturedProjects']);
 
@@ -2530,9 +2853,13 @@ Route::group([
 
         // Authenticated routes
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [FundingProjectController::class, 'store']);
+
+            // Upload routes
+            Route::post('/upload-cover', [FundingProjectController::class, 'uploadCoverImage']);
+            Route::post('/upload-additional', [FundingProjectController::class, 'uploadAdditionalImages']);
 
             Route::put('/{id}', [FundingProjectController::class, 'update']);
 
@@ -2552,7 +2879,7 @@ Route::group([
 
     // Funding Pledges System
 
-    Route::group(['prefix' => 'funding-pledges', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'funding-pledges', 'middleware' => 'jwt.auth'], function () {
 
         Route::post('/{projectId}', [FundingPledgeController::class, 'store']);
 
@@ -2572,7 +2899,7 @@ Route::group([
 
     // Funding Upsells System
 
-    Route::group(['prefix' => 'funding-upsells', 'middleware' => 'auth:api'], function () {
+    Route::group(['prefix' => 'funding-upsells', 'middleware' => 'jwt.auth'], function () {
 
         Route::get('/plans', [App\Http\Controllers\Api\FundingUpsellController::class, 'getPlans']);
 
@@ -2589,6 +2916,38 @@ Route::group([
         Route::post('/{id}/cancel', [App\Http\Controllers\Api\FundingUpsellController::class, 'cancelUpsell']);
 
         Route::get('/stats', [App\Http\Controllers\Api\FundingUpsellController::class, 'getStats']);
+
+    });
+
+    // Donations System
+
+    Route::group(['prefix' => 'donations'], function () {
+
+        // Public routes
+
+        Route::get('/', [DonationController::class, 'index']);
+
+        Route::get('/featured', [DonationController::class, 'featured']);
+
+        Route::get('/urgent', [DonationController::class, 'urgent']);
+
+        Route::get('/statistics', [DonationController::class, 'statistics']);
+
+        // Authenticated routes (must be registered before /{id})
+
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            Route::get('/my-donations', [DonationController::class, 'myDonations']);
+
+            Route::post('/', [DonationController::class, 'store']);
+
+            Route::put('/{id}', [DonationController::class, 'update']);
+
+            Route::delete('/{id}', [DonationController::class, 'destroy']);
+
+        });
+
+        Route::get('/{id}', [DonationController::class, 'show']);
 
     });
 
@@ -2645,24 +3004,164 @@ Route::group([
 
 
         // Analytics
-
-        Route::get('/analytics', [App\Http\Controllers\Admin\ServiceManagementController::class, 'analytics']);
-
     });
 
+    // Admin Events Management
+    Route::group(['prefix' => 'admin/events', 'middleware' => ['auth:api', 'admin']], function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Admin\EventAdminController::class, 'dashboard']);
+        
+        // Events Management
+        Route::get('/', [App\Http\Controllers\Admin\EventAdminController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\Admin\EventAdminController::class, 'store']);
+        Route::get('/{id}', [App\Http\Controllers\Admin\EventAdminController::class, 'show']);
+        Route::put('/{id}', [App\Http\Controllers\Admin\EventAdminController::class, 'update']);
+        Route::delete('/{id}', [App\Http\Controllers\Admin\EventAdminController::class, 'destroy']);
+        
+        // Event Status Management
+        Route::post('/{id}/approve', [App\Http\Controllers\Admin\EventAdminController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Admin\EventAdminController::class, 'reject']);
+        Route::post('/{id}/toggle-active', [App\Http\Controllers\Admin\EventAdminController::class, 'toggleActive']);
+        
+        // Promotion Management
+        Route::post('/{id}/upgrade-tier', [App\Http\Controllers\Admin\EventAdminController::class, 'upgradeTier']);
+        Route::post('/{id}/set-featured', [App\Http\Controllers\Admin\EventAdminController::class, 'setFeatured']);
+        Route::post('/{id}/set-sponsored', [App\Http\Controllers\Admin\EventAdminController::class, 'setSponsored']);
+        
+        // Bulk Actions
+        Route::post('/bulk-approve', [App\Http\Controllers\Admin\EventAdminController::class, 'bulkApprove']);
+        Route::post('/bulk-reject', [App\Http\Controllers\Admin\EventAdminController::class, 'bulkReject']);
+        Route::post('/bulk-update', [App\Http\Controllers\Admin\EventAdminController::class, 'bulkUpdate']);
+        Route::post('/bulk-delete', [App\Http\Controllers\Admin\EventAdminController::class, 'bulkDelete']);
+        
+        // Reports and Analytics
+        Route::get('/reports', [App\Http\Controllers\Admin\EventAdminController::class, 'reports']);
+        Route::get('/promotion-report', [App\Http\Controllers\Admin\EventAdminController::class, 'promotionReport']);
+        Route::get('/analytics', [App\Http\Controllers\Admin\EventAdminController::class, 'analytics']);
+        Route::get('/popular', [App\Http\Controllers\Admin\EventAdminController::class, 'popularEvents']);
+        Route::get('/trends', [App\Http\Controllers\Admin\EventAdminController::class, 'eventTrends']);
+        Route::get('/attendance-analytics', [App\Http\Controllers\Admin\EventAdminController::class, 'attendanceAnalytics']);
+        Route::get('/revenue-analytics', [App\Http\Controllers\Admin\EventAdminController::class, 'revenueAnalytics']);
+        
+        // Export
+        Route::get('/export', [App\Http\Controllers\Admin\EventAdminController::class, 'export']);
+    });
 
+    // Admin Venues Management
+    Route::group(['prefix' => 'admin/venues', 'middleware' => ['auth:api', 'admin']], function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Admin\VenueAdminController::class, 'dashboard']);
+        
+        // Venues Management
+        Route::get('/', [App\Http\Controllers\Admin\VenueAdminController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\Admin\VenueAdminController::class, 'store']);
+        Route::get('/{id}', [App\Http\Controllers\Admin\VenueAdminController::class, 'show']);
+        Route::put('/{id}', [App\Http\Controllers\Admin\VenueAdminController::class, 'update']);
+        Route::delete('/{id}', [App\Http\Controllers\Admin\VenueAdminController::class, 'destroy']);
+        
+        // Venue Status Management
+        Route::post('/{id}/approve', [App\Http\Controllers\Admin\VenueAdminController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Admin\VenueAdminController::class, 'reject']);
+        Route::post('/{id}/toggle-active', [App\Http\Controllers\Admin\VenueAdminController::class, 'toggleActive']);
+        
+        // Promotion Management
+        Route::post('/{id}/upgrade-tier', [App\Http\Controllers\Admin\VenueAdminController::class, 'upgradeTier']);
+        Route::post('/{id}/set-featured', [App\Http\Controllers\Admin\VenueAdminController::class, 'setFeatured']);
+        Route::post('/{id}/set-sponsored', [App\Http\Controllers\Admin\VenueAdminController::class, 'setSponsored']);
+        
+        // Bulk Actions
+        Route::post('/bulk-approve', [App\Http\Controllers\Admin\VenueAdminController::class, 'bulkApprove']);
+        Route::post('/bulk-reject', [App\Http\Controllers\Admin\VenueAdminController::class, 'bulkReject']);
+        Route::post('/bulk-update', [App\Http\Controllers\Admin\VenueAdminController::class, 'bulkUpdate']);
+        Route::post('/bulk-delete', [App\Http\Controllers\Admin\VenueAdminController::class, 'bulkDelete']);
+        
+        // Reports and Analytics
+        Route::get('/reports', [App\Http\Controllers\Admin\VenueAdminController::class, 'reports']);
+        Route::get('/promotion-report', [App\Http\Controllers\Admin\VenueAdminController::class, 'promotionReport']);
+        Route::get('/analytics', [App\Http\Controllers\Admin\VenueAdminController::class, 'analytics']);
+        Route::get('/popular', [App\Http\Controllers\Admin\VenueAdminController::class, 'popularVenues']);
+        Route::get('/trends', [App\Http\Controllers\Admin\VenueAdminController::class, 'venueTrends']);
+        Route::get('/revenue-analytics', [App\Http\Controllers\Admin\VenueAdminController::class, 'revenueAnalytics']);
+        
+        // Export
+        Route::get('/export', [App\Http\Controllers\Admin\VenueAdminController::class, 'export']);
+    });
 
-    
+    // Admin Properties Management
+    Route::group(['prefix' => 'admin/properties', 'middleware' => ['auth:api', 'admin']], function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Admin\PropertyAdminController::class, 'dashboard']);
+        
+        // Properties Management
+        Route::get('/', [App\Http\Controllers\Admin\PropertyAdminController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\Admin\PropertyAdminController::class, 'store']);
+        Route::get('/{id}', [App\Http\Controllers\Admin\PropertyAdminController::class, 'show']);
+        Route::put('/{id}', [App\Http\Controllers\Admin\PropertyAdminController::class, 'update']);
+        Route::delete('/{id}', [App\Http\Controllers\Admin\PropertyAdminController::class, 'destroy']);
+        
+        // Property Status Management
+        Route::post('/{id}/approve', [App\Http\Controllers\Admin\PropertyAdminController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Admin\PropertyAdminController::class, 'reject']);
+        Route::post('/{id}/toggle-active', [App\Http\Controllers\Admin\PropertyAdminController::class, 'toggleActive']);
+        
+        // Promotion Management
+        Route::post('/{id}/upgrade-tier', [App\Http\Controllers\Admin\PropertyAdminController::class, 'upgradeTier']);
+        Route::post('/{id}/set-featured', [App\Http\Controllers\Admin\PropertyAdminController::class, 'setFeatured']);
+        Route::post('/{id}/set-sponsored', [App\Http\Controllers\Admin\PropertyAdminController::class, 'setSponsored']);
+        
+        // Bulk Actions
+        Route::post('/bulk-approve', [App\Http\Controllers\Admin\PropertyAdminController::class, 'bulkApprove']);
+        Route::post('/bulk-reject', [App\Http\Controllers\Admin\PropertyAdminController::class, 'bulkReject']);
+        Route::post('/bulk-update', [App\Http\Controllers\Admin\PropertyAdminController::class, 'bulkUpdate']);
+        Route::post('/bulk-delete', [App\Http\Controllers\Admin\PropertyAdminController::class, 'bulkDelete']);
+        
+        // Categories Management
+        Route::get('/categories', [App\Http\Controllers\Admin\PropertyCategoryAdminController::class, 'index']);
+        Route::post('/categories', [App\Http\Controllers\Admin\PropertyCategoryAdminController::class, 'store']);
+        Route::put('/categories/{id}', [App\Http\Controllers\Admin\PropertyCategoryAdminController::class, 'update']);
+        Route::delete('/categories/{id}', [App\Http\Controllers\Admin\PropertyCategoryAdminController::class, 'destroy']);
+        
+        // Enquiries Management
+        Route::get('/enquiries', [App\Http\Controllers\Admin\PropertyEnquiryAdminController::class, 'index']);
+        Route::get('/enquiries/{id}', [App\Http\Controllers\Admin\PropertyEnquiryAdminController::class, 'show']);
+        Route::post('/enquiries/{id}/respond', [App\Http\Controllers\Admin\PropertyEnquiryAdminController::class, 'respond']);
+        Route::delete('/enquiries/{id}', [App\Http\Controllers\Admin\PropertyEnquiryAdminController::class, 'destroy']);
+        
+        // Reports and Analytics
+        Route::get('/reports', [App\Http\Controllers\Admin\PropertyAdminController::class, 'reports']);
+        Route::get('/analytics', [App\Http\Controllers\Admin\PropertyAdminController::class, 'analytics']);
+        Route::get('/export', [App\Http\Controllers\Admin\PropertyAdminController::class, 'export']);
+    });
 
-
-    
-
+    // Admin Funding Projects Management
+    Route::group(['prefix' => 'admin/funding', 'middleware' => ['auth:api', 'admin']], function () {
+        // Dashboard
+        Route::get('/dashboard', [App\Http\Controllers\Api\FundingProjectController::class, 'adminDashboard']);
+        
+        // Projects Management
+        Route::get('/', [App\Http\Controllers\Api\FundingProjectController::class, 'adminIndex']);
+        Route::get('/{id}', [App\Http\Controllers\Api\FundingProjectController::class, 'adminShow']);
+        Route::put('/{id}', [App\Http\Controllers\Api\FundingProjectController::class, 'adminUpdate']);
+        Route::delete('/{id}', [App\Http\Controllers\Api\FundingProjectController::class, 'adminDestroy']);
+        
+        // Project Status Management
+        Route::post('/{id}/approve', [App\Http\Controllers\Api\FundingProjectController::class, 'adminApprove']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Api\FundingProjectController::class, 'adminReject']);
+        Route::post('/{id}/toggle-active', [App\Http\Controllers\Api\FundingProjectController::class, 'adminToggleActive']);
+        
+        // Reports and Analytics
+        Route::get('/reports', [App\Http\Controllers\Api\FundingProjectController::class, 'adminReports']);
+        Route::get('/analytics', [App\Http\Controllers\Api\FundingProjectController::class, 'adminAnalytics']);
+        Route::get('/export', [App\Http\Controllers\Api\FundingProjectController::class, 'adminExport']);
+    });
 
     // Buy & Sell API (comprehensive system)
 
     Route::group(['prefix' => 'buysell'], function () {
 
         // Public routes (no auth required)
+
+        Route::get('/stats', [BuySellController::class, 'stats']);
 
         Route::get('/adverts', [BuySellController::class, 'index']);
 
@@ -2678,13 +3177,11 @@ Route::group([
 
         Route::get('/trending', [BuySellController::class, 'trending']);
 
-        Route::get('/stats', [BuySellController::class, 'stats']);
-
         
 
         // Protected routes (auth required)
 
-        Route::group(['middleware' => 'auth:api'], function () {
+        Route::group(['middleware' => 'jwt.auth'], function () {
 
             // Advert management
 
@@ -2708,6 +3205,8 @@ Route::group([
 
             Route::post('/adverts/{id}/report', [BuySellController::class, 'reportAdvert']);
 
+            Route::post('/adverts/{id}/view', [BuySellController::class, 'view']);
+
             Route::get('/recently-viewed', [BuySellController::class, 'recentlyViewed']);
 
             
@@ -2726,21 +3225,29 @@ Route::group([
         // Public Routes (No Authentication Required)
         Route::group(['prefix' => 'public'], function () {
             Route::get('/', [\App\Http\Controllers\Api\V1\JobController::class, 'index']);
-            Route::get('/{jobId}', [\App\Http\Controllers\Api\V1\JobController::class, 'show']);
+            Route::get('/stats', [\App\Http\Controllers\Api\V1\JobController::class, 'statistics']);
             Route::get('/featured', [\App\Http\Controllers\Api\V1\JobController::class, 'featured']);
             Route::get('/categories', [\App\Http\Controllers\Api\V1\JobController::class, 'categories']);
+            Route::get('/pricing-plans', [\App\Http\Controllers\Api\V1\JobController::class, 'pricingPlans']);
             Route::get('/genre/{genre}', [\App\Http\Controllers\Api\V1\JobController::class, 'byCategory']);
-            Route::get('/stats', [\App\Http\Controllers\Api\V1\JobController::class, 'statistics']);
-            
+            Route::get('/activities', [\App\Http\Controllers\Api\V1\JobController::class, 'activities']);
+            Route::get('/trending-searches', [\App\Http\Controllers\Api\V1\JobController::class, 'trendingSearches']);
+
             // Job Seekers Public Routes
             Route::get('/seekers', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'index']);
-            Route::get('/seekers/{seekerId}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'show']);
             Route::get('/seekers/stats', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'statistics']);
+            Route::get('/seekers/{seekerId}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'show'])->where('seekerId', '[0-9]+');
+            Route::post('/seekers/{seekerId}/contact', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'contactProfile'])->where('seekerId', '[0-9]+');
+
+            Route::get('/{jobId}', [\App\Http\Controllers\Api\V1\JobController::class, 'show']);
         });
 
         // Protected Routes (Authentication Required)
-        Route::group(['middleware' => 'auth:api'], function () {
-            
+        Route::group(['middleware' => 'jwt.auth'], function () {
+
+            // File Upload
+            Route::post('/upload', [\App\Http\Controllers\Api\V1\JobController::class, 'uploadFile']);
+
             // Job Management
             Route::post('/', [\App\Http\Controllers\Api\V1\JobController::class, 'store']);
             Route::put('/{id}', [\App\Http\Controllers\Api\V1\JobController::class, 'update']);
@@ -2758,13 +3265,13 @@ Route::group([
             Route::get('/my-applications', [\App\Http\Controllers\Api\V1\JobApplicationController::class, 'myApplications']);
             Route::post('/applications/{applicationId}/withdraw', [\App\Http\Controllers\Api\V1\JobApplicationController::class, 'withdraw']);
             
-            // Job Seeker Profiles
-            Route::post('/seekers', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'store']);
-            Route::put('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'update']);
-            Route::delete('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'destroy']);
+            // Job Seeker Profiles (literal paths before /seekers/{id})
             Route::get('/seekers/my-profile', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myProfile']);
             Route::get('/seekers/my-applications', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myApplications']);
             Route::get('/seekers/my-statistics', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myStatistics']);
+            Route::post('/seekers', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'store']);
+            Route::put('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'update'])->where('id', '[0-9]+');
+            Route::delete('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'destroy'])->where('id', '[0-9]+');
             
             // Job Alerts
             Route::post('/alerts', [\App\Http\Controllers\Api\V1\JobAlertController::class, 'store']);
@@ -2788,7 +3295,178 @@ Route::group([
         });
     });
 
-});
+    // Communities API Routes
+    Route::group(['prefix' => 'communities'], function () {
+        // Public routes
+        Route::get('/', [CommunityController::class, 'index']);
+        Route::get('/trending', [CommunityController::class, 'trending']);
+        Route::get('/featured', [CommunityController::class, 'featured']);
+        Route::get('/category/{categoryId}', [CommunityController::class, 'byCategory']);
+        Route::get('/{id}', [CommunityController::class, 'show']);
+        Route::get('/{id}/members', [CommunityController::class, 'members']);
+
+        // Authenticated routes
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/', [CommunityController::class, 'store']);
+            Route::put('/{id}', [CommunityController::class, 'update']);
+            Route::delete('/{id}', [CommunityController::class, 'destroy']);
+            Route::post('/{id}/join', [CommunityController::class, 'join']);
+            Route::post('/{id}/leave', [CommunityController::class, 'leave']);
+            Route::post('/{id}/follow', [CommunityController::class, 'follow']);
+            Route::post('/{id}/unfollow', [CommunityController::class, 'unfollow']);
+            Route::get('/my-communities', [CommunityController::class, 'myCommunities']);
+        });
+    });
+
+    // Community Posts API Routes
+    Route::group(['prefix' => 'community-posts'], function () {
+        // Public routes
+        Route::get('/', [CommunityPostController::class, 'index']);
+        Route::get('/{id}', [CommunityPostController::class, 'show']);
+
+        // Authenticated routes
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/', [CommunityPostController::class, 'store']);
+            Route::put('/{id}', [CommunityPostController::class, 'update']);
+            Route::delete('/{id}', [CommunityPostController::class, 'destroy']);
+            Route::post('/{id}/react', [CommunityPostController::class, 'react']);
+            Route::post('/{id}/save', [CommunityPostController::class, 'save']);
+            Route::post('/{id}/pin', [CommunityPostController::class, 'pin']);
+            Route::post('/{id}/flag', [CommunityPostController::class, 'flag']);
+            Route::get('/for-you', [CommunityPostController::class, 'forYou']);
+            Route::get('/following', [CommunityPostController::class, 'following']);
+            Route::get('/local', [CommunityPostController::class, 'local']);
+            Route::get('/saved', [CommunityPostController::class, 'saved']);
+            Route::get('/my-posts', [CommunityPostController::class, 'myPosts']);
+        });
+    });
+
+    // Comments API Routes
+    Route::group(['prefix' => 'comments'], function () {
+        // Public routes
+        Route::get('/post/{postId}', [CommentController::class, 'index']);
+        Route::get('/{id}', [CommentController::class, 'show']);
+        Route::get('/{id}/replies', [CommentController::class, 'replies']);
+
+        // Authenticated routes
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/', [CommentController::class, 'store']);
+            Route::put('/{id}', [CommentController::class, 'update']);
+            Route::delete('/{id}', [CommentController::class, 'destroy']);
+            Route::post('/{id}/react', [CommentController::class, 'react']);
+            Route::post('/{id}/flag', [CommentController::class, 'flag']);
+            Route::post('/{id}/hide', [CommentController::class, 'hide']);
+        });
+    });
+
+    // Events & Venues API Routes
+    Route::group(['prefix' => 'events-venues'], function () {
+        // Authenticated routes (must come first to avoid being caught by {slug})
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/', [EventsVenuesController::class, 'store']);
+            Route::put('/{id}', [EventsVenuesController::class, 'update']);
+            Route::delete('/{id}', [EventsVenuesController::class, 'destroy']);
+            Route::get('/my-adverts', [EventsVenuesController::class, 'myAdverts']);
+            Route::post('/{id}/save', [EventsVenuesController::class, 'save']);
+            Route::get('/saved', [EventsVenuesController::class, 'savedAdverts']);
+        });
+
+        // Public routes
+        Route::get('/', [EventsVenuesController::class, 'index']);
+        Route::get('/featured', [EventsVenuesController::class, 'featured']);
+        Route::get('/sponsored', [EventsVenuesController::class, 'sponsored']);
+        Route::get('/categories', [EventsVenuesController::class, 'categories']);
+        Route::get('/statistics', [EventsVenuesController::class, 'statistics']);
+        Route::get('/live-activity', [EventsVenuesController::class, 'liveActivity']);
+        Route::get('/promotion-tiers', [EventsVenuesController::class, 'promotionTiers']);
+        Route::post('/upload-image', [EventsVenuesController::class, 'uploadImage']);
+        Route::get('/{slug}', [EventsVenuesController::class, 'show']);
+    });
 
 });
 
+// Legacy/Compatibility Vehicle Routes (without v1 prefix)
+Route::get('/vehicles', [VehicleController::class, 'index']);
+Route::post('/vehicles', [VehicleController::class, 'store'])->middleware('auth:api');
+Route::get('/vehicles/stats', [VehicleController::class, 'getStats']);
+Route::get('/vehicles/featured', [VehicleController::class, 'getFeaturedVehicles']);
+Route::get('/vehicles/recent', [VehicleController::class, 'getRecentVehicles']);
+
+// Calculator API Routes
+Route::group(['prefix' => 'v1/calculators'], function () {
+    // Business Calculators
+    Route::post('/business/break-even', [CalculatorController::class, 'breakEven']);
+    Route::post('/business/roe', [CalculatorController::class, 'roe']);
+    Route::post('/business/operating-margin', [CalculatorController::class, 'operatingMargin']);
+    Route::post('/business/gross-margin', [CalculatorController::class, 'grossMargin']);
+    Route::post('/business/valuation', [CalculatorController::class, 'businessValuation']);
+    Route::post('/business/vat', [CalculatorController::class, 'vat']);
+    Route::post('/business/fcff', [CalculatorController::class, 'fcff']);
+
+    // Real Estate Calculators
+    Route::post('/real-estate/mortgage', [CalculatorController::class, 'mortgage']);
+    Route::post('/real-estate/affordability', [CalculatorController::class, 'affordability']);
+    Route::post('/real-estate/roi', [CalculatorController::class, 'roi']);
+    Route::post('/real-estate/rent-vs-buy', [CalculatorController::class, 'rentVsBuy']);
+    Route::post('/real-estate/property-tax', [CalculatorController::class, 'propertyTax']);
+    Route::post('/real-estate/closing-costs', [CalculatorController::class, 'closingCosts']);
+
+    // Vehicle Calculators
+    Route::post('/vehicle/auto-loan', [CalculatorController::class, 'autoLoan']);
+    Route::post('/vehicle/lease-vs-buy', [CalculatorController::class, 'leaseVsBuy']);
+    Route::post('/vehicle/depreciation', [CalculatorController::class, 'depreciation']);
+    Route::post('/vehicle/fuel-cost', [CalculatorController::class, 'fuelCost']);
+    Route::post('/vehicle/insurance', [CalculatorController::class, 'insurance']);
+    Route::post('/vehicle/tco', [CalculatorController::class, 'tco']);
+});
+
+// Legacy/Compatibility Sponsored Adverts Routes (without v1 prefix)
+Route::group(['prefix' => 'sponsored-adverts'], function () {
+    Route::get('/test', function() {
+        return response()->json(['message' => 'Sponsored adverts legacy route working']);
+    });
+    
+    Route::get('/categories', function() {
+        return response()->json([
+            'status' => 'Success',
+            'message' => 'Categories retrieved successfully',
+            'data' => [
+                ['id' => 1, 'name' => 'Real Estate', 'slug' => 'real-estate'],
+                ['id' => 2, 'name' => 'Vehicles', 'slug' => 'vehicles'],
+                ['id' => 3, 'name' => 'Services', 'slug' => 'services']
+            ]
+        ]);
+    });
+    
+    Route::get('/homepage-stats', function() {
+        return response()->json([
+            'status' => 'Success',
+            'message' => 'Homepage stats retrieved successfully',
+            'data' => [
+                'total_adverts' => 1250,
+                'active_adverts' => 890,
+                'total_categories' => 12,
+                'featured_adverts' => 45
+            ]
+        ]);
+    });
+    
+    Route::get('/live-activity', function() {
+        return response()->json([
+            'status' => 'Success',
+            'message' => 'Live activity retrieved successfully',
+            'data' => [
+                ['id' => 1, 'title' => 'Sample Advert 1', 'created_at' => now()],
+                ['id' => 2, 'title' => 'Sample Advert 2', 'created_at' => now()]
+            ]
+        ]);
+    });
+    
+    Route::get('/', function() {
+        return response()->json([
+            'status' => 'Success',
+            'message' => 'Sponsored adverts retrieved successfully',
+            'data' => []
+        ]);
+    });
+});

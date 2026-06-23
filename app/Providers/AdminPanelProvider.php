@@ -64,6 +64,7 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 'Content Management',
                 'Property Hub',
+                'Services Management',
                 'Monetization',
                 'Analytics',
                 'Settings',

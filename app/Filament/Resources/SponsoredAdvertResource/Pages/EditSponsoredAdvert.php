@@ -10,6 +10,16 @@ class EditSponsoredAdvert extends EditRecord
 {
     protected static string $resource = SponsoredAdvertResource::class;
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return SponsoredAdvertResource::prepareMediaForFill($data);
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return SponsoredAdvertResource::prepareMediaForSave($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

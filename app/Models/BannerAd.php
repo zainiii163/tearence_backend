@@ -80,12 +80,55 @@ class BannerAd extends Model
         parent::boot();
 
         static::creating(function ($bannerAd) {
-            $bannerAd->slug = Str::slug($bannerAd->title);
+            $slug = Str::slug($bannerAd->title);
+            $originalSlug = $slug;
+            $counter = 1;
+
+            // Check if slug already exists and append counter if needed
+            while (self::where('slug', $slug)->exists()) {
+                $slug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
+
+            $bannerAd->slug = $slug;
+        });
+
+        static::created(function ($bannerAd) {
+            if ($bannerAd->banner_category_id) {
+                $bannerAd->updateCategoryCount($bannerAd->banner_category_id);
+            }
         });
 
         static::updating(function ($bannerAd) {
             if ($bannerAd->isDirty('title')) {
-                $bannerAd->slug = Str::slug($bannerAd->title);
+                $slug = Str::slug($bannerAd->title);
+                $originalSlug = $slug;
+                $counter = 1;
+
+                // Check if slug already exists (excluding current record) and append counter if needed
+                while (self::where('slug', $slug)->where('id', '!=', $bannerAd->id)->exists()) {
+                    $slug = $originalSlug . '-' . $counter;
+                    $counter++;
+                }
+
+                $bannerAd->slug = $slug;
+            }
+        });
+
+        static::updated(function ($bannerAd) {
+            if ($bannerAd->isDirty('banner_category_id') || $bannerAd->isDirty('status')) {
+                if ($bannerAd->banner_category_id) {
+                    $bannerAd->updateCategoryCount($bannerAd->banner_category_id);
+                }
+                if ($bannerAd->getOriginal('banner_category_id') && $bannerAd->banner_category_id != $bannerAd->getOriginal('banner_category_id')) {
+                    $bannerAd->updateCategoryCount($bannerAd->getOriginal('banner_category_id'));
+                }
+            }
+        });
+
+        static::deleted(function ($bannerAd) {
+            if ($bannerAd->banner_category_id) {
+                $bannerAd->updateCategoryCount($bannerAd->banner_category_id);
             }
         });
     }
@@ -199,8 +242,8 @@ class BannerAd extends Model
      */
     public function getCtrAttribute(): float
     {
-        if ($this->views_count === 0) {
-            return 0;
+        if (!$this->views_count || $this->views_count === 0) {
+            return 0.0;
         }
 
         return round(($this->clicks_count / $this->views_count) * 100, 2);
@@ -218,6 +261,22 @@ class BannerAd extends Model
         $now = now();
         return $this->promotion_start && $this->promotion_end &&
                $now->between($this->promotion_start, $this->promotion_end);
+    }
+
+    /**
+     * Update the active banners count for a category.
+     */
+    protected static function updateCategoryCount($categoryId): void
+    {
+        $category = BannerCategory::find($categoryId);
+        if ($category) {
+            $count = BannerAd::where('banner_category_id', $categoryId)
+                ->where('status', 'active')
+                ->where('is_active', true)
+                ->count();
+            $category->active_banners_count = $count;
+            $category->save();
+        }
     }
 
     /**
@@ -271,20 +330,69 @@ class BannerAd extends Model
     /**
      * Get the full banner image URL.
      */
-    public function getBannerImageUrlAttribute(): string
+    public function getBannerImageUrlAttribute(): ?string
     {
+        if (!$this->banner_image) {
+            return null;
+        }
+
+        if (str_starts_with($this->banner_image, 'http://') || str_starts_with($this->banner_image, 'https://')) {
+            return $this->banner_image;
+        }
+
+        if (str_contains($this->banner_image, '/')) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->banner_image);
+        }
+
         return asset('storage/banner-images/' . $this->banner_image);
     }
 
     /**
      * Get the full business logo URL.
      */
-    public function getBusinessLogoUrlAttribute(): string
+    public function getBusinessLogoUrlAttribute(): ?string
     {
         if (!$this->business_logo) {
-            return asset('images/default-logo.png');
+            return null;
         }
-        
+
+        if (str_starts_with($this->business_logo, 'http://') || str_starts_with($this->business_logo, 'https://')) {
+            return $this->business_logo;
+        }
+
+        if (str_contains($this->business_logo, '/')) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($this->business_logo);
+        }
+
         return asset('storage/business-logos/' . $this->business_logo);
+    }
+
+    public function setBannerImageAttribute(mixed $value): void
+    {
+        $this->attributes['banner_image'] = self::normalizeStoredFilename($value);
+    }
+
+    public function setBusinessLogoAttribute(mixed $value): void
+    {
+        $this->attributes['business_logo'] = self::normalizeStoredFilename($value);
+    }
+
+    protected static function normalizeStoredFilename(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = \Illuminate\Support\Arr::first(\Illuminate\Support\Arr::flatten($value));
+        }
+
+        if (!$value || !is_string($value)) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            $path = parse_url($value, PHP_URL_PATH);
+
+            return $path ? basename($path) : null;
+        }
+
+        return basename($value);
     }
 }

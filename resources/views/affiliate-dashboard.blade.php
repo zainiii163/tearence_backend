@@ -826,12 +826,17 @@
         // Handle business offer form submission
         document.getElementById('businessOfferForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const submitBtn = e.target.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
 
             try {
+                const formDataObj = Object.fromEntries(formData);
+                console.log('Form data being sent:', formDataObj);
+                console.log('API endpoint:', `${API_BASE}/affiliates/business-offers`);
+                console.log('Auth token:', authToken ? 'Present' : 'Missing');
+
                 const response = await fetch(`${API_BASE}/affiliates/business-offers`, {
                     method: 'POST',
                     headers: {
@@ -839,10 +844,14 @@
                         'Accept': 'application/json',
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(Object.fromEntries(formData))
+                    body: JSON.stringify(formDataObj)
                 });
 
+                console.log('Response status:', response.status);
+                console.log('Response URL:', response.url);
+
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (response.ok) {
                     alert('Business offer created successfully! It will be reviewed before going live.');
@@ -853,6 +862,7 @@
                     alert('Error: ' + (data.message || 'Failed to create business offer'));
                 }
             } catch (error) {
+                console.error('Error creating business offer:', error);
                 alert('Error creating business offer: ' + error.message);
             } finally {
                 submitBtn.disabled = false;

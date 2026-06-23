@@ -89,7 +89,7 @@ class Listing extends Model
      *
      * @var array
      */
-    protected $with = ['package', 'customer', 'location', 'category', 'currency'];
+    protected $with = ['package', 'category', 'currency'];
 
     /**
      * The database table used by the model.

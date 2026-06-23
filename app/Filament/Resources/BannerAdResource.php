@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 
 class BannerAdResource extends Resource
@@ -23,11 +24,13 @@ class BannerAdResource extends Resource
 
     protected static ?string $navigationGroup = 'Banner Management';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
-    protected static ?string $modelLabel = 'Banner Marketplace Ad';
+    protected static ?string $navigationLabel = 'Banner Ads';
 
-    protected static ?string $pluralModelLabel = 'Banner Marketplace Ads';
+    protected static ?string $modelLabel = 'Banner Ad';
+
+    protected static ?string $pluralModelLabel = 'Banner Ads';
 
     public static function form(Form $form): Form
     {
@@ -65,6 +68,15 @@ class BannerAdResource extends Resource
                             ->label('Website URL')
                             ->url()
                             ->maxLength(500),
+                        
+                        Forms\Components\FileUpload::make('business_logo')
+                            ->label('Business Logo')
+                            ->image()
+                            ->disk('public')
+                            ->directory('business-logos')
+                            ->visibility('public')
+                            ->maxSize(2048)
+                            ->nullable(),
                     ])
                     ->columns(4)
                     ->columnSpan('full'),
@@ -105,6 +117,16 @@ class BannerAdResource extends Resource
                             ])
                             ->required(),
                         
+                        Forms\Components\FileUpload::make('banner_image')
+                            ->label('Banner Image')
+                            ->image()
+                            ->required()
+                            ->disk('public')
+                            ->directory('banner-images')
+                            ->visibility('public')
+                            ->maxSize(5120)
+                            ->helperText('Upload the banner image (JPEG, PNG, GIF, or WebP).'),
+                        
                         Forms\Components\TextInput::make('destination_link')
                             ->label('Destination Link')
                             ->url()
@@ -115,6 +137,16 @@ class BannerAdResource extends Resource
                             ->label('Call-to-Action')
                             ->placeholder('e.g., Shop Now, Learn More')
                             ->maxLength(100),
+                        
+                        Forms\Components\Textarea::make('key_selling_points')
+                            ->label('Key Selling Points')
+                            ->rows(2)
+                            ->columnSpan('full'),
+                        
+                        Forms\Components\Textarea::make('offer_details')
+                            ->label('Offer Details')
+                            ->rows(2)
+                            ->columnSpan('full'),
                     ])
                     ->columns(3)
                     ->columnSpan('full'),
@@ -196,11 +228,12 @@ class BannerAdResource extends Resource
                             ->options([
                                 'draft' => 'Draft',
                                 'pending' => 'Pending',
-                                'active' => 'Active',
+                                'active' => 'Active (visible on website)',
                                 'rejected' => 'Rejected',
                                 'expired' => 'Expired'
                             ])
-                            ->default('draft')
+                            ->default('active')
+                            ->helperText('Only Active listings appear on the public banner marketplace.')
                             ->required(),
                         
                         Forms\Components\Toggle::make('is_active')
@@ -231,8 +264,9 @@ class BannerAdResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('User')
-                            ->relationship('user', 'name')
-                            ->searchable()
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
+                            ->searchable(['first_name', 'last_name', 'email'])
                             ->nullable(),
                     ])
                     ->columnSpan('full'),
@@ -243,6 +277,16 @@ class BannerAdResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('banner_image')
+                    ->label('Image')
+                    ->disk('public')
+                    ->getStateUsing(fn (BannerAd $record) => static::fileUploadPath(
+                        $record->banner_image,
+                        'banner-images'
+                    ))
+                    ->square()
+                    ->size(60),
+
                 Tables\Columns\TextColumn::make('title')
                     ->label('Title')
                     ->searchable()
@@ -344,7 +388,7 @@ class BannerAdResource extends Resource
                 
                 Tables\Filters\SelectFilter::make('banner_category_id')
                     ->label('Category')
-                    ->relationship('banner_category_id', 'name')
+                    ->relationship('category', 'name')
                     ->searchable()
                     ->preload(),
                 
@@ -434,6 +478,46 @@ class BannerAdResource extends Resource
                 Tables\Actions\CreateAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    /**
+     * Path for Filament FileUpload / ImageColumn on the public disk.
+     */
+    public static function fileUploadPath(?string $stored, string $directory): ?string
+    {
+        if (!$stored) {
+            return null;
+        }
+
+        if (str_starts_with($stored, 'http://') || str_starts_with($stored, 'https://')) {
+            return null;
+        }
+
+        return str_contains($stored, '/')
+            ? $stored
+            : $directory . '/' . $stored;
+    }
+
+    /**
+     * Normalize Filament upload state to the filename stored in banner_ads.
+     */
+    public static function normalizeUploadFilename(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = Arr::first(Arr::flatten($value));
+        }
+
+        if (!$value || !is_string($value)) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            $path = parse_url($value, PHP_URL_PATH);
+
+            return $path ? basename($path) : null;
+        }
+
+        return basename($value);
     }
 
     public static function getRelations(): array

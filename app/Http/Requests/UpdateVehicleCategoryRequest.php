@@ -12,7 +12,12 @@ class UpdateVehicleCategoryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->isAdmin();
+        $user = auth('api')->user();
+        if (!$user) {
+            return false;
+        }
+        
+        return $user->isAdmin();
     }
 
     /**

@@ -189,8 +189,8 @@ class ListingController extends APIController
         $query = Listing::query();
         $query = $query->where('promo_expire_at', '>=', '2023-01-01 00:00:00');
         
-        // Only show approved listings
-        $query = $query->where('approval_status', 'approved');
+        // Only show active listings
+        $query = $query->where('status', 'active');
         
         // Pagination parameters
         $page = (int)$request->get('page', 1);
@@ -535,6 +535,25 @@ class ListingController extends APIController
         $customer_id = $user->customer_id;
         $input = $request->all();
 
+        // Handle category_id - accept UUID or slug/integer for backward compatibility
+        $categoryId = $request->category_id;
+        \Log::info('Category ID received: ' . $categoryId);
+        
+        if ($categoryId) {
+            // Try to find category by slug or integer ID
+            $category = Category::where('slug', $categoryId)
+                ->orWhere('category_id', $categoryId)
+                ->first();
+            
+            if ($category) {
+                $request->merge(['category_id' => $category->category_id]);
+                $input['category_id'] = $category->category_id;
+                \Log::info('Category found and converted to: ' . $category->category_id);
+            } else {
+                \Log::info('Category not found for: ' . $categoryId);
+            }
+        }
+
         // Validate request data
         $validator = Validator::make($input, [
             'location_id' => 'required',
@@ -747,7 +766,7 @@ class ListingController extends APIController
     public function show($slug)
     {
         $query = Listing::where('slug', $slug)
-            ->where('approval_status', 'approved')
+            ->where('status', 'active')
             ->first();
             
         if (is_null($query)) {

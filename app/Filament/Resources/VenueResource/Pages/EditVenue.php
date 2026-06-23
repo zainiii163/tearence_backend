@@ -10,6 +10,11 @@ class EditVenue extends EditRecord
 {
     protected static string $resource = VenueResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return VenueResource::normalizeImagesField($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

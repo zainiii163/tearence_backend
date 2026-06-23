@@ -28,7 +28,7 @@ class BookSave extends Model
      */
     public function book(): BelongsTo
     {
-        return $this->belongsTo(BookAdvert::class, 'book_id');
+        return $this->belongsTo(Book::class, 'book_id');
     }
 
     /**
@@ -36,7 +36,7 @@ class BookSave extends Model
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     /**

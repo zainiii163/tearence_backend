@@ -92,7 +92,7 @@ class Customer extends Authenticatable implements JWTSubject
      *
      * @var array
      */
-    protected $with = ['currency', 'location'];
+    protected $with = ['currency'];
 
     public function currency()
     {
@@ -148,6 +148,22 @@ class Customer extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(UserReferral::class, 'referrer_user_id', 'customer_id')
                    ->orWhere('referred_user_id', $this->customer_id);
+    }
+
+    /**
+     * Check if customer is authenticated.
+     */
+    public function isAuthenticated(): bool
+    {
+        return auth('api')->check() && auth('api')->user()->customer_id === $this->customer_id;
+    }
+
+    /**
+     * Check if customer is admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->email === 'admin@worldwideadverts.com' || $this->customer_id === 1;
     }
 
     /**

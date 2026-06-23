@@ -60,7 +60,7 @@ class FeaturedAdvertsOverviewWidget extends BaseWidget
 
             Stat::make('Sponsored', $sponsoredCount)
                 ->description('Sponsored tier adverts')
-                ->descriptionIcon('heroicon-m-crown')
+                ->descriptionIcon('heroicon-m-gift')
                 ->color('danger'),
 
             Stat::make('Total Saves', number_format($totalSaves))

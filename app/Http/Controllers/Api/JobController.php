@@ -115,20 +115,38 @@ class JobController extends Controller
         ]);
     }
 
-    public function show($slug)
+    public function show($id)
     {
-        $job = Job::with(['category', 'user', 'applications'])
-                 ->where('slug', $slug)
-                 ->where('is_active', true)
-                 ->firstOrFail();
+        try {
+            $job = Job::with(['category', 'user', 'applications'])
+                     ->where('id', $id)
+                     ->where('is_active', true)
+                     ->first();
 
-        // Increment views
-        $job->incrementViews();
+            if (!$job) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job not found',
+                ], 404);
+            }
 
-        return response()->json([
-            'success' => true,
-            'data' => $job,
-        ]);
+            // Increment views
+            try {
+                $job->incrementViews();
+            } catch (\Exception $e) {
+                // Ignore view increment errors
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $job,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching job details',
+            ], 500);
+        }
     }
 
     public function store(Request $request)

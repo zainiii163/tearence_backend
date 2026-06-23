@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('business_id')->nullable()->constrained()->onDelete('cascade');
-            $table->foreignId('category_id')->constrained('vehicle_categories')->onDelete('cascade');
-            $table->foreignId('make_id')->constrained('vehicle_makes')->onDelete('cascade');
-            $table->foreignId('model_id')->constrained('vehicle_models')->onDelete('cascade');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('business_id')->nullable();
+            $table->unsignedBigInteger('category_id');
+            $table->unsignedBigInteger('make_id');
+            $table->unsignedBigInteger('model_id');
             
             // Basic Information
             $table->string('title');
@@ -102,7 +102,7 @@ return new class extends Migration
             $table->integer('previous_owners')->nullable();
             
             // Upgrades and Expiry
-            $table->foreignId('pricing_plan_id')->nullable()->constrained('ad_pricing_plans')->onDelete('set null');
+            $table->unsignedBigInteger('pricing_plan_id')->nullable();
             $table->enum('payment_status', ['pending', 'paid', 'failed'])->default('pending');
             $table->decimal('paid_amount', 10, 2)->nullable();
             $table->string('payment_transaction_id')->nullable();
@@ -118,6 +118,9 @@ return new class extends Migration
             $table->index(['price', 'advert_type']);
             $table->index(['is_featured', 'is_sponsored', 'is_promoted']);
         });
+
+        // Skip foreign key constraints for now due to issues
+        // TODO: Add foreign key constraints in a separate migration after verifying table structures
     }
 
     /**

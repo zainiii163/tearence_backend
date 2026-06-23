@@ -29,13 +29,23 @@ class BuySellItemResource extends Resource
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
                             ->searchable()
                             ->required(),
 
                         Forms\Components\Select::make('category_id')
                             ->relationship('category', 'name')
                             ->searchable()
+                            ->getSearchResultsUsing(function (string $search) {
+                                return BuySellCategory::where('name', 'like', "%{$search}%")
+                                    ->orWhere('slug', 'like', "%{$search}%")
+                                    ->limit(50)
+                                    ->pluck('name', 'id');
+                            })
+                            ->getOptionLabelUsing(function ($value) {
+                                $category = BuySellCategory::find($value);
+                                return $category ? $category->name : null;
+                            })
                             ->required(),
 
                         Forms\Components\TextInput::make('title')
@@ -173,16 +183,22 @@ class BuySellItemResource extends Resource
 
                 Forms\Components\Section::make('Additional Information')
                     ->schema([
-                        Forms\Components\KeyValue::make('key_features')
+                        Forms\Components\Textarea::make('key_features')
                             ->label('Key Features')
-                            ->keyLabel('Feature')
-                            ->valueLabel('Description')
+                            ->helperText('Enter one feature per line')
+                            ->rows(3)
+                            ->formatStateUsing(function ($state) {
+                                return is_array($state) ? implode("\n", $state) : $state;
+                            })
                             ->columnSpanFull(),
 
-                        Forms\Components\KeyValue::make('usage_notes')
+                        Forms\Components\Textarea::make('usage_notes')
                             ->label('Usage Notes')
-                            ->keyLabel('Note')
-                            ->valueLabel('Description')
+                            ->helperText('Enter one note per line')
+                            ->rows(3)
+                            ->formatStateUsing(function ($state) {
+                                return is_array($state) ? implode("\n", $state) : $state;
+                            })
                             ->columnSpanFull(),
 
                         Forms\Components\KeyValue::make('meta_data')
@@ -207,7 +223,7 @@ class BuySellItemResource extends Resource
                     ->sortable()
                     ->limit(50),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Seller')
                     ->searchable()
                     ->sortable(),

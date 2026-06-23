@@ -27,6 +27,55 @@ class Banner extends Model
         'paid_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::saving(function (Banner $banner) {
+            $banner->syncLegacyColumns();
+
+            if ($banner->isDirty('status')) {
+                $banner->status = static::normalizeStatus($banner->status);
+            }
+        });
+    }
+
+    /**
+     * Map form/API status values to the banner table enum: active, inactive.
+     */
+    public static function normalizeStatus(?string $status): string
+    {
+        return match ($status) {
+            'approved', 'active' => 'active',
+            'pending', 'draft', 'rejected', 'inactive' => 'inactive',
+            default => in_array($status, ['active', 'inactive'], true) ? $status : 'inactive',
+        };
+    }
+
+    /**
+     * Keep legacy `banner` table columns in sync with newer form fields.
+     */
+    public function syncLegacyColumns(): void
+    {
+        $destination = $this->destination_url ?: null;
+        $urlLink = $this->url_link ?: null;
+
+        if ($destination && !$urlLink) {
+            $this->url_link = static::truncateUrl($destination);
+        } elseif ($urlLink && !$destination) {
+            $this->destination_url = $urlLink;
+        }
+
+        if ($this->banner_size && empty($this->size_img)) {
+            $this->size_img = $this->banner_size;
+        } elseif ($this->size_img && empty($this->banner_size)) {
+            $this->banner_size = $this->size_img;
+        }
+    }
+
+    protected static function truncateUrl(string $url): string
+    {
+        return strlen($url) > 100 ? substr($url, 0, 100) : $url;
+    }
+
     public function getImgAttribute($image)
     {
         $fileUpload = new FileUploadHelper();
@@ -79,6 +128,7 @@ class Banner extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)
+                    ->where('status', 'active')
                     ->where(function ($q) {
                         $q->whereNull('expires_at')
                           ->orWhere('expires_at', '>', now());

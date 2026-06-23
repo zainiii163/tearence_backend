@@ -20,6 +20,14 @@ class BuySellUploadController extends Controller
         $validator = Validator::make($request->all(), [
             'images' => 'required|array|max:10',
             'images.*' => 'required|image|mimes:jpeg,jpg,png,gif,webp|max:5120', // 5MB max per image
+        ], [
+            'images.required' => 'Please select at least one image to upload',
+            'images.array' => 'Images must be provided as an array',
+            'images.max' => 'You can upload a maximum of 10 images at once',
+            'images.*.required' => 'Each image is required',
+            'images.*.image' => 'Each file must be an image',
+            'images.*.mimes' => 'Each image must be a file of type: jpeg, jpg, png, gif, webp',
+            'images.*.max' => 'Each image size must not exceed 5MB',
         ]);
 
         if ($validator->fails()) {
@@ -31,6 +39,14 @@ class BuySellUploadController extends Controller
         }
 
         try {
+            // Ensure storage directories exist
+            $directories = ['buysell-images', 'buysell-thumbnails'];
+            foreach ($directories as $dir) {
+                if (!Storage::disk('public')->exists($dir)) {
+                    Storage::disk('public')->makeDirectory($dir);
+                }
+            }
+
             $uploadedImages = [];
             $images = $request->file('images');
 
@@ -40,6 +56,10 @@ class BuySellUploadController extends Controller
                 
                 // Store the original image
                 $path = $image->storeAs('buysell-images', $filename, 'public');
+                
+                if (!$path) {
+                    throw new \Exception('Failed to store image file: ' . $image->getClientOriginalName());
+                }
                 
                 // Create thumbnail
                 $thumbnailPath = $this->createThumbnail($image, $filename);
@@ -67,6 +87,10 @@ class BuySellUploadController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Multiple images upload exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload images',
@@ -80,11 +104,27 @@ class BuySellUploadController extends Controller
      */
     public function uploadSingleImage(Request $request): JsonResponse
     {
+        // Debug logging
+        \Log::info('Upload request received', [
+            'has_file' => $request->hasFile('image'),
+            'all_files' => $request->allFiles(),
+            'all_input' => $request->all(),
+            'content_type' => $request->header('Content-Type'),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'image' => 'required|image|mimes:jpeg,jpg,png,gif,webp|max:5120', // 5MB max
+        ], [
+            'image.required' => 'Please select an image to upload',
+            'image.image' => 'The file must be an image',
+            'image.mimes' => 'The image must be a file of type: jpeg, jpg, png, gif, webp',
+            'image.max' => 'The image size must not exceed 5MB',
         ]);
 
         if ($validator->fails()) {
+            \Log::error('Validation failed', [
+                'errors' => $validator->errors()->toArray(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -94,18 +134,43 @@ class BuySellUploadController extends Controller
 
         try {
             $image = $request->file('image');
-            
+
+            // Debug the file
+            \Log::info('File received', [
+                'original_name' => $image->getClientOriginalName(),
+                'mime_type' => $image->getMimeType(),
+                'size' => $image->getSize(),
+                'extension' => $image->getClientOriginalExtension(),
+            ]);
+
+            // Ensure storage directories exist
+            $directories = ['buysell-images', 'buysell-thumbnails'];
+            foreach ($directories as $dir) {
+                if (!Storage::disk('public')->exists($dir)) {
+                    Storage::disk('public')->makeDirectory($dir);
+                }
+            }
+
             // Generate unique filename
             $filename = 'buysell_' . Str::uuid() . '.' . $image->getClientOriginalExtension();
-            
+
             // Store the original image
             $path = $image->storeAs('buysell-images', $filename, 'public');
-            
+
+            if (!$path) {
+                throw new \Exception('Failed to store image file');
+            }
+
             // Create thumbnail
             $thumbnailPath = $this->createThumbnail($image, $filename);
-            
+
             // Create optimized versions
             $this->createOptimizedVersions($image, $filename);
+
+            \Log::info('Image uploaded successfully', [
+                'filename' => $filename,
+                'path' => $path,
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -123,6 +188,10 @@ class BuySellUploadController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Upload exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload image',

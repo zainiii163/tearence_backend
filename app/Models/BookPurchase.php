@@ -93,7 +93,9 @@ class BookPurchase extends Model
         // Update listing download count
         if ($this->listing) {
             $this->listing->increment('download_count');
-            $this->listing->update(['last_downloaded_at' => now()]);
+            $this->listing->withoutEvents(function () {
+                $this->listing->update(['last_downloaded_at' => now()]);
+            });
         }
 
         return $this->save();

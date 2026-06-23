@@ -269,7 +269,7 @@ class FundingProjectResource extends Resource
                 Tables\Columns\TextColumn::make('category')
                     ->badge()
                     ->color('primary'),
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->searchable()
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('funding_goal')

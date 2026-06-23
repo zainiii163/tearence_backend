@@ -15,15 +15,16 @@ class JobCategory extends Model
         'slug',
         'description',
         'icon',
-        'trending',
-        'job_count',
-        'active',
+        'color',
+        'is_active',
+        'sort_order',
+        'jobs_count',
     ];
 
     protected $casts = [
-        'trending' => 'boolean',
-        'active' => 'boolean',
-        'job_count' => 'integer',
+        'is_active' => 'boolean',
+        'sort_order' => 'integer',
+        'jobs_count' => 'integer',
     ];
 
     public function jobs(): HasMany
@@ -33,7 +34,12 @@ class JobCategory extends Model
 
     public function activeJobs(): HasMany
     {
-        return $this->hasMany(Job::class)->where('status', 'active');
+        return $this->hasMany(Job::class)->where('is_active', true);
+    }
+
+    public function activeJobListings(): HasMany
+    {
+        return $this->hasMany(Job::class)->where('is_active', true);
     }
 
     public function jobAlerts(): HasMany
@@ -48,12 +54,7 @@ class JobCategory extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('active', true);
-    }
-
-    public function scopeTrending($query)
-    {
-        return $query->where('trending', true);
+        return $query->where('is_active', true);
     }
 
     public function getRouteKeyName()

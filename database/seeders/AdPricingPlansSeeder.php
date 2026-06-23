@@ -77,6 +77,40 @@ class AdPricingPlansSeeder extends Seeder
             'sort_order' => 6,
         ]);
 
+        // Vehicle Ad Pricing Plans (using 'classified' as ad_type)
+        AdPricingPlan::create([
+            'name' => 'Basic Vehicle Listing',
+            'ad_type' => 'classified',
+            'price' => 9.99,
+            'duration_days' => 30,
+            'description' => 'Basic vehicle listing for 30 days. Perfect for private sellers.',
+            'is_active' => true,
+            'is_featured' => false,
+            'sort_order' => 7,
+        ]);
+
+        AdPricingPlan::create([
+            'name' => 'Featured Vehicle Listing',
+            'ad_type' => 'classified',
+            'price' => 29.99,
+            'duration_days' => 60,
+            'description' => 'Featured vehicle listing for 60 days with enhanced visibility. Great for dealers.',
+            'is_active' => true,
+            'is_featured' => true,
+            'sort_order' => 8,
+        ]);
+
+        AdPricingPlan::create([
+            'name' => 'Premium Vehicle Listing',
+            'ad_type' => 'classified',
+            'price' => 79.99,
+            'duration_days' => 90,
+            'description' => 'Premium vehicle listing for 90 days with maximum exposure and priority placement.',
+            'is_active' => true,
+            'is_featured' => true,
+            'sort_order' => 9,
+        ]);
+
         // Inactive plans for testing
         AdPricingPlan::create([
             'name' => 'Legacy Banner (Deprecated)',
@@ -100,9 +134,9 @@ class AdPricingPlansSeeder extends Seeder
             'sort_order' => 11,
         ]);
 
-        $this->command->info('Ad pricing plans created:');
-        $this->command->info('- Banner Plans: Basic ($29.99/7d), Premium ($99.99/30d), Enterprise ($299.99/90d)');
-        $this->command->info('- Affiliate Plans: Starter ($19.99/14d), Professional ($79.99/60d), Premium ($199.99/120d)');
-        $this->command->info('- Inactive Plans: Legacy Banner, Beta Affiliate (for testing admin interface)');
+        // Ad pricing plans created successfully
+        // - Banner Plans: Basic ($29.99/7d), Premium ($99.99/30d), Enterprise ($299.99/90d)
+        // - Affiliate Plans: Starter ($19.99/14d), Professional ($79.99/60d), Premium ($199.99/120d)
+        // - Inactive Plans: Legacy Banner, Beta Affiliate (for testing admin interface)
     }
 }

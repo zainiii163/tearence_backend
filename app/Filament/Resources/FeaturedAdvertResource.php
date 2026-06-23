@@ -196,12 +196,12 @@ class FeaturedAdvertResource extends Resource
                                 TextInput::make('latitude')
                                     ->numeric()
                                     ->step(0.00000001)
-                                    ->between(-90, 90),
+                                    ->rules(['between:-90,90']),
                                 
                                 TextInput::make('longitude')
                                     ->numeric()
                                     ->step(0.00000001)
-                                    ->between(-180, 180),
+                                    ->rules(['between:-180,180']),
                             ]),
                     ]),
                 

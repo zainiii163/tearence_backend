@@ -116,7 +116,7 @@ class FeaturedAdvert extends Model
      */
     public function listing()
     {
-        return $this->belongsTo(Listing::class, 'listing_id', 'listing_id');
+        return $this->belongsTo(Listing::class, 'listing_id', 'listing_id')->withDefault();
     }
 
     /**
@@ -205,7 +205,7 @@ class FeaturedAdvert extends Model
     /**
      * Scope to get adverts by category
      */
-    public function scopeByCategory(Builder $query, int $categoryId): Builder
+    public function scopeByCategory(Builder $query, $categoryId): Builder
     {
         return $query->where('category_id', $categoryId);
     }
@@ -406,14 +406,18 @@ class FeaturedAdvert extends Model
             // Update listing upsell status when featured advert changes
             if ($featuredAdvert->isDirty(['upsell_tier', 'expires_at', 'is_active'])) {
                 if ($featuredAdvert->listing) {
-                    $featuredAdvert->listing->update([
-                        'is_featured' => $featuredAdvert->upsell_tier === self::TIER_FEATURED && $featuredAdvert->isCurrentlyActive(),
-                        'is_sponsored' => $featuredAdvert->upsell_tier === self::TIER_SPONSORED && $featuredAdvert->isCurrentlyActive(),
-                        'is_promoted' => $featuredAdvert->upsell_tier === self::TIER_PROMOTED && $featuredAdvert->isCurrentlyActive(),
-                        'featured_expires_at' => $featuredAdvert->upsell_tier === self::TIER_FEATURED ? $featuredAdvert->expires_at : null,
-                        'sponsored_expires_at' => $featuredAdvert->upsell_tier === self::TIER_SPONSORED ? $featuredAdvert->expires_at : null,
-                        'promoted_expires_at' => $featuredAdvert->upsell_tier === self::TIER_PROMOTED ? $featuredAdvert->expires_at : null,
-                    ]);
+                    // Prevent recursive events by disabling events during this update
+                    $listing = $featuredAdvert->listing;
+                    $listing->withoutEvents(function () use ($featuredAdvert, $listing) {
+                        $listing->update([
+                            'is_featured' => $featuredAdvert->upsell_tier === self::TIER_FEATURED && $featuredAdvert->isCurrentlyActive(),
+                            'is_sponsored' => $featuredAdvert->upsell_tier === self::TIER_SPONSORED && $featuredAdvert->isCurrentlyActive(),
+                            'is_promoted' => $featuredAdvert->upsell_tier === self::TIER_PROMOTED && $featuredAdvert->isCurrentlyActive(),
+                            'featured_expires_at' => $featuredAdvert->upsell_tier === self::TIER_FEATURED ? $featuredAdvert->expires_at : null,
+                            'sponsored_expires_at' => $featuredAdvert->upsell_tier === self::TIER_SPONSORED ? $featuredAdvert->expires_at : null,
+                            'promoted_expires_at' => $featuredAdvert->upsell_tier === self::TIER_PROMOTED ? $featuredAdvert->expires_at : null,
+                        ]);
+                    });
                 }
             }
         });
@@ -421,14 +425,18 @@ class FeaturedAdvert extends Model
         static::deleted(function ($featuredAdvert) {
             // Update listing upsell status when featured advert is deleted
             if ($featuredAdvert->listing) {
-                $featuredAdvert->listing->update([
-                    'is_featured' => false,
-                    'is_sponsored' => false,
-                    'is_promoted' => false,
-                    'featured_expires_at' => null,
-                    'sponsored_expires_at' => null,
-                    'promoted_expires_at' => null,
-                ]);
+                // Prevent recursive events by disabling events during this update
+                $listing = $featuredAdvert->listing;
+                $listing->withoutEvents(function () use ($listing) {
+                    $listing->update([
+                        'is_featured' => false,
+                        'is_sponsored' => false,
+                        'is_promoted' => false,
+                        'featured_expires_at' => null,
+                        'sponsored_expires_at' => null,
+                        'promoted_expires_at' => null,
+                    ]);
+                });
             }
         });
     }

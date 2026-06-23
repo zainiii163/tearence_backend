@@ -78,7 +78,7 @@ return new class extends Migration
             $table->boolean('agreed_to_terms')->default(false);
             
             // Foreign Keys
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedInteger('user_id');
             
             // Indexes
             $table->index(['user_id']);

@@ -38,8 +38,22 @@ class PropertyResource extends Resource
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
                             ->searchable()
+                            ->getSearchResultsUsing(function (string $search) {
+                                return \App\Models\User::where('first_name', 'like', "%{$search}%")
+                                    ->orWhere('last_name', 'like', "%{$search}%")
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(function ($user) {
+                                        $fullName = trim($user->first_name . ' ' . $user->last_name);
+                                        return [$user->user_id => $fullName];
+                                    });
+                            })
+                            ->getOptionLabelUsing(function ($value) {
+                                $user = \App\Models\User::find($value);
+                                if (!$user) return null;
+                                return trim($user->first_name . ' ' . $user->last_name);
+                            })
                             ->preload()
                             ->required(),
                         Forms\Components\TextInput::make('title')

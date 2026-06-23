@@ -36,6 +36,9 @@
                 <button onclick="showSection('listings')" class="admin-nav-item px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent whitespace-nowrap" data-section="listings">
                     <i class="fas fa-list mr-2"></i>Listings
                 </button>
+                <button onclick="showSection('images')" class="admin-nav-item px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent whitespace-nowrap" data-section="images">
+                    <i class="fas fa-image mr-2"></i>Stock Images
+                </button>
                 <button onclick="showSection('users')" class="admin-nav-item px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent whitespace-nowrap" data-section="users">
                     <i class="fas fa-users mr-2"></i>Users
                 </button>
@@ -308,6 +311,53 @@
                             </thead>
                             <tbody id="listings-table-body" class="bg-white divide-y divide-gray-200">
                                 <!-- Listings will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Images Section -->
+        <section id="images-section" class="admin-section hidden">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium text-gray-900">Stock Images Management</h2>
+                </div>
+                <div class="p-6">
+                    <!-- Filters -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <input type="text" id="image-search" placeholder="Search images..." class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select id="image-status-filter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending Verification</option>
+                            <option value="verified">Verified</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <select id="image-category-filter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Categories</option>
+                        </select>
+                        <button onclick="filterImages()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                            <i class="fas fa-filter mr-2"></i>Filter
+                        </button>
+                    </div>
+
+                    <!-- Images Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="images-table-body" class="bg-white divide-y divide-gray-200">
+                                <!-- Images will be loaded here -->
                             </tbody>
                         </table>
                     </div>
@@ -591,6 +641,9 @@ function showSection(section) {
         case 'listings':
             loadListings();
             break;
+        case 'images':
+            loadImages();
+            break;
         case 'users':
             loadUsers();
             break;
@@ -858,6 +911,171 @@ async function loadCategories() {
     } catch (error) {
         console.error('Error loading categories:', error);
     }
+}
+
+// Load images
+async function loadImages(silent = false) {
+    try {
+        const response = await fetch('/api/v1/images-adverts');
+        const result = await response.json();
+        const images = result.data?.data || [];
+
+        const imagesHtml = images.map(image => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <img src="${image.main_image ? '/storage/' + image.main_image : '/placeholder.png'}" alt="${image.title}" class="h-10 w-10 rounded mr-3">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${image.title}</div>
+                            <div class="text-sm text-gray-500">${image.description ? image.description.substring(0, 50) + '...' : ''}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.category || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.user ? image.user.name : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getImageStatusColor(image.verification_status)}">
+                        ${image.verification_status || 'pending'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.price ? '$' + image.price : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(image.created_at)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="viewImage(${image.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">View</button>
+                    <button onclick="verifyImage(${image.id})" class="text-green-600 hover:text-green-900 mr-3">Verify</button>
+                    <button onclick="deleteImage(${image.id})" class="text-red-600 hover:text-red-900">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('images-table-body').innerHTML = imagesHtml;
+
+        if (!silent) {
+            console.log('Images data loaded successfully');
+        }
+    } catch (error) {
+        console.error('Error loading images:', error);
+        if (!silent) {
+            document.getElementById('images-table-body').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">Error loading images</td></tr>';
+        }
+    }
+}
+
+// Filter images
+async function filterImages() {
+    const search = document.getElementById('image-search').value;
+    const status = document.getElementById('image-status-filter').value;
+    const category = document.getElementById('image-category-filter').value;
+
+    try {
+        let url = '/api/v1/images-adverts?';
+        const params = [];
+        if (search) params.push(`search=${encodeURIComponent(search)}`);
+        if (status) params.push(`verification_status=${status}`);
+        if (category) params.push(`category=${encodeURIComponent(category)}`);
+
+        const response = await fetch(url + params.join('&'));
+        const result = await response.json();
+        const images = result.data?.data || [];
+
+        const imagesHtml = images.map(image => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <img src="${image.main_image ? '/storage/' + image.main_image : '/placeholder.png'}" alt="${image.title}" class="h-10 w-10 rounded mr-3">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${image.title}</div>
+                            <div class="text-sm text-gray-500">${image.description ? image.description.substring(0, 50) + '...' : ''}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.category || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.user ? image.user.name : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getImageStatusColor(image.verification_status)}">
+                        ${image.verification_status || 'pending'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${image.price ? '$' + image.price : 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(image.created_at)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="viewImage(${image.id})" class="text-indigo-600 hover:text-indigo-900 mr-3">View</button>
+                    <button onclick="verifyImage(${image.id})" class="text-green-600 hover:text-green-900 mr-3">Verify</button>
+                    <button onclick="deleteImage(${image.id})" class="text-red-600 hover:text-red-900">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('images-table-body').innerHTML = imagesHtml;
+    } catch (error) {
+        console.error('Error filtering images:', error);
+        document.getElementById('images-table-body').innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">Error filtering images</td></tr>';
+    }
+}
+
+// View image
+function viewImage(id) {
+    // TODO: Implement image detail view
+    alert('View image with ID: ' + id);
+}
+
+// Verify image
+async function verifyImage(id) {
+    if (!confirm('Are you sure you want to verify this image?')) return;
+
+    try {
+        const response = await fetch(`/api/v1/images-adverts/${id}/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (response.ok) {
+            alert('Image verified successfully');
+            loadImages(true);
+        } else {
+            alert('Failed to verify image');
+        }
+    } catch (error) {
+        console.error('Error verifying image:', error);
+        alert('Error verifying image');
+    }
+}
+
+// Delete image
+async function deleteImage(id) {
+    if (!confirm('Are you sure you want to delete this image?')) return;
+
+    try {
+        const response = await fetch(`/api/v1/images-adverts/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (response.ok) {
+            alert('Image deleted successfully');
+            loadImages(true);
+        } else {
+            alert('Failed to delete image');
+        }
+    } catch (error) {
+        console.error('Error deleting image:', error);
+        alert('Error deleting image');
+    }
+}
+
+function getImageStatusColor(status) {
+    const colors = {
+        verified: 'bg-green-100 text-green-800',
+        pending: 'bg-yellow-100 text-yellow-800',
+        rejected: 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
 }
 
 // Helper functions

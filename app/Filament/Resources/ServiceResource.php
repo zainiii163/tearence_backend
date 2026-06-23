@@ -32,7 +32,7 @@ class ServiceResource extends Resource
                 Forms\Components\Section::make('Service Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->options(fn () => \App\Models\User::all()->pluck('name', 'user_id'))
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -162,71 +162,9 @@ class ServiceResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('title')
-                    ->searchable()
-                    ->limit(50),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Provider')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('category.name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('service_type')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'freelance' => 'primary',
-                        'local' => 'success',
-                        'business' => 'warning',
-                    }),
-                Tables\Columns\TextColumn::make('starting_price')
-                    ->money()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'gray',
-                        'pending' => 'warning',
-                        'suspended' => 'danger',
-                    }),
-                Tables\Columns\TextColumn::make('promotion_type')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'promoted' => 'info',
-                        'featured' => 'primary',
-                        'sponsored' => 'warning',
-                        'network_boost' => 'danger',
-                        default => 'gray',
-                    }),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'active' => 'Active',
-                        'inactive' => 'Inactive',
-                        'pending' => 'Pending',
-                        'suspended' => 'Suspended',
-                    ]),
-                Tables\Filters\SelectFilter::make('service_type')
-                    ->options([
-                        'freelance' => 'Freelance Service',
-                        'local' => 'Local Service',
-                        'business' => 'Business Service',
-                    ]),
-                Tables\Filters\SelectFilter::make('promotion_type')
-                    ->options([
-                        'promoted' => 'Promoted',
-                        'featured' => 'Featured',
-                        'sponsored' => 'Sponsored',
-                        'network_boost' => 'Network Boost',
-                    ]),
-                Tables\Filters\SelectFilter::make('category')
-                    ->relationship('category', 'name')
-                    ->searchable()
-                    ->preload(),
+                //
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -236,20 +174,6 @@ class ServiceResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\BulkAction::make('approve')
-                        ->label('Approve')
-                        ->icon('heroicon-o-check')
-                        ->color('success')
-                        ->action(function ($records) {
-                            $records->each->update(['status' => 'active']);
-                        }),
-                    Tables\Actions\BulkAction::make('suspend')
-                        ->label('Suspend')
-                        ->icon('heroicon-o-x-mark')
-                        ->color('danger')
-                        ->action(function ($records) {
-                            $records->each->update(['status' => 'suspended']);
-                        }),
                 ]),
             ])
             ->emptyStateActions([

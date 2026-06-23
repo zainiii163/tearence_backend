@@ -18,7 +18,7 @@ return [
 
     'allowed_origins' => [
         'https://worldwideadverts.info',
-        'http://localhost:3000'
+        'https://api.worldwideadverts.info',
     ],
 
     'allowed_origins_patterns' => [],

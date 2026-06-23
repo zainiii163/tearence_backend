@@ -12,9 +12,24 @@ class BuySellAdvertView extends Model
 {
     use HasFactory;
 
+    protected $table = 'buysell_advert_views';
+
+    public $timestamps = false;
+
     protected $keyType = 'string';
     
     public $incrementing = false;
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->id)) {
+                $model->id = Str::uuid();
+            }
+        });
+    }
 
     protected $fillable = [
         'advert_id',

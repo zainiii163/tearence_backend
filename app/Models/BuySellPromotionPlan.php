@@ -12,6 +12,8 @@ class BuySellPromotionPlan extends Model
 {
     use HasFactory;
 
+    protected $primaryKey = 'slug';
+    
     protected $keyType = 'string';
     
     public $incrementing = false;

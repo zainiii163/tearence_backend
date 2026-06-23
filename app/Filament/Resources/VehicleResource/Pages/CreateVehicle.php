@@ -10,6 +10,11 @@ class CreateVehicle extends CreateRecord
 {
     protected static string $resource = VehicleResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        return VehicleResource::prepareAdminPublicationData($data);
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

@@ -14,8 +14,8 @@ class ModerationStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingAds = Listing::where('approval_status', 'pending')->count();
-        $harmfulAds = Listing::where('is_harmful', true)->count();
+        $pendingAds = Listing::where('status', 'inactive')->count();
+        $harmfulAds = 0; // Column not implemented yet
         $oldAds = Listing::where('created_at', '<', now()->subDays(21))->count();
         $totalAds = Listing::count();
 
@@ -24,11 +24,11 @@ class ModerationStatsWidget extends BaseWidget
         $rejectedKyc = User::where('kyc_status', 'rejected')->count();
         $totalUsers = User::count();
 
-        $approvedToday = Listing::where('approval_status', 'approved')
-            ->whereDate('approved_at', today())
+        $approvedToday = Listing::where('status', 'active')
+            ->whereDate('created_at', today())
             ->count();
 
-        $rejectedToday = Listing::where('approval_status', 'rejected')
+        $rejectedToday = Listing::where('status', 'inactive')
             ->whereDate('updated_at', today())
             ->count();
 

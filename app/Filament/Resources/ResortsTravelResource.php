@@ -40,15 +40,48 @@ class ResortsTravelResource extends Resource
                         Forms\Components\TextInput::make('tagline')
                             ->maxLength(255),
                         Forms\Components\Select::make('advert_type')
-                            ->required()
                             ->options([
                                 'accommodation' => 'Accommodation',
                                 'transport' => 'Transport Services',
                                 'experience' => 'Travel Experiences',
                             ])
-                            ->reactive(),
-                        Forms\Components\Select::make('accommodation_type')
                             ->required()
+                            ->reactive()
+                            ->afterStateUpdated(fn (callable $set) => $set('accommodation_type', null))
+                            ->afterStateUpdated(fn (callable $set) => $set('transport_type', null))
+                            ->afterStateUpdated(fn (callable $set) => $set('experience_type', null)),
+                        Forms\Components\Select::make('category_id')
+                            ->relationship('category', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
+                        Forms\Components\TextInput::make('country')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('city')
+                            ->required()
+                            ->maxLength(100),
+                        Forms\Components\TextInput::make('address')
+                            ->nullable(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('latitude')
+                                    ->numeric()
+                                    ->step(0.00000001)
+                                    ->nullable(),
+                                Forms\Components\TextInput::make('longitude')
+                                    ->numeric()
+                                    ->step(0.00000001)
+                                    ->nullable(),
+                            ]),
+                        Forms\Components\Toggle::make('is_approximate_location')
+                            ->default(false),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('Accommodation Details')
+                    ->schema([
+                        Forms\Components\Select::make('accommodation_type')
                             ->options([
                                 'resort' => 'Resort',
                                 'hotel' => 'Hotel',
@@ -58,9 +91,48 @@ class ResortsTravelResource extends Resource
                                 'villa' => 'Villa',
                                 'lodge' => 'Lodge',
                             ])
-                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation'),
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->required(fn (callable $get) => $get('advert_type') === 'accommodation'),
+                        Forms\Components\TextInput::make('price_per_night')
+                            ->numeric()
+                            ->prefix('£')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('room_types')
+                            ->placeholder('e.g., Single, Double, Suite')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('guest_capacity')
+                            ->numeric()
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->nullable(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('check_in_time')
+                                    ->type('time')
+                                    ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                                    ->nullable(),
+                                Forms\Components\TextInput::make('check_out_time')
+                                    ->type('time')
+                                    ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                                    ->nullable(),
+                            ]),
+                        Forms\Components\TextInput::make('distance_to_city_centre')
+                            ->numeric()
+                            ->suffix('km')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('amenities')
+                            ->placeholder('e.g., Wi-Fi, Pool, Parking')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
+                            ->nullable(),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (callable $get) => $get('advert_type') === 'accommodation'),
+
+                Forms\Components\Section::make('Transport Details')
+                    ->schema([
                         Forms\Components\Select::make('transport_type')
-                            ->required()
                             ->options([
                                 'airport_transfer' => 'Airport Transfer',
                                 'taxi_chauffeur' => 'Taxi / Chauffeur',
@@ -70,207 +142,121 @@ class ResortsTravelResource extends Resource
                                 'boat_ferry' => 'Boat / Ferry',
                                 'motorbike_scooter' => 'Motorbike / Scooter Rental',
                             ])
-                            ->visible(fn (callable $get) => $get('advert_type') === 'transport'),
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->required(fn (callable $get) => $get('advert_type') === 'transport'),
+                        Forms\Components\TextInput::make('price_per_trip')
+                            ->numeric()
+                            ->prefix('£')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('vehicle_type')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->nullable(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('passenger_capacity')
+                                    ->numeric()
+                                    ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                                    ->nullable(),
+                                Forms\Components\TextInput::make('luggage_capacity')
+                                    ->numeric()
+                                    ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                                    ->nullable(),
+                            ]),
+                        Forms\Components\TextInput::make('service_area')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('operating_hours')
+                            ->placeholder('e.g., 24/7, 8AM-8PM')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->nullable(),
+                        Forms\Components\Toggle::make('airport_pickup')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'transport')
+                            ->default(false),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (callable $get) => $get('advert_type') === 'transport'),
+
+                Forms\Components\Section::make('Experience Details')
+                    ->schema([
                         Forms\Components\Select::make('experience_type')
-                            ->required()
                             ->options([
                                 'tours' => 'Tours',
                                 'excursions' => 'Excursions',
                                 'adventure_packages' => 'Adventure Packages',
                                 'wellness_retreats' => 'Wellness Retreats',
                             ])
-                            ->visible(fn (callable $get) => $get('advert_type') === 'experience'),
-                        Forms\Components\Select::make('category_id')
-                            ->relationship('category', 'name')
-                            ->searchable()
-                            ->preload(),
-                    ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Location')
-                    ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('city')
-                            ->required()
-                            ->maxLength(100),
-                        Forms\Components\Textarea::make('address')
-                            ->maxLength(65535),
-                        Forms\Components\TextInput::make('latitude')
-                            ->numeric()
-                            ->step(0.000001)
-                            ->min(-90)
-                            ->max(90),
-                        Forms\Components\TextInput::make('longitude')
-                            ->numeric()
-                            ->step(0.000001)
-                            ->min(-180)
-                            ->max(180),
-                    ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Pricing')
-                    ->schema([
-                        Forms\Components\TextInput::make('price_per_night')
-                            ->numeric()
-                            ->step(0.01)
-                            ->min(0)
-                            ->prefix('£'),
-                        Forms\Components\TextInput::make('price_per_trip')
-                            ->numeric()
-                            ->step(0.01)
-                            ->min(0)
-                            ->prefix('£'),
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->required(fn (callable $get) => $get('advert_type') === 'experience'),
                         Forms\Components\TextInput::make('price_per_service')
                             ->numeric()
-                            ->step(0.01)
-                            ->min(0)
-                            ->prefix('£'),
+                            ->prefix('£')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('duration')
+                            ->placeholder('e.g., 2 hours, 1 day')
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('group_size')
+                            ->numeric()
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->nullable(),
+                        Forms\Components\Textarea::make('whats_included')
+                            ->rows(3)
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->nullable(),
+                        Forms\Components\Textarea::make('what_to_bring')
+                            ->rows(3)
+                            ->visible(fn (callable $get) => $get('advert_type') === 'experience')
+                            ->nullable(),
+                    ])
+                    ->columns(2)
+                    ->visible(fn (callable $get) => $get('advert_type') === 'experience'),
+
+                Forms\Components\Section::make('Pricing & Availability')
+                    ->schema([
                         Forms\Components\Select::make('currency')
                             ->options([
                                 'GBP' => 'GBP (£)',
                                 'USD' => 'USD ($)',
                                 'EUR' => 'EUR (€)',
+                                'AED' => 'AED (د.إ)',
                             ])
-                            ->default('GBP'),
-                    ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Availability')
-                    ->schema([
-                        Forms\Components\DatePicker::make('availability_start')
-                            ->date(),
-                        Forms\Components\DatePicker::make('availability_end')
-                            ->date()
-                            ->after('availability_start'),
-                    ])
-                    ->columns(2),
-
-                Forms\Components\Section::make('Accommodation Details')
-                    ->schema([
-                        Forms\Components\CheckboxList::make('room_types')
-                            ->options([
-                                'single' => 'Single Room',
-                                'double' => 'Double Room',
-                                'twin' => 'Twin Room',
-                                'suite' => 'Suite',
-                                'family' => 'Family Room',
-                                'dormitory' => 'Dormitory',
+                            ->default('GBP')
+                            ->required(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\DatePicker::make('availability_start')
+                                    ->nullable(),
+                                Forms\Components\DatePicker::make('availability_end')
+                                    ->nullable()
+                                    ->after('availability_start'),
                             ]),
-                        Forms\Components\CheckboxList::make('amenities')
-                            ->options([
-                                'wi_fi' => 'Wi-Fi',
-                                'pool' => 'Swimming Pool',
-                                'parking' => 'Parking',
-                                'breakfast' => 'Breakfast Included',
-                                'air_conditioning' => 'Air Conditioning',
-                                'heating' => 'Heating',
-                                'kitchen' => 'Kitchen',
-                                'tv' => 'TV',
-                                'washing_machine' => 'Washing Machine',
-                                'elevator' => 'Elevator',
-                                'wheelchair_access' => 'Wheelchair Access',
-                                'pet_friendly' => 'Pet Friendly',
-                                'gym' => 'Gym/Fitness Center',
-                                'spa' => 'Spa/Wellness',
-                                'restaurant' => 'Restaurant',
-                                'bar' => 'Bar/Lounge',
-                                'room_service' => 'Room Service',
-                                'concierge' => 'Concierge Service',
-                                'business_center' => 'Business Center',
-                                'meeting_rooms' => 'Meeting Rooms',
-                                'airport_shuttle' => 'Airport Shuttle',
-                                'beach_access' => 'Beach Access',
-                                'golf_course' => 'Golf Course',
-                                'tennis_court' => 'Tennis Court',
-                                'kids_club' => 'Kids Club',
-                                'babysitting' => 'Babysitting Service',
-                                'laundry_service' => 'Laundry Service',
-                                'dry_cleaning' => 'Dry Cleaning',
-                                'currency_exchange' => 'Currency Exchange',
-                                'atm' => 'ATM on-site',
-                                'safety_deposit_box' => 'Safety Deposit Box',
-                                '24_hour_front_desk' => '24-Hour Front Desk',
-                                'multilingual_staff' => 'Multilingual Staff',
-                            ])
-                            ->columns(3),
-                        Forms\Components\TextInput::make('distance_to_city_centre')
-                            ->numeric()
-                            ->min(0)
-                            ->suffix('km'),
-                        Forms\Components\TimePicker::make('check_in_time'),
-                        Forms\Components\TimePicker::make('check_out_time'),
-                        Forms\Components\TextInput::make('guest_capacity')
-                            ->numeric()
-                            ->min(1),
                     ])
-                    ->visible(fn (callable $get) => $get('advert_type') === 'accommodation')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Transport Details')
-                    ->schema([
-                        Forms\Components\TextInput::make('vehicle_type')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('passenger_capacity')
-                            ->numeric()
-                            ->min(1),
-                        Forms\Components\TextInput::make('luggage_capacity')
-                            ->numeric()
-                            ->min(0),
-                        Forms\Components\Textarea::make('service_area')
-                            ->maxLength(65535),
-                        Forms\Components\CheckboxList::make('operating_hours')
-                            ->options([
-                                'monday' => 'Monday',
-                                'tuesday' => 'Tuesday',
-                                'wednesday' => 'Wednesday',
-                                'thursday' => 'Thursday',
-                                'friday' => 'Friday',
-                                'saturday' => 'Saturday',
-                                'sunday' => 'Sunday',
-                            ]),
-                        Forms\Components\Checkbox::make('airport_pickup'),
-                    ])
-                    ->visible(fn (callable $get) => $get('advert_type') === 'transport')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Experience Details')
-                    ->schema([
-                        Forms\Components\TextInput::make('duration')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('group_size')
-                            ->numeric()
-                            ->min(1),
-                        Forms\Components\Textarea::make('whats_included')
-                            ->maxLength(65535),
-                        Forms\Components\Textarea::make('what_to_bring')
-                            ->maxLength(65535),
-                    ])
-                    ->visible(fn (callable $get) => $get('advert_type') === 'experience')
                     ->columns(2),
 
                 Forms\Components\Section::make('Description')
                     ->schema([
+                        Forms\Components\Textarea::make('overview')
+                            ->rows(3)
+                            ->nullable(),
                         Forms\Components\RichEditor::make('description')
                             ->required()
                             ->columnSpanFull(),
-                        Forms\Components\Textarea::make('overview')
-                            ->maxLength(65535)
-                            ->columnSpanFull(),
                         Forms\Components\Textarea::make('key_features')
-                            ->maxLength(65535)
-                            ->columnSpanFull(),
+                            ->rows(3)
+                            ->nullable(),
                         Forms\Components\Textarea::make('why_travellers_love_this')
-                            ->maxLength(65535)
-                            ->columnSpanFull(),
+                            ->rows(3)
+                            ->nullable(),
                         Forms\Components\Textarea::make('nearby_attractions')
-                            ->maxLength(65535)
-                            ->columnSpanFull(),
+                            ->rows(3)
+                            ->nullable(),
                         Forms\Components\Textarea::make('additional_notes')
-                            ->maxLength(65535)
-                            ->columnSpanFull(),
-                    ]),
+                            ->rows(3)
+                            ->nullable(),
+                    ])
+                    ->columns(2),
 
                 Forms\Components\Section::make('Contact Information')
                     ->schema([
@@ -278,42 +264,37 @@ class ResortsTravelResource extends Resource
                             ->required()
                             ->maxLength(255),
                         Forms\Components\TextInput::make('business_name')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->nullable(),
                         Forms\Components\TextInput::make('phone_number')
                             ->required()
                             ->maxLength(20),
                         Forms\Components\TextInput::make('email')
-                            ->required()
-                            ->email(),
+                            ->email()
+                            ->required(),
                         Forms\Components\TextInput::make('website')
-                            ->url(),
-                        Forms\Components\Repeater::make('social_links')
-                            ->schema([
-                                Forms\Components\TextInput::make('link')
-                                    ->url(),
-                            ]),
-                        Forms\Components\FileUpload::make('logo')
-                            ->image()
-                            ->directory('resorts-travel/logos')
-                            ->maxSize(1024),
-                        Forms\Components\Checkbox::make('verified_business'),
+                            ->url()
+                            ->nullable(),
+                        Forms\Components\TextInput::make('social_links')
+                            ->placeholder('e.g., facebook,instagram,twitter')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('logo')
+                            ->nullable(),
+                        Forms\Components\Toggle::make('verified_business')
+                            ->default(false),
                     ])
                     ->columns(2),
 
                 Forms\Components\Section::make('Media')
                     ->schema([
-                        Forms\Components\FileUpload::make('main_image')
-                            ->image()
-                            ->directory('resorts-travel')
-                            ->maxSize(2048),
-                        Forms\Components\FileUpload::make('images')
-                            ->multiple()
-                            ->image()
-                            ->directory('resorts-travel')
-                            ->maxSize(2048)
-                            ->maxFiles(10),
+                        Forms\Components\TextInput::make('main_image')
+                            ->nullable(),
+                        Forms\Components\TextInput::make('images')
+                            ->placeholder('Comma-separated image paths')
+                            ->nullable(),
                         Forms\Components\TextInput::make('video_link')
-                            ->url(),
+                            ->url()
+                            ->nullable(),
                     ])
                     ->columns(2),
 
@@ -321,19 +302,24 @@ class ResortsTravelResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('promotion_tier')
                             ->options([
-                                'standard' => 'Standard',
-                                'promoted' => 'Promoted',
-                                'featured' => 'Featured',
-                                'sponsored' => 'Sponsored',
-                                'network_wide' => 'Network-Wide Boost',
+                                'standard' => 'Standard (Free)',
+                                'promoted' => 'Promoted (£29.99)',
+                                'featured' => 'Featured (£59.99)',
+                                'sponsored' => 'Sponsored (£99.99)',
+                                'network_wide' => 'Network-Wide Boost (£199.99)',
                             ])
-                            ->default('standard'),
-                        Forms\Components\Toggle::make('is_active')
-                            ->default(true),
-                        Forms\Components\Toggle::make('is_approximate_location')
-                            ->default(false),
+                            ->default('standard')
+                            ->required(),
                     ])
-                    ->columns(2),
+                    ->columns(1),
+
+                Forms\Components\Section::make('Status')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_active')
+                            ->default(true)
+                            ->label('Active'),
+                    ])
+                    ->columns(1),
             ]);
     }
 
@@ -341,9 +327,6 @@ class ResortsTravelResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('main_image')
-                    ->circular()
-                    ->defaultImageUrl(url('/placeholder.png')),
                 Tables\Columns\TextColumn::make('title')
                     ->searchable()
                     ->limit(50),
@@ -358,18 +341,11 @@ class ResortsTravelResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('city')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('display_price.formatted')
-                    ->label('Price')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('promotion_tier')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'standard' => 'gray',
-                        'promoted' => 'blue',
-                        'featured' => 'purple',
-                        'sponsored' => 'orange',
-                        'network_wide' => 'red',
-                    }),
+                Tables\Columns\TextColumn::make('price_per_night')
+                    ->label('Price/Night')
+                    ->money('GBP')
+                    ->sortable()
+                    ->formatStateUsing(fn ($record) => $record->price_per_night ? '£' . number_format($record->price_per_night, 2) : '-'),
                 Tables\Columns\ToggleColumn::make('is_active'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -383,24 +359,24 @@ class ResortsTravelResource extends Resource
                         'transport' => 'Transport Services',
                         'experience' => 'Travel Experiences',
                     ]),
-                Tables\Filters\SelectFilter::make('promotion_tier')
-                    ->options([
-                        'standard' => 'Standard',
-                        'promoted' => 'Promoted',
-                        'featured' => 'Featured',
-                        'sponsored' => 'Sponsored',
-                        'network_wide' => 'Network-Wide Boost',
-                    ]),
                 Tables\Filters\SelectFilter::make('country')
                     ->searchable()
-                    ->options(fn () => ResortsTravel::distinct()->pluck('country', 'country')),
+                    ->options(fn () => collect([
+                        'United Kingdom' => 'United Kingdom',
+                        'United States' => 'United States',
+                        'France' => 'France',
+                        'Germany' => 'Germany',
+                        'Italy' => 'Italy',
+                        'Spain' => 'Spain',
+                        'Netherlands' => 'Netherlands',
+                        'Belgium' => 'Belgium',
+                        'Switzerland' => 'Switzerland',
+                        'Austria' => 'Austria',
+                    ])),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active'),
-                Tables\Filters\TernaryFilter::make('verified_business')
-                    ->label('Verified Business'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -408,7 +384,9 @@ class ResortsTravelResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultPaginationPageOption(25)
+            ->extremePaginationLinks();
     }
 
     public static function getRelations(): array

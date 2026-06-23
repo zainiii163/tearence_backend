@@ -66,7 +66,7 @@ class FundingPledgeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('user.name')->searchable(),
+                Tables\Columns\TextColumn::make('user.first_name')->searchable(),
                 Tables\Columns\TextColumn::make('fundingProject.title')->searchable(),
                 Tables\Columns\TextColumn::make('amount')->money(),
                 Tables\Columns\TextColumn::make('status')->badge(),

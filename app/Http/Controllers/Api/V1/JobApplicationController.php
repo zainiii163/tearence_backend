@@ -40,33 +40,15 @@ class JobApplicationController extends Controller
         }
 
         $request->validate([
-            'full_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'location' => 'nullable|string|max:255',
-            'cover_letter' => 'nullable|string|min:50',
-            'cv_file' => 'nullable|string',
-            'portfolio_links' => 'nullable|array',
-            'portfolio_links.*' => 'url',
-            'expected_salary' => 'nullable|string',
-            'available_start_date' => 'nullable|date|after:today',
-            'additional_notes' => 'nullable|string',
+            'contact_email' => 'required|email|max:255',
         ]);
 
         $application = JobApplication::create([
             'job_id' => $jobId,
             'user_id' => Auth::id(),
-            'full_name' => $request->full_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'location' => $request->location,
-            'cover_letter' => $request->cover_letter,
-            'cv_file_url' => $request->cv_file,
-            'portfolio_links' => $request->portfolio_links,
-            'expected_salary' => $request->expected_salary,
-            'available_start_date' => $request->available_start_date,
-            'additional_notes' => $request->additional_notes,
-            'status' => 'submitted',
+            'contact_email' => $request->contact_email,
+            'status' => 'pending',
+            'applied_at' => now(),
         ]);
 
         return response()->json([

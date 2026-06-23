@@ -11,6 +11,15 @@
 |
 */
 
+// Web-only limits — do not cap CLI (artisan serve, queue:work, etc.)
+ini_set('memory_limit', '1024M');
+
+if (PHP_SAPI !== 'cli') {
+    ini_set('max_execution_time', 600);
+    ini_set('max_input_time', 600);
+    set_time_limit(600);
+}
+
 $app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );

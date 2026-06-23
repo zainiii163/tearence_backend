@@ -29,7 +29,8 @@ class BusinessAffiliateOfferResource extends Resource
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
+                            ->relationship('user', 'first_name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -199,7 +200,7 @@ class BusinessAffiliateOfferResource extends Resource
                     ->formatStateUsing(fn ($record) => $record->display_commission)
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('user.name')
+                Tables\Columns\TextColumn::make('user.first_name')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),

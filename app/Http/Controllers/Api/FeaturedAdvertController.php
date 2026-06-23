@@ -42,7 +42,16 @@ class FeaturedAdvertController extends Controller
 
         // Filter by category
         if ($request->has('category_id')) {
-            $query->byCategory($request->category_id);
+            $categoryValue = $request->category_id;
+            // If it's a string (category name), look up the ID
+            if (!is_numeric($categoryValue)) {
+                $category = \App\Models\Category::where('name', $categoryValue)->first();
+                if ($category) {
+                    $query->byCategory($category->id);
+                }
+            } else {
+                $query->byCategory((int)$categoryValue);
+            }
         }
 
         // Filter by advert type
@@ -85,15 +94,15 @@ class FeaturedAdvertController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'listing_id' => 'required|exists:listing,listing_id',
+            'listing_id' => 'nullable|exists:listing,listing_id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:5000',
             'price' => 'nullable|numeric|min:0|max:999999.99',
-            'currency' => 'string|size:3',
+            'currency' => 'nullable|string|size:3',
             'advert_type' => ['required', Rule::in(FeaturedAdvert::TYPE_PRODUCT, FeaturedAdvert::TYPE_SERVICE, FeaturedAdvert::TYPE_PROPERTY, FeaturedAdvert::TYPE_JOB, FeaturedAdvert::TYPE_EVENT, FeaturedAdvert::TYPE_VEHICLE, FeaturedAdvert::TYPE_BUSINESS, FeaturedAdvert::TYPE_EDUCATION, FeaturedAdvert::TYPE_TRAVEL, FeaturedAdvert::TYPE_FASHION, FeaturedAdvert::TYPE_ELECTRONICS, FeaturedAdvert::TYPE_PETS, FeaturedAdvert::TYPE_HOME, FeaturedAdvert::TYPE_HEALTH, FeaturedAdvert::TYPE_MISC)],
-            'condition' => 'nullable|in:new,used,refurbished',
+            'condition' => 'nullable|in:new,used,refurbished,not_applicable',
             'images' => 'nullable|array|max:10',
-            'images.*' => 'string|max:255',
+            'images.*' => 'string|max:500',
             'video_url' => 'nullable|url|max:255',
             'contact_name' => 'required|string|max:255',
             'contact_email' => 'required|email|max:255',
@@ -104,13 +113,13 @@ class FeaturedAdvertController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'upsell_tier' => ['required', Rule::in(FeaturedAdvert::TIER_PROMOTED, FeaturedAdvert::TIER_FEATURED, FeaturedAdvert::TIER_SPONSORED)],
-            'upsell_price' => 'required|numeric|min:0|max:99999.99',
-            'starts_at' => 'required|date|after_or_equal:today',
-            'expires_at' => 'required|date|after:starts_at',
+            'upsell_price' => 'nullable|numeric|min:0|max:99999.99',
+            'starts_at' => 'nullable|date',
+            'expires_at' => 'nullable|date',
         ]);
 
         // Get customer from authenticated user
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::user();
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -118,33 +127,67 @@ class FeaturedAdvertController extends Controller
             ], 401);
         }
 
-        // Verify listing ownership
-        $listing = Listing::findOrFail($validated['listing_id']);
-        if ($listing->customer_id !== $customer->customer_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You can only create featured adverts for your own listings.'
-            ], 403);
+        // Get category from listing if provided, otherwise from category_id field
+        $categoryId = null;
+        if (!empty($validated['listing_id'])) {
+            $listing = Listing::find($validated['listing_id']);
+            if ($listing) {
+                $categoryId = $listing->category_id;
+            }
         }
 
-        // Get category and country IDs
-        $categoryId = $listing->category_id;
-        $country = Country::where('name', $validated['country'])->first();
+        // Resolve country ID
+        $country = Country::where('name', $validated['country'])
+            ->orWhere('iso_code', strtoupper($validated['country']))
+            ->first();
         $countryId = $country ? $country->country_id : null;
+
+        // Set pricing from tier if not provided
+        $tierPrices = [
+            FeaturedAdvert::TIER_PROMOTED  => 29.99,
+            FeaturedAdvert::TIER_FEATURED  => 59.99,
+            FeaturedAdvert::TIER_SPONSORED => 99.99,
+        ];
 
         $validated['customer_id'] = $customer->customer_id;
         $validated['category_id'] = $categoryId;
-        $validated['country_id'] = $countryId;
-        $validated['payment_status'] = FeaturedAdvert::PAYMENT_PENDING;
-        $validated['is_active'] = false; // Will be activated after payment
+        $validated['country_id']  = $countryId;
+        $validated['currency']    = $validated['currency'] ?? 'GBP';
+        $validated['upsell_price'] = $validated['upsell_price'] ?? $tierPrices[$validated['upsell_tier']] ?? 29.99;
+        $validated['starts_at']   = $validated['starts_at']   ?? now();
+        $validated['expires_at']  = $validated['expires_at']  ?? now()->addDays(30);
+        $validated['payment_status'] = FeaturedAdvert::PAYMENT_PAID;
+        $validated['is_active'] = true;
 
         $featuredAdvert = FeaturedAdvert::create($validated);
 
         return response()->json([
             'success' => true,
             'data' => $featuredAdvert->load(['listing', 'customer', 'category', 'country']),
-            'message' => 'Featured advert created successfully. Please complete payment to activate.'
+            'message' => 'Featured advert created successfully.'
         ], 201);
+    }
+
+    /**
+     * Upload image(s) for a featured advert.
+     */
+    public function uploadImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|file|image|max:10240',
+        ]);
+
+        $file = $request->file('image');
+        $path = $file->store('featured-adverts', 'public');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'path' => $path,
+                'url'  => asset('storage/' . $path),
+            ],
+            'message' => 'Image uploaded successfully'
+        ]);
     }
 
     /**
@@ -173,7 +216,7 @@ class FeaturedAdvertController extends Controller
         $featuredAdvert = FeaturedAdvert::findOrFail($id);
 
         // Check ownership
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::guard('api')->user();
         if (!$customer || $featuredAdvert->customer_id !== $customer->customer_id) {
             return response()->json([
                 'success' => false,
@@ -236,7 +279,7 @@ class FeaturedAdvertController extends Controller
         $featuredAdvert = FeaturedAdvert::findOrFail($id);
 
         // Check ownership or admin
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::guard('api')->user();
         $user = Auth::guard('api')->user();
         
         if ((!$customer || $featuredAdvert->customer_id !== $customer->customer_id) && !$user) {
@@ -259,7 +302,7 @@ class FeaturedAdvertController extends Controller
      */
     public function myFeaturedAdverts(Request $request): JsonResponse
     {
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -389,7 +432,7 @@ class FeaturedAdvertController extends Controller
      */
     public function saveAdvert(string $id): JsonResponse
     {
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::guard('api')->user();
         if (!$customer) {
             return response()->json([
                 'success' => false,
@@ -422,7 +465,7 @@ class FeaturedAdvertController extends Controller
             'phone' => 'nullable|string|max:50',
         ]);
 
-        $customer = Auth::guard('customer')->user();
+        $customer = Auth::guard('api')->user();
         $featuredAdvert = FeaturedAdvert::findOrFail($id);
 
         // Increment contact count
