@@ -50,6 +50,10 @@ php artisan key:generate
 ## 4. Laravel setup
 
 ```bash
+# Create cache directory if missing (required before any artisan command)
+mkdir -p bootstrap/cache
+chmod -R 775 bootstrap/cache storage
+
 php artisan migrate --force
 php artisan storage:link
 php artisan route:clear
