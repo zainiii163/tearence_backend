@@ -3250,11 +3250,11 @@ Route::group([
 
             // Job Management
             Route::post('/', [\App\Http\Controllers\Api\V1\JobController::class, 'store']);
+            Route::get('/my-jobs', [\App\Http\Controllers\Api\V1\JobController::class, 'myJobs']);
+            Route::get('/saved', [\App\Http\Controllers\Api\V1\JobController::class, 'savedJobs']);
             Route::put('/{id}', [\App\Http\Controllers\Api\V1\JobController::class, 'update']);
             Route::delete('/{id}', [\App\Http\Controllers\Api\V1\JobController::class, 'destroy']);
-            Route::get('/my-jobs', [\App\Http\Controllers\Api\V1\JobController::class, 'myJobs']);
             Route::post('/{id}/save', [\App\Http\Controllers\Api\V1\JobController::class, 'saveJob']);
-            Route::get('/saved', [\App\Http\Controllers\Api\V1\JobController::class, 'savedJobs']);
             
             // Job Applications
             Route::post('/{jobId}/apply', [\App\Http\Controllers\Api\V1\JobApplicationController::class, 'apply']);

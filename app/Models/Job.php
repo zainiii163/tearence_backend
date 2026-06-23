@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\JobSchema;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ class Job extends Model
     protected $fillable = [
         'user_id',
         'job_category_id',
+        'category_id',
         'title',
         'slug',
         'description',
@@ -28,9 +30,11 @@ class Job extends Model
         'company_industry',
         'company_founded',
         'company_logo',
+        'logo_url',
         'company_website',
         'company_social',
         'contact_email',
+        'application_email',
         'application_link',
         'application_phone',
         'application_instructions',
@@ -48,15 +52,22 @@ class Job extends Model
         'salary_max',
         'salary_currency',
         'salary_range',
+        'currency',
         'application_method',
         'is_active',
+        'status',
         'is_remote',
+        'remote_available',
         'is_verified_employer',
+        'verified_employer',
         'terms_accepted',
         'accurate_info',
         'applications_count',
         'saves_count',
+        'views_count',
+        'views',
         'expires_at',
+        'posted_at',
     ];
 
     protected $casts = [
@@ -74,12 +85,12 @@ class Job extends Model
     // Relationships
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(JobCategory::class, 'job_category_id');
+        return $this->belongsTo(JobCategory::class, JobSchema::column('category'));
     }
 
     public function pricingPlan(): BelongsTo
@@ -161,7 +172,7 @@ class Job extends Model
 
     public function scopeRemote($query)
     {
-        return $query->where('is_remote', true);
+        return $query->where(JobSchema::column('remote'), true);
     }
 
     public function scopeBySalaryRange($query, $minSalary, $maxSalary = null)
