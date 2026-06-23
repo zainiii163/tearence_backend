@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\JobSeekerSchema;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class JobSeeker extends Model
 {
@@ -72,7 +76,7 @@ class JobSeeker extends Model
     // Relationships
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     public function pricingPlan(): BelongsTo
@@ -93,20 +97,33 @@ class JobSeeker extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('is_active', 1);
+        if (JobSeekerSchema::usesActiveFlag()) {
+            return $query->where('is_active', true);
+        }
+
+        if (JobSeekerSchema::usesStatusColumn()) {
+            return $query->where('status', 'active');
+        }
+
+        return $query;
     }
 
     public function scopeByProfession($query, $profession)
     {
-        return $query->where('profession', 'LIKE', "%{$profession}%");
+        $column = JobSeekerSchema::column('title');
+
+        return $query->where($column, 'LIKE', "%{$profession}%");
     }
 
     public function scopeByLocation($query, $location)
     {
         return $query->where(function ($q) use ($location) {
             $q->where('country', 'LIKE', "%{$location}%")
-              ->orWhere('city', 'LIKE', "%{$location}%")
-              ->orWhere('state', 'LIKE', "%{$location}%");
+              ->orWhere('city', 'LIKE', "%{$location}%");
+
+            if (Schema::hasColumn('job_seekers', 'state')) {
+                $q->orWhere('state', 'LIKE', "%{$location}%");
+            }
         });
     }
 
@@ -117,7 +134,7 @@ class JobSeeker extends Model
 
     public function scopeRemote($query)
     {
-        return $query->where('is_remote_available', true);
+        return $query->where(JobSeekerSchema::column('remote'), true);
     }
 
     public function scopePromoted($query)
@@ -197,12 +214,45 @@ class JobSeeker extends Model
     // Methods
     public function incrementViews()
     {
-        $this->increment('views_count');
+        $this->increment(JobSeekerSchema::column('views'));
     }
 
     public function incrementContacts()
     {
-        $this->increment('profile_contacts_count');
+        $this->increment(JobSeekerSchema::column('contacts'));
+    }
+
+    public function incrementProfileContacts(): void
+    {
+        $this->incrementContacts();
+    }
+
+    /**
+     * Safely remove a profile and related records.
+     */
+    public static function deleteProfile(self $seeker): void
+    {
+        $cols = JobSeekerSchema::columns();
+
+        foreach ([$cols['photo'], $cols['cv']] as $fileColumn) {
+            $path = $seeker->getAttribute($fileColumn);
+            if ($path && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+
+        if (Schema::hasTable('job_applications') && Schema::hasColumn('job_applications', 'job_seeker_id')) {
+            DB::table('job_applications')->where('job_seeker_id', $seeker->id)->delete();
+        }
+
+        if (Schema::hasTable('job_upsells')) {
+            DB::table('job_upsells')
+                ->where('upsellable_type', self::class)
+                ->where('upsellable_id', $seeker->id)
+                ->delete();
+        }
+
+        $seeker->deleteQuietly();
     }
 
     public function hasSkills($skills)
@@ -227,8 +277,21 @@ class JobSeeker extends Model
         parent::boot();
 
         static::deleting(function ($seeker) {
-            $seeker->applications()->delete();
-            $seeker->upsells()->delete();
+            try {
+                if (Schema::hasTable('job_applications') && Schema::hasColumn('job_applications', 'job_seeker_id')) {
+                    $seeker->applications()->delete();
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            try {
+                if (Schema::hasTable('job_upsells')) {
+                    $seeker->upsells()->delete();
+                }
+            } catch (\Throwable $e) {
+                report($e);
+            }
         });
     }
 }

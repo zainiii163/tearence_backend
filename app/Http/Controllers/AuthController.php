@@ -214,13 +214,13 @@ class AuthController extends APIController
                 'success' => true,
                 'authenticated' => true,
                 'user' => [
-                    'id' => $user->customer_id,
-                    'name' => $user->first_name . ' ' . $user->last_name,
+                    'id' => $user->user_id,
+                    'name' => trim($user->first_name . ' ' . $user->last_name),
                     'email' => $user->email,
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
-                    'needs_kyc' => $user->needs_kyc ?? false,
-                    'kyc_verified' => $user->kyc_verified ?? false,
+                    'needs_kyc' => ($user->kyc_status ?? 'pending') !== 'verified',
+                    'kyc_verified' => ($user->kyc_status ?? '') === 'verified',
                 ]
             ]);
         } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
@@ -240,6 +240,14 @@ class AuthController extends APIController
                 'success' => true,
                 'authenticated' => false,
                 'message' => 'Token not provided'
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('webCheck failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => true,
+                'authenticated' => false,
+                'message' => 'Auth check failed',
             ]);
         }
     }

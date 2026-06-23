@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\JobSeeker;
+use App\Support\JobSeekerSchema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -191,7 +192,7 @@ class JobSeekerController extends Controller
         $data['willing_to_relocate'] = $data['willing_to_relocate'] ?? false;
         $data['is_active'] = true;
 
-        $jobSeeker = JobSeeker::create($data);
+        $jobSeeker = JobSeeker::create(JobSeekerSchema::filterPayload($data));
 
         return response()->json([
             'success' => true,
@@ -279,22 +280,21 @@ class JobSeekerController extends Controller
     {
         $jobSeeker = JobSeeker::where('user_id', auth()->id())->findOrFail($id);
 
-        // Delete profile photo
-        if ($jobSeeker->profile_photo) {
-            Storage::disk('public')->delete($jobSeeker->profile_photo);
+        try {
+            JobSeeker::deleteProfile($jobSeeker);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile deleted successfully',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete profile',
+            ], 500);
         }
-
-        // Delete CV file
-        if ($jobSeeker->cv_file) {
-            Storage::disk('public')->delete($jobSeeker->cv_file);
-        }
-
-        $jobSeeker->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile deleted successfully',
-        ]);
     }
 
     public function myProfile()
@@ -305,13 +305,15 @@ class JobSeekerController extends Controller
 
         if (!$jobSeeker) {
             return response()->json([
-                'success' => false,
-                'message' => 'Profile not found',
-            ], 404);
+                'success' => true,
+                'has_profile' => false,
+                'data' => null,
+            ]);
         }
 
         return response()->json([
             'success' => true,
+            'has_profile' => true,
             'data' => $jobSeeker,
         ]);
     }

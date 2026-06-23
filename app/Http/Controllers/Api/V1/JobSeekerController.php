@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\JobSeeker;
+use App\Support\JobSeekerSchema;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -189,41 +190,28 @@ class JobSeekerController extends Controller
             ], 422);
         }
 
-        $seeker = JobSeeker::create([
-            'user_id' => Auth::id(),
-            'title' => $request->title,
-            'bio' => $request->bio,
-            'profile_photo' => $request->profile_photo,
-            'cv_file' => $request->cv_file,
-            'portfolio_link' => $request->portfolio_link,
-            'linkedin_url' => $request->linkedin_url,
-            'github_url' => $request->github_url,
-            'website_url' => $request->website_url,
-            'experience_level' => $request->experience_level,
-            'years_of_experience' => $request->years_of_experience,
-            'education_level' => $request->education_level,
-            'key_skills' => $request->key_skills,
-            'desired_role' => $request->desired_role,
-            'industries_interested' => $request->industries_interested,
-            'salary_expectation_min' => $request->salary_expectation_min,
-            'salary_expectation_max' => $request->salary_expectation_max,
-            'salary_currency' => $request->salary_currency ?? 'USD',
-            'preferred_work_type' => $request->preferred_work_type,
-            'is_remote_available' => $request->boolean('is_remote_available'),
-            'country' => $request->country,
-            'city' => $request->city,
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
-            'location_name' => $request->location_name,
-            'willing_to_relocate' => $request->boolean('willing_to_relocate'),
-            'is_active' => true,
-        ]);
+        try {
+            $seeker = JobSeeker::create(
+                JobSeekerSchema::filterPayload($this->buildSeekerPayload($request))
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job seeker profile created successfully',
-            'data' => $seeker->load(['user']),
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Job seeker profile created successfully',
+                'data' => $seeker->load(['user']),
+            ], 201);
+        } catch (\Throwable $e) {
+            \Log::error('Job seeker create failed', [
+                'user_id' => Auth::id(),
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create job seeker profile',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error while saving profile',
+            ], 500);
+        }
     }
 
     /**
@@ -301,12 +289,26 @@ class JobSeekerController extends Controller
             ], 404);
         }
 
-        $seeker->delete();
+        try {
+            JobSeeker::deleteProfile($seeker);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile deleted successfully',
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile deleted successfully',
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Job seeker delete failed', [
+                'seeker_id' => $id,
+                'user_id' => Auth::id(),
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete profile',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error while deleting profile',
+            ], 500);
+        }
     }
 
     /**
@@ -320,16 +322,15 @@ class JobSeekerController extends Controller
 
         if (!$seeker) {
             return response()->json([
-                'success' => false,
-                'error' => [
-                    'code' => 'RESOURCE_NOT_FOUND',
-                    'message' => 'Profile not found',
-                ],
-            ], 404);
+                'success' => true,
+                'has_profile' => false,
+                'data' => null,
+            ]);
         }
 
         return response()->json([
             'success' => true,
+            'has_profile' => true,
             'data' => $seeker,
         ]);
     }
@@ -417,9 +418,7 @@ class JobSeekerController extends Controller
                           ->findOrFail($id);
 
         // Increment contact count if column exists
-        if (Schema::hasColumn('job_seekers', 'profile_contacts_count')) {
-            $seeker->increment('profile_contacts_count');
-        }
+        $seeker->incrementContacts();
 
         $contactInfo = [
             'linkedin' => $seeker->linkedin_url,
@@ -443,5 +442,57 @@ class JobSeekerController extends Controller
                 'contact_info' => $contactInfo,
             ],
         ]);
+    }
+
+    private function buildSeekerPayload(Request $request): array
+    {
+        $cols = JobSeekerSchema::columns();
+
+        $payload = [
+            'user_id' => Auth::id(),
+            $cols['title'] => $request->title ?? $request->profession,
+            'bio' => $request->bio,
+            $cols['photo'] => $request->profile_photo,
+            $cols['cv'] => $request->cv_file,
+            'portfolio_link' => $request->portfolio_link,
+            $cols['linkedin'] => $request->linkedin_url ?? $request->linkedin_link,
+            $cols['github'] => $request->github_url ?? $request->github_link,
+            'website_url' => $request->website_url,
+            'experience_level' => $request->experience_level,
+            'years_of_experience' => $request->years_of_experience,
+            'education_level' => $request->education_level,
+            'key_skills' => $request->key_skills,
+            'desired_role' => $request->desired_role,
+            'industries_interested' => $request->industries_interested,
+            'salary_expectation_min' => $request->salary_expectation_min,
+            'salary_expectation_max' => $request->salary_expectation_max,
+            'salary_currency' => $request->salary_currency ?? 'USD',
+            'preferred_work_type' => $request->preferred_work_type ?? $request->work_type_preference,
+            $cols['remote'] => $request->boolean('remote_available', $request->boolean('is_remote_available')),
+            'country' => $request->country,
+            'city' => $request->city,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'location_name' => $request->location_name,
+            'willing_to_relocate' => $request->boolean('willing_to_relocate'),
+        ];
+
+        if (JobSeekerSchema::usesActiveFlag()) {
+            $payload['is_active'] = true;
+        }
+
+        if (JobSeekerSchema::usesStatusColumn()) {
+            $payload['status'] = 'active';
+        }
+
+        if ($request->filled('full_name')) {
+            $payload['full_name'] = $request->full_name;
+        }
+
+        if ($request->filled('profession') && $cols['title'] === 'profession') {
+            $payload['profession'] = $request->profession;
+        }
+
+        return $payload;
     }
 }
