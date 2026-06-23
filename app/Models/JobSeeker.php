@@ -232,27 +232,97 @@ class JobSeeker extends Model
      */
     public static function deleteProfile(self $seeker): void
     {
+        $seekerId = (int) $seeker->id;
+
+        try {
+            static::purgeUploadedFiles($seeker);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            if (Schema::hasTable('job_applications') && Schema::hasColumn('job_applications', 'job_seeker_id')) {
+                DB::table('job_applications')
+                    ->where('job_seeker_id', $seekerId)
+                    ->update(['job_seeker_id' => null]);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            if (Schema::hasTable('job_upsells') && Schema::hasColumn('job_upsells', 'upsellable_id')) {
+                DB::table('job_upsells')
+                    ->where('upsellable_id', $seekerId)
+                    ->whereIn('upsellable_type', static::upsellMorphTypes())
+                    ->delete();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            if (DB::table('job_seekers')->where('id', $seekerId)->delete() > 0) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        static::deactivateProfile($seekerId);
+    }
+
+    protected static function purgeUploadedFiles(self $seeker): void
+    {
         $cols = JobSeekerSchema::columns();
 
-        foreach ([$cols['photo'], $cols['cv']] as $fileColumn) {
+        foreach (array_unique([$cols['photo'], $cols['cv']]) as $fileColumn) {
+            if (!Schema::hasColumn('job_seekers', $fileColumn)) {
+                continue;
+            }
+
             $path = $seeker->getAttribute($fileColumn);
-            if ($path && Storage::disk('public')->exists($path)) {
+            if (!$path || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                continue;
+            }
+
+            if (Storage::disk('public')->exists($path)) {
                 Storage::disk('public')->delete($path);
             }
         }
+    }
 
-        if (Schema::hasTable('job_applications') && Schema::hasColumn('job_applications', 'job_seeker_id')) {
-            DB::table('job_applications')->where('job_seeker_id', $seeker->id)->delete();
+    protected static function deactivateProfile(int $seekerId): void
+    {
+        $updates = [];
+
+        if (Schema::hasColumn('job_seekers', 'is_active')) {
+            $updates['is_active'] = 0;
         }
 
-        if (Schema::hasTable('job_upsells')) {
-            DB::table('job_upsells')
-                ->where('upsellable_type', self::class)
-                ->where('upsellable_id', $seeker->id)
-                ->delete();
+        if (Schema::hasColumn('job_seekers', 'status')) {
+            $updates['status'] = 'deleted';
         }
 
-        $seeker->deleteQuietly();
+        if ($updates !== []) {
+            DB::table('job_seekers')->where('id', $seekerId)->update($updates);
+
+            return;
+        }
+
+        DB::table('job_seekers')->where('id', $seekerId)->delete();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected static function upsellMorphTypes(): array
+    {
+        return array_values(array_unique([
+            self::class,
+            'App\\Models\\JobSeeker',
+            'App\\Models\\JobListing',
+        ]));
     }
 
     public function hasSkills($skills)
@@ -275,23 +345,5 @@ class JobSeeker extends Model
     protected static function boot()
     {
         parent::boot();
-
-        static::deleting(function ($seeker) {
-            try {
-                if (Schema::hasTable('job_applications') && Schema::hasColumn('job_applications', 'job_seeker_id')) {
-                    $seeker->applications()->delete();
-                }
-            } catch (\Throwable $e) {
-                report($e);
-            }
-
-            try {
-                if (Schema::hasTable('job_upsells')) {
-                    $seeker->upsells()->delete();
-                }
-            } catch (\Throwable $e) {
-                report($e);
-            }
-        });
     }
 }

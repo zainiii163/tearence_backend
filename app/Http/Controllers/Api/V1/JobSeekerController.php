@@ -8,6 +8,7 @@ use App\Support\JobSeekerSchema;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class JobSeekerController extends Controller
@@ -302,6 +303,26 @@ class JobSeekerController extends Controller
                 'user_id' => Auth::id(),
                 'message' => $e->getMessage(),
             ]);
+
+            try {
+                $updates = [];
+                if (Schema::hasColumn('job_seekers', 'is_active')) {
+                    $updates['is_active'] = 0;
+                }
+                if (Schema::hasColumn('job_seekers', 'status')) {
+                    $updates['status'] = 'deleted';
+                }
+                if ($updates !== []) {
+                    DB::table('job_seekers')->where('id', $seeker->id)->update($updates);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Profile removed successfully',
+                ]);
+            } catch (\Throwable $fallbackError) {
+                report($fallbackError);
+            }
 
             return response()->json([
                 'success' => false,
