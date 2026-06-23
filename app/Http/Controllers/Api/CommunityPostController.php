@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\MediaUrlHelper;
 use App\Models\CommunityPost;
 use App\Models\Community;
 use App\Models\CommunityPostCommunity;
@@ -12,6 +13,7 @@ use App\Models\UserReputation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class CommunityPostController extends Controller
 {
@@ -203,6 +205,44 @@ class CommunityPostController extends Controller
             'success' => true,
             'data' => $post
         ]);
+    }
+
+    /**
+     * Upload cover image or media for a community post.
+     */
+    public function uploadMedia(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'type' => 'nullable|in:cover,media',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $type = $request->get('type', 'media');
+        $folder = $type === 'cover' ? 'community-posts/covers' : 'community-posts/media';
+
+        if (!Storage::disk('public')->exists($folder)) {
+            Storage::disk('public')->makeDirectory($folder);
+        }
+
+        $file = $request->file('file');
+        $fileName = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $path = $file->storeAs($folder, $fileName, 'public');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Media uploaded successfully',
+            'data' => [
+                'path' => $path,
+                'url' => MediaUrlHelper::resolve($path),
+            ],
+        ], 201);
     }
 
     /**

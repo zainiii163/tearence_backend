@@ -630,7 +630,8 @@ class AffiliateController extends Controller
                 'message' => 'Image uploaded successfully',
                 'data' => [
                     'url' => $url,
-                    'id' => $fileName,
+                    'path' => $path,
+                    'id' => $path,
                     'filename' => $file->getClientOriginalName(),
                 ],
             ]);

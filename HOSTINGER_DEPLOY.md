@@ -50,8 +50,9 @@ php artisan key:generate
 ## 4. Laravel setup
 
 ```bash
-# Create cache directory if missing (required before any artisan command)
+# Create required folders (fixes "posts/images not showing")
 mkdir -p bootstrap/cache
+mkdir -p storage/app/public/{community-posts/covers,community-posts/media,affiliate_images,affiliate_posts,buysell-images,vehicles,sponsored,banner,avatar}
 chmod -R 775 bootstrap/cache storage
 
 php artisan migrate --force
@@ -62,6 +63,12 @@ php artisan cache:clear
 php artisan config:cache
 php artisan route:cache
 chmod -R 775 storage bootstrap/cache
+```
+
+Or run the helper script after pull:
+
+```bash
+bash scripts/hostinger-storage-setup.sh
 ```
 
 ## 5. Document root (hPanel)

@@ -3302,11 +3302,10 @@ Route::group([
         Route::get('/trending', [CommunityController::class, 'trending']);
         Route::get('/featured', [CommunityController::class, 'featured']);
         Route::get('/category/{categoryId}', [CommunityController::class, 'byCategory']);
-        Route::get('/{id}', [CommunityController::class, 'show']);
-        Route::get('/{id}/members', [CommunityController::class, 'members']);
 
-        // Authenticated routes
+        // Authenticated routes (static paths before /{id})
         Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::get('/my-communities', [CommunityController::class, 'myCommunities']);
             Route::post('/', [CommunityController::class, 'store']);
             Route::put('/{id}', [CommunityController::class, 'update']);
             Route::delete('/{id}', [CommunityController::class, 'destroy']);
@@ -3314,18 +3313,25 @@ Route::group([
             Route::post('/{id}/leave', [CommunityController::class, 'leave']);
             Route::post('/{id}/follow', [CommunityController::class, 'follow']);
             Route::post('/{id}/unfollow', [CommunityController::class, 'unfollow']);
-            Route::get('/my-communities', [CommunityController::class, 'myCommunities']);
         });
+
+        Route::get('/{id}', [CommunityController::class, 'show']);
+        Route::get('/{id}/members', [CommunityController::class, 'members']);
     });
 
     // Community Posts API Routes
     Route::group(['prefix' => 'community-posts'], function () {
         // Public routes
         Route::get('/', [CommunityPostController::class, 'index']);
-        Route::get('/{id}', [CommunityPostController::class, 'show']);
 
-        // Authenticated routes
+        // Authenticated routes (static paths before /{id})
         Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::get('/for-you', [CommunityPostController::class, 'forYou']);
+            Route::get('/following', [CommunityPostController::class, 'following']);
+            Route::get('/local', [CommunityPostController::class, 'local']);
+            Route::get('/saved', [CommunityPostController::class, 'saved']);
+            Route::get('/my-posts', [CommunityPostController::class, 'myPosts']);
+            Route::post('/upload-media', [CommunityPostController::class, 'uploadMedia']);
             Route::post('/', [CommunityPostController::class, 'store']);
             Route::put('/{id}', [CommunityPostController::class, 'update']);
             Route::delete('/{id}', [CommunityPostController::class, 'destroy']);
@@ -3333,12 +3339,9 @@ Route::group([
             Route::post('/{id}/save', [CommunityPostController::class, 'save']);
             Route::post('/{id}/pin', [CommunityPostController::class, 'pin']);
             Route::post('/{id}/flag', [CommunityPostController::class, 'flag']);
-            Route::get('/for-you', [CommunityPostController::class, 'forYou']);
-            Route::get('/following', [CommunityPostController::class, 'following']);
-            Route::get('/local', [CommunityPostController::class, 'local']);
-            Route::get('/saved', [CommunityPostController::class, 'saved']);
-            Route::get('/my-posts', [CommunityPostController::class, 'myPosts']);
         });
+
+        Route::get('/{id}', [CommunityPostController::class, 'show']);
     });
 
     // Comments API Routes

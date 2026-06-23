@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,6 +15,8 @@ class Community extends Model
     protected $primaryKey = 'community_id';
     public $incrementing = false;
     protected $keyType = 'uuid';
+
+    protected $appends = ['cover_image_url'];
 
     protected $fillable = [
         'community_id',
@@ -125,5 +128,10 @@ class Community extends Model
     public function incrementActiveAdsCount()
     {
         $this->increment('active_ads_count');
+    }
+
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        return MediaUrlHelper::resolve($this->cover_image);
     }
 }

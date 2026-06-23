@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Helpers\FileUploadHelper;
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +13,8 @@ class UserAffiliatePost extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    protected $appends = ['image_url'];
 
     protected $casts = [
         'hashtags' => 'array',
@@ -159,8 +161,15 @@ class UserAffiliatePost extends Model
             return null;
         }
 
-        $fileUpload = new FileUploadHelper();
-        return $fileUpload->getFile($this->image, 'affiliate_posts');
+        if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
+            return $this->image;
+        }
+
+        if (str_contains($this->image, '/')) {
+            return MediaUrlHelper::resolve($this->image);
+        }
+
+        return MediaUrlHelper::resolve('affiliate_images/' . $this->image);
     }
 
     /**

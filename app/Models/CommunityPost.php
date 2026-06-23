@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,6 +15,8 @@ class CommunityPost extends Model
     protected $primaryKey = 'post_id';
     public $incrementing = false;
     protected $keyType = 'uuid';
+
+    protected $appends = ['cover_image_url', 'media_urls'];
 
     protected $fillable = [
         'post_id',
@@ -216,5 +219,18 @@ class CommunityPost extends Model
     public function decrementSaves()
     {
         $this->decrement('saves_count');
+    }
+
+    public function getCoverImageUrlAttribute(): ?string
+    {
+        return MediaUrlHelper::resolve($this->cover_image);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getMediaUrlsAttribute(): array
+    {
+        return MediaUrlHelper::resolveMany($this->media);
     }
 }

@@ -33,6 +33,9 @@ class FileUploadHelper
         if ($filename == '') {
             return '';
         }
-        return Storage::disk($folder)->url($filename);
+
+        return MediaUrlHelper::resolve(
+            str_contains($filename, '/') ? $filename : trim($folder, '/') . '/' . $filename
+        );
     }
 }

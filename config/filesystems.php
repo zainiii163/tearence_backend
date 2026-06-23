@@ -77,6 +77,13 @@ return [
             'visibility' => 'public',
         ],
 
+        'affiliate_posts' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/affiliate_posts'),
+            'url' => (env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000')).'/storage/affiliate_posts',
+            'visibility' => 'public',
+        ],
+
         'business' => [
             'driver' => 'local',
             'root' => storage_path('app/public/business'),
