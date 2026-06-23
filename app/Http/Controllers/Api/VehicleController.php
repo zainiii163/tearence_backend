@@ -236,8 +236,7 @@ class VehicleController extends Controller
                 'road_tax_status' => $request->road_tax_status,
                 'previous_owners' => $request->previous_owners,
                 
-                // Status — user submissions require approval before appearing on the website
-                'status' => 'pending',
+                'status' => 'approved',
                 'is_active' => true,
             ];
 

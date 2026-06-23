@@ -130,7 +130,7 @@ class ServiceFormHelper
             } elseif (! $isUpdate && $field === 'service_type') {
                 $attributes['service_type'] = 'freelance';
             } elseif (! $isUpdate && $field === 'status') {
-                $attributes['status'] = 'draft';
+                $attributes['status'] = 'active';
             }
         }
 
@@ -304,9 +304,9 @@ class ServiceFormHelper
                             'label' => 'Status',
                             'type' => 'select',
                             'required' => false,
-                            'default' => 'draft',
+                            'default' => 'active',
                             'options' => self::STATUSES,
-                            'note' => 'Use "active" when publishing. New services default to draft.',
+                            'note' => 'New services are published as active by default.',
                         ],
                     ],
                 ],

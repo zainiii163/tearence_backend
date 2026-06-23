@@ -169,7 +169,7 @@ class BookAdvertController extends Controller
             $data = self::filterBookTableAttributes($data);
 
             if (!isset($data['status'])) {
-                $data['status'] = 'pending';
+                $data['status'] = 'active';
             }
 
             $book = Book::create($data);

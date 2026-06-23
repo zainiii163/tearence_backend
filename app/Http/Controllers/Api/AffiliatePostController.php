@@ -201,8 +201,8 @@ class AffiliatePostController extends APIController
                 'customer_id' => $user->customer_id,
                 'category_id' => $request->category_id,
                 'upsell_tier' => $upsellTier,
-                'status' => 'pending',
-                'is_active' => false,
+                'status' => 'approved',
+                'is_active' => true,
             ]);
 
             // Handle upsell payment if selected

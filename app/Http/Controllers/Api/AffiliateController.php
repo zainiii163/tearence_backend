@@ -183,6 +183,8 @@ class AffiliateController extends Controller
 
         $offer = BusinessAffiliateOffer::create([
             'user_id' => Auth::id(),
+            'status' => 'approved',
+            'is_active' => true,
             'affiliate_category_id' => $request->affiliate_category_id,
             'business_name' => $request->business_name,
             'product_service_title' => $request->product_service_title,
@@ -237,6 +239,8 @@ class AffiliateController extends Controller
 
         $post = UserAffiliatePost::create([
             'user_id' => Auth::id(),
+            'status' => 'approved',
+            'is_active' => true,
             'affiliate_category_id' => $request->affiliate_category_id,
             'title' => $request->title,
             'description' => $request->description,

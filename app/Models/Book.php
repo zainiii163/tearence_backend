@@ -26,6 +26,17 @@ class Book extends Model
 
     protected $appends = ['cover_image_url'];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($book) {
+            if (empty($book->status)) {
+                $book->status = 'active';
+            }
+        });
+    }
+
     /**
      * The database table used by the model.
      *

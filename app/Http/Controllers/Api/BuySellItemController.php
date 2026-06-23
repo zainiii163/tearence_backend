@@ -146,7 +146,7 @@ class BuySellItemController extends Controller
 
             $data = $validator->validated();
             $data['user_id'] = auth()->id();
-            $data['status'] = 'draft'; // Will be active after admin approval
+            $data['status'] = 'active';
 
             $item = BuySellItem::create($data);
 

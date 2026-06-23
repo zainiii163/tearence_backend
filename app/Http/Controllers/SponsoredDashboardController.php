@@ -140,7 +140,8 @@ class SponsoredDashboardController extends Controller
 
         $data = $request->all();
         $data['user_id'] = Auth::id();
-        $data['status'] = 'pending';
+        $data['status'] = 'active';
+        $data['is_active'] = true;
 
         $advert = SponsoredAdvert::create($data);
 

@@ -332,7 +332,7 @@ class VehiclesAdvertController extends Controller
             'mot_expiry' => $request->mot_expiry,
             'road_tax_status' => $request->road_tax_status,
             'previous_owners' => $request->previous_owners,
-            'status' => 'pending',
+            'status' => 'approved',
             'is_active' => true,
         ]);
 
