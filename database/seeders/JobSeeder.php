@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Job;
 use App\Models\JobCategory;
 use App\Models\User;
+use App\Support\JobSchema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -152,14 +153,31 @@ class JobSeeder extends Seeder
         foreach ($sampleJobs as $index => $jobData) {
             $user = $users->random();
             $category = $categories->random();
-            
+            $cols = JobSchema::columns();
+
             $jobData['user_id'] = $user->user_id;
-            $jobData['job_category_id'] = $category->id;
+            $jobData[$cols['category']] = $category->id;
+            unset($jobData['job_category_id']);
+
+            if (isset($jobData['is_remote'])) {
+                $jobData[$cols['remote']] = (bool) $jobData['is_remote'];
+                unset($jobData['is_remote']);
+            }
+
+            if (isset($jobData['verified_employer'])) {
+                $jobData[$cols['verified']] = (bool) $jobData['verified_employer'];
+                unset($jobData['verified_employer']);
+            }
+
+            $jobData[$cols['email']] = 'hr@' . parse_url($jobData['company_website'], PHP_URL_HOST);
+            unset($jobData['contact_email']);
+
+            $jobData['application_method'] = $jobData['application_method'] ?? 'email';
             $jobData['slug'] = Str::slug($jobData['title']) . '-' . $index;
-            $jobData['contact_email'] = 'hr@' . parse_url($jobData['company_website'], PHP_URL_HOST);
             $jobData['created_at'] = Carbon::now()->subDays(rand(1, 30));
             $jobData['updated_at'] = $jobData['created_at'];
-            Job::create($jobData);
+
+            Job::create(JobSchema::filterPayload($jobData));
         }
 
         $this->command->info('Sample jobs created successfully!');

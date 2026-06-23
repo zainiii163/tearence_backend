@@ -460,8 +460,9 @@ class JobController extends Controller
             $salary = $this->parseSalaryRange($request->salary_range);
             $applicationEmail = $request->application_email ?: Auth::user()->email;
 
-            $payload = $this->buildJobPayload($request, $salary, $applicationEmail);
-            $job = Job::create($payload);
+            $job = Job::create(
+                JobSchema::filterPayload($this->buildJobPayload($request, $salary, $applicationEmail))
+            );
 
             if ($job->category) {
                 $job->category->increment('jobs_count');
@@ -875,7 +876,7 @@ class JobController extends Controller
             $payload['application_website'] = $request->application_website;
         }
 
-        return $payload;
+        return JobSchema::filterPayload($payload);
     }
 
     /**

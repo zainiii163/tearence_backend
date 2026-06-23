@@ -30,4 +30,20 @@ class JobSchema
     {
         return self::columns()[$key] ?? $key;
     }
+
+    /**
+     * Only keep attributes that exist on the current jobs table.
+     */
+    public static function filterPayload(array $payload): array
+    {
+        $filtered = [];
+
+        foreach ($payload as $key => $value) {
+            if (Schema::hasColumn('jobs', $key)) {
+                $filtered[$key] = $value;
+            }
+        }
+
+        return $filtered;
+    }
 }
