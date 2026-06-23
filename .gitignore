@@ -16,8 +16,6 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
-composer.lock
-composer.lock
 
 WWA-backend-New_main.zip
 *.zip
