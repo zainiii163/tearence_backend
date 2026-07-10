@@ -6,7 +6,7 @@ cd ~/domains/api.worldwideadverts.info/public_html
 
 echo "==> Creating Laravel cache + storage folders..."
 mkdir -p bootstrap/cache
-mkdir -p storage/app/public/{community-posts/covers,community-posts/media,affiliate_images,affiliate_posts,buysell-images,buysell-thumbnails,books/covers,books/authors,vehicles,sponsored,banner,avatar,listings,services}
+mkdir -p storage/app/public/{community-posts/covers,community-posts/media,affiliate_images,affiliate_posts,buysell-images,buysell-thumbnails,books/covers,books/authors,vehicles,sponsored,banner,avatar,listings,services,images/client-stock}
 
 chmod -R 775 bootstrap/cache storage
 
@@ -27,6 +27,9 @@ php artisan cache:clear
 php artisan view:clear
 php artisan config:cache
 php artisan route:cache
+
+echo "==> Seed client stock images (idempotent)..."
+php artisan db:seed --class=ClientStockImagesSeeder --force || true
 
 chmod -R 775 storage bootstrap/cache
 

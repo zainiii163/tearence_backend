@@ -86,10 +86,21 @@ cd ~/domains/api.worldwideadverts.info/laravel
 git pull origin main
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
+php artisan db:seed --class=ClientStockImagesSeeder --force
 php artisan route:clear
 php artisan route:cache
 php artisan config:cache
 ```
+
+### Client stock images (Stock Images & Media page)
+
+After deploying, seed the client test photos once:
+
+```bash
+php artisan db:seed --class=ClientStockImagesSeeder --force
+```
+
+This copies the bundled images into `storage/app/public/images/client-stock/` and creates verified, active listings.
 
 ## 7. Verify
 
