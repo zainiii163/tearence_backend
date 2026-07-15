@@ -47,6 +47,8 @@ class CustomerBusiness extends Model
         'personal_email',
         'personal_phone_number',
         'category_id',
+        'vat_number',
+        'business_category_slug',
     ];
 
     public function customer()

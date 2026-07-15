@@ -12,9 +12,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator as FacadesValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use App\Helpers\StringHelper;
 use App\Helpers\OtpHelper;
 use App\Models\Customer;
+use App\Models\CustomerBusiness;
+use App\Models\Category;
+use App\Services\VerificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -173,6 +177,7 @@ class AuthController extends APIController
                         'email' => $user->email,
                         'first_name' => $user->first_name,
                         'last_name' => $user->last_name,
+                        'user_type' => $user->user_type ?? 'basic',
                     ]
                 ]
             ]);
@@ -663,17 +668,49 @@ class AuthController extends APIController
      */
     public function register()
     {
-        $validator = FacadesValidator::make(request()->all(), [
+        $userType = request()->input('user_type', 'basic');
+        $isBusiness = $userType === 'business';
+
+        $rules = [
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email|unique:customer',
-            'password' => 'required|min:8',
+            'password' => 'required|min:8|same:password_confirmation',
             'password_confirmation' => 'required',
             'referral_code' => 'nullable|string|max:20',
-        ]);
+            'phone' => 'nullable|string|max:30',
+            'user_type' => 'nullable|in:basic,business',
+            'country' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+        ];
+
+        if ($isBusiness) {
+            $rules['business_name'] = 'required|string|max:255';
+            $rules['business_category'] = 'required|string|max:100';
+            $rules['company_registration_number'] = 'required|string|max:50';
+            $rules['phone'] = 'required|string|max:30';
+            $rules['city'] = 'required|string|max:100';
+            $rules['country'] = 'required|string|max:100';
+            $rules['vat_number'] = 'nullable|string|max:50';
+        }
+
+        $validator = FacadesValidator::make(request()->all(), $rules);
 
         if ($validator->fails()) {
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
+        }
+
+        $verification = app(VerificationService::class);
+        $email = strtolower(trim(request()->email));
+        $phone = request()->phone;
+
+        if ($phone || $isBusiness) {
+            if (!$verification->isEmailVerified($email)) {
+                return $this->errorResponse('Please verify your email address before registering.', Response::HTTP_BAD_REQUEST);
+            }
+            if ($phone && !$verification->isPhoneVerified($phone)) {
+                return $this->errorResponse('Please verify your phone number before registering.', Response::HTTP_BAD_REQUEST);
+            }
         }
 
         try {
@@ -695,21 +732,81 @@ class AuthController extends APIController
                 $longitude = $currentUserInfo->longitude;
             }
 
-            // insert to database
             $customer = new Customer();
             $customer->customer_uid = Str::random(10);
             $customer->first_name = request()->first_name;
             $customer->last_name = request()->last_name;
             $customer->affiliate_id = "";
             $customer->affiliated_members = 0;
-            $customer->email = request()->email;
+            $customer->email = $email;
             $customer->password_hash = bcrypt(request()->password);
             $customer->ip_address = $ip;
             $customer->ip_location = $regionName . ', ' . $cityName . ', ' . $countryName . '-' . $zipCode;
             $customer->ip_latlng = $latitude . ',' . $longitude;
+
+            if (Schema::hasColumn('customer', 'user_type')) {
+                $customer->user_type = $isBusiness ? 'business' : 'basic';
+            }
+            if ($phone && Schema::hasColumn('customer', 'phone')) {
+                $customer->phone = $phone;
+            }
+            if (request()->country && Schema::hasColumn('customer', 'country')) {
+                $customer->country = request()->country;
+            }
+            if (request()->city && Schema::hasColumn('customer', 'city')) {
+                $customer->city = request()->city;
+            }
+            if ($isBusiness && Schema::hasColumn('customer', 'business_category')) {
+                $customer->business_category = request()->business_category;
+            }
+
+            if ($verification->isEmailVerified($email)) {
+                $customer->email_verified_at = now();
+            }
+            if ($phone && $verification->isPhoneVerified($phone) && Schema::hasColumn('customer', 'phone_verified_at')) {
+                $customer->phone_verified_at = now();
+            }
+
             $customer->save();
 
-            // Process referral if provided
+            if ($isBusiness) {
+                $businessName = request()->business_name;
+                $slug = Str::slug($businessName);
+                $baseSlug = $slug;
+                $counter = 1;
+                while (CustomerBusiness::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter++;
+                }
+
+                $categoryId = null;
+                $categorySlug = request()->business_category;
+                if ($categorySlug) {
+                    $category = Category::where('slug', $categorySlug)->first();
+                    $categoryId = $category?->category_id;
+                }
+
+                $address = trim(request()->city . ', ' . request()->country);
+
+                CustomerBusiness::create([
+                    'customer_id' => $customer->customer_id,
+                    'slug' => $slug,
+                    'business_name' => $businessName,
+                    'business_phone_number' => $phone ?? '',
+                    'business_address' => $address,
+                    'business_email' => $email,
+                    'business_owner' => request()->first_name . ' ' . request()->last_name,
+                    'business_company_registration' => request()->company_registration_number,
+                    'business_company_no' => request()->company_registration_number,
+                    'business_company_name' => $businessName,
+                    'personal_email' => $email,
+                    'personal_phone_number' => $phone,
+                    'category_id' => $categoryId,
+                    'business_category_slug' => $categorySlug,
+                    'vat_number' => request()->vat_number,
+                    'status' => 'active',
+                ]);
+            }
+
             $userReferral = ReferralService::processRegistrationReferral($customer, request()->referral_code);
 
             DB::commit();
@@ -720,9 +817,13 @@ class AuthController extends APIController
 
         $responseData = [
             'customer' => $customer,
+            'user_type' => $isBusiness ? 'business' : 'basic',
         ];
 
-        // Add referral info if processed
+        if ($isBusiness) {
+            $responseData['business'] = CustomerBusiness::where('customer_id', $customer->customer_id)->first();
+        }
+
         if ($userReferral) {
             $responseData['referral'] = [
                 'welcome_discount' => $userReferral->getReferredDiscountInfo(),

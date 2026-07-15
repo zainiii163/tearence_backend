@@ -14,6 +14,8 @@ use App\Http\Controllers\AnalyticsController;
 
 use App\Http\Controllers\AuthController;
 
+use App\Http\Controllers\Api\VerificationController;
+
 use App\Http\Controllers\ListingUpsellController;
 
 use App\Http\Controllers\Api\ServiceController;
@@ -279,6 +281,15 @@ Route::group([
 
         // Route::post('/validate-otp', [AuthController::class, 'validateOtp']);
 
+    });
+
+    // Email / phone / company verification (anti-scam signup & post forms)
+    Route::prefix('verification')->group(function () {
+        Route::post('/email/send', [VerificationController::class, 'sendEmailOtp']);
+        Route::post('/email/verify', [VerificationController::class, 'verifyEmailOtp']);
+        Route::post('/phone/send', [VerificationController::class, 'sendPhoneOtp']);
+        Route::post('/phone/verify', [VerificationController::class, 'verifyPhoneOtp']);
+        Route::post('/company/check', [VerificationController::class, 'checkCompany']);
     });
 
     // Health check endpoint

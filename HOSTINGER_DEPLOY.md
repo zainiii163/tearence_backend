@@ -102,7 +102,44 @@ php artisan db:seed --class=ClientStockImagesSeeder --force
 
 This copies the bundled images into `storage/app/public/images/client-stock/` and creates verified, active listings.
 
-## 7. Verify
+## 7. Verification API (email/phone OTP, company checks)
+
+After deploy, add to `.env` on the server:
+
+```env
+VERIFICATION_OTP_DIGITS=6
+VERIFICATION_OTP_TTL=10
+VERIFICATION_VERIFIED_TTL=60
+VERIFICATION_RESEND_COOLDOWN=60
+COMPANIES_HOUSE_API_KEY=          # optional — UK Companies House live lookup
+TWILIO_SID=                       # optional — SMS OTP
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=
+```
+
+Run the verification migration (included in `php artisan migrate --force`):
+
+```bash
+php artisan migrate --path=database/migrations/2026_07_15_000001_add_verification_and_business_fields_to_customer.php --force
+php artisan config:cache
+php artisan route:cache
+```
+
+Test endpoints:
+
+```bash
+curl -X POST https://api.worldwideadverts.info/api/v1/verification/email/send \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com"}'
+```
+
+Expected: `200` with `"Verification code sent"`. `404` means route cache or code not deployed.
+
+- Email OTP uses existing SMTP settings
+- SMS logs codes to `storage/logs/laravel.log` until Twilio is configured
+- Business signup: `POST /api/v1/auth/register` with `user_type: business`
+
+## 8. Verify
 
 ```bash
 curl https://api.worldwideadverts.info/api/v1/health
