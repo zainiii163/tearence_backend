@@ -60,11 +60,11 @@ class ServiceController extends Controller
 
             // Filter by promotion type
             if ($request->promotion_type) {
-                if ($request->promotion_type === 'promoted') {
-                    $query->promoted();
-                } elseif ($request->promotion_type === 'featured') {
-                    $query->featured();
-                }
+                $query->where('promotion_type', $request->promotion_type);
+            }
+
+            if ($request->city) {
+                $query->where('city', 'like', '%' . $request->city . '%');
             }
 
             // Sorting

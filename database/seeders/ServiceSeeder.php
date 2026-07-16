@@ -11,20 +11,16 @@ class ServiceSeeder extends Seeder
 {
     public function run()
     {
-        // Create Service Categories
-        $categories = [
-            ['name' => 'Web Development', 'slug' => 'web-development', 'description' => 'Custom websites, web applications, and e-commerce solutions', 'icon' => 'code', 'sort_order' => 1],
-            ['name' => 'Mobile Development', 'slug' => 'mobile-development', 'description' => 'iOS and Android app development', 'icon' => 'mobile', 'sort_order' => 2],
-            ['name' => 'Digital Marketing', 'slug' => 'digital-marketing', 'description' => 'SEO, social media, and online advertising', 'icon' => 'chart-line', 'sort_order' => 3],
-            ['name' => 'Content Creation', 'slug' => 'content-creation', 'description' => 'Writing, design, and multimedia content', 'icon' => 'pen', 'sort_order' => 4],
-            ['name' => 'Consulting', 'slug' => 'consulting', 'description' => 'Business and technical consulting services', 'icon' => 'briefcase', 'sort_order' => 5],
-        ];
+        // Categories come from ServiceCategorySeeder (IT-only). Do not insert duplicates here.
+        $webId = DB::table('service_categories')->where('slug', 'web-development')->value('id');
+        $appId = DB::table('service_categories')->where('slug', 'app-software')->value('id')
+            ?: DB::table('service_categories')->where('slug', 'web-development')->value('id');
+        $marketingId = DB::table('service_categories')->where('slug', 'digital-marketing')->value('id')
+            ?: DB::table('service_categories')->where('slug', 'web-development')->value('id');
 
-        foreach ($categories as $category) {
-            DB::table('service_categories')->insert(array_merge($category, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+        if (!$webId) {
+            $this->command?->warn('ServiceSeeder skipped: run ServiceCategorySeeder first.');
+            return;
         }
 
         // Create Service Providers
@@ -46,7 +42,7 @@ class ServiceSeeder extends Seeder
             [
                 'user_id' => 2,
                 'service_provider_id' => 1,
-                'category_id' => 1,
+                'category_id' => $webId,
                 'title' => 'Custom Website Development',
                 'slug' => 'custom-website-development',
                 'tagline' => 'Professional websites tailored to your needs',
@@ -65,7 +61,7 @@ class ServiceSeeder extends Seeder
             [
                 'user_id' => 3,
                 'service_provider_id' => 2,
-                'category_id' => 2,
+                'category_id' => $appId,
                 'title' => 'iOS App Development',
                 'slug' => 'ios-app-development',
                 'tagline' => 'Native iOS apps for iPhone and iPad',
@@ -84,7 +80,7 @@ class ServiceSeeder extends Seeder
             [
                 'user_id' => 4,
                 'service_provider_id' => 3,
-                'category_id' => 3,
+                'category_id' => $marketingId,
                 'title' => 'SEO Optimization',
                 'slug' => 'seo-optimization',
                 'tagline' => 'Improve your search engine rankings',
