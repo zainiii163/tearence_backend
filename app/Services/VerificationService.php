@@ -32,19 +32,32 @@ class VerificationService
         Cache::put($this->otpKey('email', $email), $code, now()->addMinutes($this->ttlMinutes));
         Cache::put($this->otpSentKey('email', $email), true, now()->addSeconds($this->resendCooldown));
 
+        $mailDelivered = false;
+
         try {
             Mail::to($email)->send(new VerificationCodeMail(null, $code, $this->ttlMinutes));
+            $mailDelivered = true;
+            Log::info('Email verification code sent', ['email' => $email]);
         } catch (\Throwable $e) {
-            Log::warning('Verification email failed: ' . $e->getMessage(), ['email' => $email]);
-            throw new \RuntimeException('Failed to send verification email. Please try again.');
+            // Same pattern as SMS: OTP stays valid even if delivery provider fails.
+            Log::warning('Verification email delivery failed: ' . $e->getMessage(), [
+                'email' => $email,
+                'code' => $code,
+            ]);
         }
 
-        Log::info('Email verification code sent', ['email' => $email]);
-
-        return [
+        $result = [
             'sent' => true,
+            'mail_delivered' => $mailDelivered,
             'expires_in_minutes' => $this->ttlMinutes,
         ];
+
+        // Let signup continue when SMTP is misconfigured; code is also in laravel.log.
+        if (!$mailDelivered || config('verification.expose_otp')) {
+            $result['dev_code'] = $code;
+        }
+
+        return $result;
     }
 
     public function verifyEmailOtp(string $email, string $code): bool

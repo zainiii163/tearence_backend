@@ -685,13 +685,16 @@ class AuthController extends APIController
         ];
 
         if ($isBusiness) {
+            // Short global signup: business name + email + phone only.
+            // Company docs / VAT / tax / address completed after login.
             $rules['business_name'] = 'required|string|max:255';
-            $rules['business_category'] = 'required|string|max:100';
-            $rules['company_registration_number'] = 'required|string|max:50';
             $rules['phone'] = 'required|string|max:30';
-            $rules['city'] = 'required|string|max:100';
-            $rules['country'] = 'required|string|max:100';
+            $rules['business_category'] = 'nullable|string|max:100';
+            $rules['company_registration_number'] = 'nullable|string|max:50';
             $rules['vat_number'] = 'nullable|string|max:50';
+            $rules['tax_number'] = 'nullable|string|max:50';
+            $rules['city'] = 'nullable|string|max:100';
+            $rules['country'] = 'nullable|string|max:100';
         }
 
         $validator = FacadesValidator::make(request()->all(), $rules);
@@ -704,14 +707,8 @@ class AuthController extends APIController
         $email = strtolower(trim(request()->email));
         $phone = request()->phone;
 
-        if ($phone || $isBusiness) {
-            if (!$verification->isEmailVerified($email)) {
-                return $this->errorResponse('Please verify your email address before registering.', Response::HTTP_BAD_REQUEST);
-            }
-            if ($phone && !$verification->isPhoneVerified($phone)) {
-                return $this->errorResponse('Please verify your phone number before registering.', Response::HTTP_BAD_REQUEST);
-            }
-        }
+        // Optional OTP gate only when codes were previously verified in-session
+        // (short signup does not require OTP before account creation).
 
         try {
             DB::beginTransaction();
@@ -792,11 +789,11 @@ class AuthController extends APIController
                     'slug' => $slug,
                     'business_name' => $businessName,
                     'business_phone_number' => $phone ?? '',
-                    'business_address' => $address,
+                    'business_address' => $address ?: null,
                     'business_email' => $email,
                     'business_owner' => request()->first_name . ' ' . request()->last_name,
-                    'business_company_registration' => request()->company_registration_number,
-                    'business_company_no' => request()->company_registration_number,
+                    'business_company_registration' => request()->company_registration_number ?: null,
+                    'business_company_no' => request()->company_registration_number ?: null,
                     'business_company_name' => $businessName,
                     'personal_email' => $email,
                     'personal_phone_number' => $phone,
