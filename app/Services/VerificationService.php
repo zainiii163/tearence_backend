@@ -84,14 +84,24 @@ class VerificationService
         Cache::put($this->otpKey('phone', $normalized), $code, now()->addMinutes($this->ttlMinutes));
         Cache::put($this->otpSentKey('phone', $normalized), true, now()->addSeconds($this->resendCooldown));
 
-        $this->dispatchSms($normalized, $code, $country);
+        $smsDelivered = $this->dispatchSms($normalized, $code, $country);
 
-        Log::info('Phone verification code sent', ['phone' => $normalized]);
+        Log::info('Phone verification code sent', [
+            'phone' => $normalized,
+            'sms_delivered' => $smsDelivered,
+        ]);
 
-        return [
+        $result = [
             'sent' => true,
+            'sms_delivered' => $smsDelivered,
             'expires_in_minutes' => $this->ttlMinutes,
         ];
+
+        if (!$smsDelivered || config('verification.expose_otp')) {
+            $result['dev_code'] = $code;
+        }
+
+        return $result;
     }
 
     public function verifyPhoneOtp(string $phone, string $code): bool
@@ -230,7 +240,7 @@ class VerificationService
         }
     }
 
-    protected function dispatchSms(string $phone, string $code, string $country): void
+    protected function dispatchSms(string $phone, string $code, string $country): bool
     {
         $sid = config('verification.twilio.sid');
         $token = config('verification.twilio.token');
@@ -240,24 +250,35 @@ class VerificationService
 
         if ($sid && $token && $from) {
             try {
-                Http::withBasicAuth($sid, $token)
+                $response = Http::withBasicAuth($sid, $token)
                     ->asForm()
                     ->post("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json", [
                         'From' => $from,
-                        'To' => $phone,
+                        'To' => (str_starts_with($phone, '+') ? $phone : '+' . $phone),
                         'Body' => $message,
                     ]);
-                return;
+
+                if ($response->successful()) {
+                    return true;
+                }
+
+                Log::warning('Twilio SMS rejected', [
+                    'phone' => $phone,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
             } catch (\Throwable $e) {
                 Log::warning('Twilio SMS failed: ' . $e->getMessage(), ['phone' => $phone]);
             }
         }
 
-        Log::info('SMS verification code (Twilio not configured)', [
+        Log::info('SMS verification code (provider unavailable)', [
             'phone' => $phone,
             'country' => $country,
             'code' => $code,
         ]);
+
+        return false;
     }
 
     protected function generateCode(): string

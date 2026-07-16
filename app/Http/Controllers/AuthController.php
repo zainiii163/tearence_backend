@@ -707,8 +707,13 @@ class AuthController extends APIController
         $email = strtolower(trim(request()->email));
         $phone = request()->phone;
 
-        // Optional OTP gate only when codes were previously verified in-session
-        // (short signup does not require OTP before account creation).
+        // Clive: email OTP required on signup; phone verified later when posting.
+        if (!$verification->isEmailVerified($email)) {
+            return $this->errorResponse(
+                'Please verify your email address before registering.',
+                Response::HTTP_BAD_REQUEST
+            );
+        }
 
         try {
             DB::beginTransaction();

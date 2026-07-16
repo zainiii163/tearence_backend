@@ -80,7 +80,10 @@ class VerificationController extends APIController
 
         try {
             $result = $this->verification->sendPhoneOtp($request->phone, $request->country ?? '');
-            return $this->successResponse($result, 'Verification code sent to your phone.');
+            $message = !empty($result['sms_delivered'])
+                ? 'Verification code sent to your phone.'
+                : 'Verification code ready. Check the on-screen code if SMS delivery is unavailable.';
+            return $this->successResponse($result, $message);
         } catch (\RuntimeException $e) {
             return $this->errorResponse($e->getMessage(), Response::HTTP_TOO_MANY_REQUESTS);
         } catch (\Throwable $e) {
