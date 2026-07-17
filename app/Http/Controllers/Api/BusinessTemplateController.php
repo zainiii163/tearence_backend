@@ -7,6 +7,8 @@ use App\Models\BusinessTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class BusinessTemplateController extends Controller
@@ -16,45 +18,66 @@ class BusinessTemplateController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = BusinessTemplate::query()->active();
-
-        if ($request->filled('vertical')) {
-            $query->where('vertical', $request->vertical);
-        }
-
-        if ($request->filled('category_slug')) {
-            $slug = $request->category_slug;
-            // Prefer exact category packs; include default only when no exact rows exist
-            $exact = (clone $query)->where('category_slug', $slug);
-            if ($exact->exists()) {
-                $query->where('category_slug', $slug);
-            } else {
-                $query->where('category_slug', 'default');
+        try {
+            if (!Schema::hasTable('business_templates')) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'data' => [],
+                        'total' => 0,
+                    ],
+                    'message' => 'Run BusinessTemplateSeeder after migrate.',
+                ]);
             }
+
+            $query = BusinessTemplate::query()->active();
+
+            if ($request->filled('vertical')) {
+                $query->where('vertical', $request->vertical);
+            }
+
+            if ($request->filled('category_slug')) {
+                $slug = $request->category_slug;
+                $hasExact = BusinessTemplate::query()
+                    ->active()
+                    ->where('vertical', $request->vertical)
+                    ->where('category_slug', $slug)
+                    ->exists();
+
+                $query->where('category_slug', $hasExact ? $slug : 'default');
+            }
+
+            if ($request->filled('search')) {
+                $term = $request->search;
+                $query->where(function ($q) use ($term) {
+                    $q->where('title', 'like', "%{$term}%")
+                        ->orWhere('blurb', 'like', "%{$term}%")
+                        ->orWhere('template_type', 'like', "%{$term}%");
+                });
+            }
+
+            if ($request->filled('template_type')) {
+                $query->where('template_type', $request->template_type);
+            }
+
+            $query->orderBy('sort_order')->orderByDesc('created_at');
+
+            $perPage = min((int) ($request->per_page ?? 12), 50);
+            $items = $query->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $items,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('BusinessTemplate index failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load templates.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        if ($request->filled('search')) {
-            $term = $request->search;
-            $query->where(function ($q) use ($term) {
-                $q->where('title', 'like', "%{$term}%")
-                    ->orWhere('blurb', 'like', "%{$term}%")
-                    ->orWhere('template_type', 'like', "%{$term}%");
-            });
-        }
-
-        if ($request->filled('template_type')) {
-            $query->where('template_type', $request->template_type);
-        }
-
-        $query->orderBy('sort_order')->orderByDesc('created_at');
-
-        $perPage = min((int) ($request->per_page ?? 12), 50);
-        $items = $query->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'data' => $items,
-        ]);
     }
 
     /**
@@ -62,62 +85,94 @@ class BusinessTemplateController extends Controller
      */
     public function browse(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'vertical' => 'required|string|max:50',
-            'category_slug' => 'nullable|string|max:100',
-        ]);
+        $empty = [
+            'headline' => null,
+            'description' => null,
+            'items' => [],
+        ];
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first(),
-            ], 422);
-        }
+        try {
+            $validator = Validator::make($request->all(), [
+                'vertical' => 'required|string|max:50',
+                'category_slug' => 'nullable|string|max:100',
+            ]);
 
-        $vertical = $request->vertical;
-        $categorySlug = $request->category_slug ?: 'default';
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                ], 422);
+            }
 
-        $base = BusinessTemplate::query()->active()->where('vertical', $vertical);
+            if (!Schema::hasTable('business_templates')) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $empty,
+                    'message' => 'Templates table missing — run migrate and BusinessTemplateSeeder.',
+                ]);
+            }
 
-        $exact = (clone $base)->where('category_slug', $categorySlug)->orderBy('sort_order')->limit(6)->get();
-        $items = $exact->isNotEmpty()
-            ? $exact
-            : (clone $base)->where('category_slug', 'default')->orderBy('sort_order')->limit(6)->get();
+            $vertical = $request->vertical;
+            $categorySlug = $request->category_slug ?: 'default';
 
-        if ($items->isEmpty()) {
+            $exact = BusinessTemplate::query()
+                ->active()
+                ->where('vertical', $vertical)
+                ->where('category_slug', $categorySlug)
+                ->orderBy('sort_order')
+                ->limit(6)
+                ->get();
+
+            $items = $exact->isNotEmpty()
+                ? $exact
+                : BusinessTemplate::query()
+                    ->active()
+                    ->where('vertical', $vertical)
+                    ->where('category_slug', 'default')
+                    ->orderBy('sort_order')
+                    ->limit(6)
+                    ->get();
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $empty,
+                ]);
+            }
+
+            $first = $items->first();
+
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'headline' => null,
-                    'description' => null,
-                    'items' => [],
+                    'headline' => $first->headline,
+                    'description' => $first->section_description,
+                    'category_slug' => $first->category_slug,
+                    'vertical' => $vertical,
+                    'items' => $items->take(3)->map(fn (BusinessTemplate $t) => [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'slug' => $t->slug,
+                        'blurb' => $t->blurb,
+                        'price' => $t->display_price,
+                        'price_amount' => (float) $t->price,
+                        'currency' => $t->currency,
+                        'template_type' => $t->template_type,
+                        'preview_image' => $t->preview_image,
+                        'file_url' => $t->file_url,
+                    ])->values(),
                 ],
             ]);
+        } catch (\Throwable $e) {
+            Log::error('BusinessTemplate browse failed: '.$e->getMessage());
+
+            // Soft-fail so frontend static packs still show
+            return response()->json([
+                'success' => true,
+                'data' => $empty,
+                'warning' => config('app.debug') ? $e->getMessage() : 'Catalog unavailable',
+            ]);
         }
-
-        $first = $items->first();
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'headline' => $first->headline,
-                'description' => $first->section_description,
-                'category_slug' => $items->first()->category_slug,
-                'vertical' => $vertical,
-                'items' => $items->take(3)->map(fn (BusinessTemplate $t) => [
-                    'id' => $t->id,
-                    'title' => $t->title,
-                    'slug' => $t->slug,
-                    'blurb' => $t->blurb,
-                    'price' => $t->display_price,
-                    'price_amount' => (float) $t->price,
-                    'currency' => $t->currency,
-                    'template_type' => $t->template_type,
-                    'preview_image' => $t->preview_image,
-                    'file_url' => $t->file_url,
-                ])->values(),
-            ],
-        ]);
     }
 
     public function show(string $slug): JsonResponse
