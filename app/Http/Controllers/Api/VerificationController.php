@@ -26,10 +26,7 @@ class VerificationController extends APIController
 
         try {
             $result = $this->verification->sendEmailOtp($request->email);
-            $message = !empty($result['mail_delivered'])
-                ? 'Verification code sent to your email.'
-                : 'Verification code ready. Check the on-screen code if email delivery is unavailable.';
-            return $this->successResponse($result, $message);
+            return $this->successResponse($result, 'Verification code sent to your email.');
         } catch (\RuntimeException $e) {
             return $this->errorResponse($e->getMessage(), Response::HTTP_TOO_MANY_REQUESTS);
         } catch (\Throwable $e) {
@@ -80,10 +77,7 @@ class VerificationController extends APIController
 
         try {
             $result = $this->verification->sendPhoneOtp($request->phone, $request->country ?? '');
-            $message = !empty($result['sms_delivered'])
-                ? 'Verification code sent to your phone.'
-                : 'Verification code ready. Check the on-screen code if SMS delivery is unavailable.';
-            return $this->successResponse($result, $message);
+            return $this->successResponse($result, 'Verification code sent to your phone.');
         } catch (\RuntimeException $e) {
             return $this->errorResponse($e->getMessage(), Response::HTTP_TOO_MANY_REQUESTS);
         } catch (\Throwable $e) {

@@ -38,6 +38,9 @@ class DatabaseSeeder extends Seeder
             // Services Marketplace System
             ServiceCategorySeeder::class,
             ServiceSeeder::class,
+
+            // Business document templates (pitch, grant, plans)
+            BusinessTemplateSeeder::class,
             
             // Sponsored Adverts System
             SponsoredCategorySeeder::class,

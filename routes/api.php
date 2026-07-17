@@ -162,6 +162,8 @@ use App\Http\Controllers\Api\BuySellController;
 
 use App\Http\Controllers\Api\BuySellUploadController;
 
+use App\Http\Controllers\Api\BusinessTemplateController;
+
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
 
 use App\Http\Controllers\Api\PromotedAdvertController;
@@ -2197,6 +2199,20 @@ Route::group([
     });
 
 
+
+    // Business templates for sale (pitch decks, grants, plans)
+    Route::group(['prefix' => 'business-templates'], function () {
+        Route::get('/', [BusinessTemplateController::class, 'index']);
+        Route::get('/browse', [BusinessTemplateController::class, 'browse']);
+        Route::get('/my-templates', [BusinessTemplateController::class, 'myTemplates'])->middleware('jwt.auth');
+        Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
+
+        Route::middleware('jwt.auth')->group(function () {
+            Route::post('/', [BusinessTemplateController::class, 'store']);
+            Route::put('/{id}', [BusinessTemplateController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [BusinessTemplateController::class, 'destroy'])->whereNumber('id');
+        });
+    });
 
     // Buy & Sell Marketplace System
 
