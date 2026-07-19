@@ -1204,6 +1204,8 @@ Route::group([
 
         Route::get('/trending', [ServiceAnalyticsController::class, 'getTrendingServices']);
 
+        Route::get('/search', [ServiceController::class, 'index']);
+
     });
 
 

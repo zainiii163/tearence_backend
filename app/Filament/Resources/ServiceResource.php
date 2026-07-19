@@ -37,7 +37,16 @@ class ServiceResource extends Resource
                             ->preload()
                             ->required(),
                         Forms\Components\Select::make('category_id')
-                            ->relationship('category', 'name')
+                            ->label('Subcategory')
+                            ->options(fn () => ServiceCategory::query()
+                                ->leaves()
+                                ->active()
+                                ->with('parent')
+                                ->orderBy('sort_order')
+                                ->get()
+                                ->mapWithKeys(fn (ServiceCategory $cat) => [
+                                    $cat->id => ($cat->parent?->name ? $cat->parent->name.' → ' : '').$cat->name,
+                                ]))
                             ->searchable()
                             ->preload()
                             ->required(),

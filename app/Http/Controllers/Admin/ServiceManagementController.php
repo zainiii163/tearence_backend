@@ -171,7 +171,8 @@ class ServiceManagementController extends Controller
     // Categories Management
     public function categoriesIndex(): JsonResponse
     {
-        $categories = ServiceCategory::withCount('services')
+        $categories = ServiceCategory::with(['parent'])
+            ->withCount(['services', 'children'])
             ->orderBy('sort_order')
             ->get();
 
@@ -181,6 +182,7 @@ class ServiceManagementController extends Controller
     public function categoriesStore(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'parent_id' => 'nullable|exists:service_categories,id',
             'name' => 'required|string|max:255|unique:service_categories',
             'slug' => 'nullable|string|max:255|unique:service_categories',
             'description' => 'nullable|string',

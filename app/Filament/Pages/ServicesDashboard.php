@@ -30,14 +30,16 @@ class ServicesDashboard extends Page
                 'total_services' => Service::count(),
                 'active_services' => Service::where('status', 'active')->count(),
                 'pending_services' => Service::where('status', 'pending')->count(),
-                'total_categories' => ServiceCategory::where('is_active', true)->count(),
+                'total_categories' => ServiceCategory::leaves()->where('is_active', true)->count(),
+                'total_groups' => ServiceCategory::groups()->where('is_active', true)->count(),
                 'promoted_services' => Service::whereNotNull('promotion_type')->count(),
                 'total_revenue' => ServicePromotion::sum('price'),
                 'recent_services' => Service::with(['user', 'category'])
                     ->latest()
                     ->take(5)
                     ->get(),
-                'popular_categories' => ServiceCategory::withCount('services')
+                'popular_categories' => ServiceCategory::leaves()
+                    ->withCount('services')
                     ->orderBy('services_count', 'desc')
                     ->take(5)
                     ->get(),

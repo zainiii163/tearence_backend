@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ServiceCategory extends Model
@@ -13,6 +14,7 @@ class ServiceCategory extends Model
     protected $table = 'service_categories';
 
     protected $fillable = [
+        'parent_id',
         'name',
         'slug',
         'description',
@@ -24,7 +26,23 @@ class ServiceCategory extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
+        'parent_id' => 'integer',
     ];
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order');
+    }
+
+    public function activeChildren(): HasMany
+    {
+        return $this->children()->where('is_active', true);
+    }
 
     public function services(): HasMany
     {
@@ -39,5 +57,30 @@ class ServiceCategory extends Model
     public function getActiveServicesCountAttribute(): int
     {
         return $this->activeServices()->count();
+    }
+
+    public function isGroup(): bool
+    {
+        return $this->parent_id === null;
+    }
+
+    public function isLeaf(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    public function scopeGroups($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    public function scopeLeaves($query)
+    {
+        return $query->whereNotNull('parent_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }

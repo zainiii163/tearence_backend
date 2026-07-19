@@ -28,7 +28,20 @@ class UpdateServiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'category_id' => 'sometimes|required|exists:service_categories,id',
+            'category_id' => [
+                'sometimes',
+                'required',
+                'exists:service_categories,id',
+                function ($attribute, $value, $fail) {
+                    $category = \App\Models\ServiceCategory::find($value);
+                    if (! $category || $category->parent_id === null) {
+                        $fail('Please select a subcategory, not a top-level group.');
+                    }
+                    if ($category && ! $category->is_active) {
+                        $fail('The selected category is not available.');
+                    }
+                },
+            ],
             'title' => 'sometimes|required|string|max:255',
             'tagline' => 'nullable|string|max:80',
             'description' => 'sometimes|required|string|min:50',

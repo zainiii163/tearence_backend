@@ -35,6 +35,29 @@ class ServiceController extends Controller
                 $query->byCategory($request->category_id);
             }
 
+            // Filter by top-level group slug (all subcategories in group)
+            if ($request->group_slug) {
+                $group = ServiceCategory::where('slug', $request->group_slug)
+                    ->whereNull('parent_id')
+                    ->first();
+                if ($group) {
+                    $childIds = ServiceCategory::where('parent_id', $group->id)
+                        ->where('is_active', true)
+                        ->pluck('id');
+                    $query->whereIn('category_id', $childIds);
+                }
+            }
+
+            // Filter by subcategory slug
+            if ($request->category_slug) {
+                $category = ServiceCategory::where('slug', $request->category_slug)
+                    ->whereNotNull('parent_id')
+                    ->first();
+                if ($category) {
+                    $query->where('category_id', $category->id);
+                }
+            }
+
             // Filter by country
             if ($request->country) {
                 $query->byCountry($request->country);
@@ -355,23 +378,61 @@ class ServiceController extends Controller
 
     public function getCategories(): JsonResponse
     {
-        $categories = ServiceCategory::where('is_active', true)
+        $groups = ServiceCategory::query()
+            ->groups()
+            ->active()
+            ->with(['activeChildren'])
+            ->orderBy('sort_order')
+            ->get();
+
+        $formattedGroups = $groups->map(function (ServiceCategory $group) {
+            return [
+                'id' => $group->id,
+                'slug' => $group->slug,
+                'name' => $group->name,
+                'description' => $group->description,
+                'icon' => $group->icon,
+                'sort_order' => $group->sort_order,
+                'subcategories' => $group->activeChildren->map(fn (ServiceCategory $cat) => $this->formatCategory($cat))->values(),
+            ];
+        })->values();
+
+        $flat = ServiceCategory::query()
+            ->leaves()
+            ->active()
+            ->with('parent')
             ->orderBy('sort_order')
             ->get()
-            ->map(fn (ServiceCategory $category) => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-                'description' => $category->description,
-                'icon' => $category->icon,
-                'sort_order' => $category->sort_order,
-                'label' => $category->name,
-            ]);
+            ->map(fn (ServiceCategory $category) => array_merge(
+                $this->formatCategory($category),
+                [
+                    'group_id' => $category->parent?->id,
+                    'group_slug' => $category->parent?->slug,
+                    'group_name' => $category->parent?->name,
+                ]
+            ))
+            ->values();
 
         return response()->json([
             'success' => true,
-            'data' => $categories,
+            'data' => $flat,
+            'groups' => $formattedGroups,
         ]);
+    }
+
+    private function formatCategory(ServiceCategory $category): array
+    {
+        return [
+            'id' => $category->id,
+            'parent_id' => $category->parent_id,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'description' => $category->description,
+            'icon' => $category->icon,
+            'sort_order' => $category->sort_order,
+            'label' => $category->name,
+            'is_active' => $category->is_active,
+        ];
     }
 
     public function getFormSchema(): JsonResponse
