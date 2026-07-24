@@ -134,10 +134,22 @@ class AuthController extends APIController
             return $this->errorResponse('There was a problem logging in. Check your email and password or create an account.', Response::HTTP_UNAUTHORIZED);
         }
 
+        $authed = auth('api')->user();
+        if ($authed && $authed->two_factor_confirmed_at) {
+            auth('api')->logout();
+            $pending = \App\Http\Controllers\Api\TwoFactorController::createPendingLogin($authed);
+
+            return $this->successResponse([
+                'requires_2fa' => true,
+                'pending_token' => $pending,
+            ], 'Two-factor authentication required', Response::HTTP_OK);
+        }
+
         $response = [
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60
+            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'requires_2fa' => false,
         ];
 
         return $this->successResponse($response, 'Login success', Response::HTTP_OK);
@@ -164,6 +176,20 @@ class AuthController extends APIController
 
             $user = auth('api')->user();
 
+            if ($user && $user->two_factor_confirmed_at) {
+                auth('api')->logout();
+                $pending = \App\Http\Controllers\Api\TwoFactorController::createPendingLogin($user);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Two-factor authentication required',
+                    'data' => [
+                        'requires_2fa' => true,
+                        'pending_token' => $pending,
+                    ],
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
@@ -171,6 +197,7 @@ class AuthController extends APIController
                     'access_token' => $token,
                     'token_type' => 'bearer',
                     'expires_in' => auth('api')->factory()->getTTL() * 60,
+                    'requires_2fa' => false,
                     'user' => [
                         'id' => $user->customer_id,
                         'name' => $user->first_name . ' ' . $user->last_name,
@@ -178,6 +205,7 @@ class AuthController extends APIController
                         'first_name' => $user->first_name,
                         'last_name' => $user->last_name,
                         'user_type' => $user->user_type ?? 'basic',
+                        'two_factor_enabled' => false,
                     ]
                 ]
             ]);

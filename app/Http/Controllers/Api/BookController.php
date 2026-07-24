@@ -245,11 +245,17 @@ class BookController extends Controller
             return response()->json(['message' => 'You have already purchased this book'], 400);
         }
 
-        // Create purchase record
+        $pricePaid = $book->price ?? 0;
+        $fee = \App\Helpers\PlatformFeeHelper::split($pricePaid);
+
+        // Create purchase record (platform takes configured % of every sale)
         $purchase = BookPurchase::create([
             'listing_id' => $id,
-            'customer_id' => auth('customer')->id(),
-            'price_paid' => $book->price ?? 0,
+            'customer_id' => auth('customer')->id() ?? auth('api')->id(),
+            'price_paid' => $pricePaid,
+            'fee_percent' => $fee['fee_percent'],
+            'platform_fee' => $fee['platform_fee'],
+            'seller_amount' => $fee['seller_amount'],
             'payment_method' => $request->payment_method,
             'payment_status' => 'pending',
             'ip_address' => $request->ip(),

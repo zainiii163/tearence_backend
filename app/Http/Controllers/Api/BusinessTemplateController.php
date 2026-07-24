@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessTemplate;
+use App\Models\TemplatePurchase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BusinessTemplateController extends Controller
 {
@@ -120,7 +124,7 @@ class BusinessTemplateController extends Controller
                 ->where('vertical', $vertical)
                 ->where('category_slug', $categorySlug)
                 ->orderBy('sort_order')
-                ->limit(6)
+                ->limit(12)
                 ->get();
 
             $items = $exact->isNotEmpty()
@@ -130,7 +134,7 @@ class BusinessTemplateController extends Controller
                     ->where('vertical', $vertical)
                     ->where('category_slug', 'default')
                     ->orderBy('sort_order')
-                    ->limit(6)
+                    ->limit(12)
                     ->get();
 
             if ($items->isEmpty()) {
@@ -149,7 +153,7 @@ class BusinessTemplateController extends Controller
                     'description' => $first->section_description,
                     'category_slug' => $first->category_slug,
                     'vertical' => $vertical,
-                    'items' => $items->take(3)->map(fn (BusinessTemplate $t) => [
+                    'items' => $items->take(8)->map(fn (BusinessTemplate $t) => [
                         'id' => $t->id,
                         'title' => $t->title,
                         'slug' => $t->slug,
@@ -316,5 +320,185 @@ class BusinessTemplateController extends Controller
             'success' => true,
             'message' => 'Template deleted.',
         ]);
+    }
+
+    /**
+     * Buy a template (catalog or seller listing). Platform fee applied.
+     * Payment gateway hook: mark completed after Stripe/PayPal success — demo completes immediately.
+     */
+    public function purchase(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'template_id' => 'nullable|integer',
+            'slug' => 'nullable|string|max:255',
+            'payment_method' => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: template_purchases table missing.',
+            ], 503);
+        }
+
+        $customerId = Auth::id();
+        $template = null;
+
+        if ($request->filled('template_id')) {
+            $template = BusinessTemplate::active()->find($request->template_id);
+        } elseif ($request->filled('slug')) {
+            $template = BusinessTemplate::active()->where('slug', $request->slug)->first();
+        }
+
+        if (!$template && $request->filled('slug')) {
+            // Allow purchasing static catalog files by slug/path until seeded
+            $file = $request->input('file_url') ?: ('/templates/'.$request->slug.'.html');
+            $title = $request->input('title') ?: Str::title(str_replace('-', ' ', $request->slug));
+            $price = (float) ($request->input('price') ?? 19);
+            $fee = PlatformFeeHelper::split($price);
+
+            $purchase = TemplatePurchase::create([
+                'customer_id' => $customerId,
+                'business_template_id' => null,
+                'template_slug' => $request->slug,
+                'title' => $title,
+                'file_url' => $file,
+                'price_paid' => $price,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
+                'payment_method' => $request->payment_method ?: 'platform',
+                'payment_status' => 'pending',
+            ]);
+            $purchase->markCompleted($request->payment_method ?: 'platform');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Template purchased successfully.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'download_token' => $purchase->download_token,
+                    'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
+                    'expires_at' => $purchase->download_token_expires_at,
+                    'platform_fee' => $purchase->platform_fee,
+                    'fee_percent' => $purchase->fee_percent,
+                ],
+            ], 201);
+        }
+
+        if (!$template) {
+            return response()->json(['success' => false, 'message' => 'Template not found.'], 404);
+        }
+
+        $existing = TemplatePurchase::where('customer_id', $customerId)
+            ->where('business_template_id', $template->id)
+            ->where('payment_status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('download_token_expires_at')
+                    ->orWhere('download_token_expires_at', '>', now());
+            })
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already purchased.',
+                'data' => [
+                    'purchase_id' => $existing->id,
+                    'download_token' => $existing->download_token,
+                    'download_url' => url('/api/v1/business-templates/download/'.$existing->download_token),
+                    'expires_at' => $existing->download_token_expires_at,
+                ],
+            ]);
+        }
+
+        $price = (float) $template->price;
+        $fee = PlatformFeeHelper::split($price);
+
+        $purchase = TemplatePurchase::create([
+            'customer_id' => $customerId,
+            'business_template_id' => $template->id,
+            'template_slug' => $template->slug,
+            'title' => $template->title,
+            'file_url' => $template->file_url,
+            'price_paid' => $price,
+            'fee_percent' => $fee['fee_percent'],
+            'platform_fee' => $fee['platform_fee'],
+            'seller_amount' => $fee['seller_amount'],
+            'payment_method' => $request->payment_method ?: 'platform',
+            'payment_status' => 'pending',
+        ]);
+
+        // Hook Stripe/PayPal here — for now complete so buyers can download immediately.
+        $purchase->markCompleted($request->payment_method ?: 'platform');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Template purchased successfully.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'download_token' => $purchase->download_token,
+                'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
+                'expires_at' => $purchase->download_token_expires_at,
+                'platform_fee' => $purchase->platform_fee,
+                'fee_percent' => $purchase->fee_percent,
+            ],
+        ], 201);
+    }
+
+    public function myPurchases(Request $request): JsonResponse
+    {
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $items = TemplatePurchase::where('customer_id', Auth::id())
+            ->where('payment_status', 'completed')
+            ->orderByDesc('created_at')
+            ->paginate($request->per_page ?? 20);
+
+        return response()->json(['success' => true, 'data' => $items]);
+    }
+
+    public function download(string $token): BinaryFileResponse|JsonResponse|\Illuminate\Http\RedirectResponse
+    {
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json(['message' => 'Not available'], 404);
+        }
+
+        $purchase = TemplatePurchase::where('download_token', $token)->first();
+        if (!$purchase || !$purchase->isDownloadValid()) {
+            return response()->json(['message' => 'Invalid or expired download token'], 401);
+        }
+
+        $path = $purchase->file_url ?: optional($purchase->template)->file_url;
+        if (!$path) {
+            return response()->json(['message' => 'File not found'], 404);
+        }
+
+        // Absolute URL → redirect
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return redirect()->away($path);
+        }
+
+        $relative = ltrim(str_replace(['/templates/', 'templates/'], '', parse_url($path, PHP_URL_PATH) ?: $path), '/');
+        $candidates = [
+            public_path('templates/'.$relative),
+            public_path(ltrim($path, '/')),
+            storage_path('app/public/'.ltrim($path, '/')),
+        ];
+
+        foreach ($candidates as $file) {
+            if (is_file($file)) {
+                return response()->download($file, basename($file));
+            }
+        }
+
+        // Fallback: open under /templates/
+        return redirect()->away(url('/templates/'.basename($relative)));
     }
 }

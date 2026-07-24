@@ -35,6 +35,13 @@ class Kernel extends ConsoleKernel
                 ->at('09:00')
                 ->withoutOverlapping()
                 ->runInBackground();
+
+        // Remind users about expiring / ending promotions — daily 08:00
+        $schedule->command('ads:send-expiry-reminders')
+                ->daily()
+                ->at('08:00')
+                ->withoutOverlapping()
+                ->runInBackground();
     }
 
     /**

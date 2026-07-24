@@ -17,6 +17,9 @@ class ServiceOrder extends Model
         'package_id',
         'requirements',
         'total_price',
+        'fee_percent',
+        'platform_fee',
+        'seller_amount',
         'delivery_time',
         'status',
         'buyer_notes',
@@ -28,6 +31,9 @@ class ServiceOrder extends Model
 
     protected $casts = [
         'total_price' => 'decimal:2',
+        'fee_percent' => 'decimal:2',
+        'platform_fee' => 'decimal:2',
+        'seller_amount' => 'decimal:2',
         'refund_amount' => 'decimal:2',
         'requirements' => 'array',
         'completed_at' => 'datetime',

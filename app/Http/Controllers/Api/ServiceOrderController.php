@@ -73,6 +73,8 @@ class ServiceOrderController extends Controller
 
         DB::beginTransaction();
         try {
+            $fee = \App\Helpers\PlatformFeeHelper::split($totalPrice);
+
             $order = ServiceOrder::create([
                 'service_id' => $service->id,
                 'buyer_id' => Auth::id(),
@@ -80,6 +82,9 @@ class ServiceOrderController extends Controller
                 'package_id' => $request->package_id,
                 'requirements' => $request->requirements,
                 'total_price' => $totalPrice,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
                 'delivery_time' => $package->delivery_time ?? $service->delivery_time,
                 'status' => 'pending',
                 'buyer_notes' => $request->buyer_notes,

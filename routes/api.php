@@ -158,6 +158,12 @@ use App\Http\Controllers\Api\PropertyController;
 
 use App\Http\Controllers\Api\PropertyUpsellController;
 
+use App\Http\Controllers\Api\TwoFactorController;
+
+use App\Http\Controllers\Api\CustomerNotificationController;
+
+use App\Http\Controllers\Api\UserInsightsController;
+
 use App\Http\Controllers\Api\BuySellController;
 
 use App\Http\Controllers\Api\BuySellUploadController;
@@ -239,6 +245,11 @@ Route::group([
 
         Route::post('/change-password', [AuthController::class, 'changePassword']);
 
+        Route::get('/2fa/status', [TwoFactorController::class, 'status']);
+        Route::post('/2fa/setup', [TwoFactorController::class, 'setup']);
+        Route::post('/2fa/confirm', [TwoFactorController::class, 'confirm']);
+        Route::post('/2fa/disable', [TwoFactorController::class, 'disable']);
+
     });
 
 
@@ -256,6 +267,8 @@ Route::group([
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 
         Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+        Route::post('/2fa/verify-login', [TwoFactorController::class, 'verifyLogin']);
 
 
 
@@ -1037,6 +1050,20 @@ Route::group([
 
         Route::get('/admin', [DashboardController::class, 'adminDashboard']);
 
+        Route::get('/insights', UserInsightsController::class);
+
+    });
+
+    Route::group(['prefix' => 'notifications', 'middleware' => 'jwt.auth'], function () {
+        Route::get('/', [CustomerNotificationController::class, 'index']);
+        Route::get('/unread-count', [CustomerNotificationController::class, 'unreadCount']);
+        Route::get('/settings', [CustomerNotificationController::class, 'settings']);
+        Route::put('/settings', [CustomerNotificationController::class, 'updateSettings']);
+        Route::put('/mark-read', [CustomerNotificationController::class, 'markMultipleAsRead']);
+        Route::put('/mark-all-read', [CustomerNotificationController::class, 'markAllAsRead']);
+        Route::delete('/delete-all', [CustomerNotificationController::class, 'destroyAll']);
+        Route::put('/{id}/read', [CustomerNotificationController::class, 'markAsRead']);
+        Route::delete('/{id}', [CustomerNotificationController::class, 'destroy']);
     });
 
 
@@ -2206,7 +2233,10 @@ Route::group([
     Route::group(['prefix' => 'business-templates'], function () {
         Route::get('/', [BusinessTemplateController::class, 'index']);
         Route::get('/browse', [BusinessTemplateController::class, 'browse']);
+        Route::get('/download/{token}', [BusinessTemplateController::class, 'download']);
         Route::get('/my-templates', [BusinessTemplateController::class, 'myTemplates'])->middleware('jwt.auth');
+        Route::get('/my-purchases', [BusinessTemplateController::class, 'myPurchases'])->middleware('jwt.auth');
+        Route::post('/purchase', [BusinessTemplateController::class, 'purchase'])->middleware('jwt.auth');
         Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
 
         Route::middleware('jwt.auth')->group(function () {

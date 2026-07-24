@@ -45,6 +45,8 @@ class Customer extends Authenticatable implements JWTSubject
     protected $hidden = [
         'password_hash',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -54,6 +56,10 @@ class Customer extends Authenticatable implements JWTSubject
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'phone_verified_at' => 'datetime',
+        'two_factor_confirmed_at' => 'datetime',
+        'two_factor_recovery_codes' => 'array',
+        'notification_prefs' => 'array',
     ];
 
     /**
