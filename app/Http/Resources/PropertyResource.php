@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -98,13 +99,18 @@ class PropertyResource extends JsonResource
             'service_charges' => $this->service_charges,
             'maintenance_fees' => $this->maintenance_fees,
             
-            // Media
-            'cover_image' => $this->cover_image ? asset('storage/' . $this->cover_image) : null,
-            'additional_images' => $this->when($this->additional_images, function() {
-                return collect($this->additional_images)->map(function($image) {
-                    return asset('storage/' . $image);
-                })->toArray();
-            }),
+            // Media — MediaUrlHelper rewrites localhost and builds public URLs
+            'cover_image' => MediaUrlHelper::resolve($this->cover_image),
+            'cover_image_exists' => MediaUrlHelper::existsOnPublicDisk($this->cover_image),
+            'additional_images' => MediaUrlHelper::resolveMany(
+                is_array($this->additional_images) ? $this->additional_images : null
+            ),
+            'images' => MediaUrlHelper::resolveMany(
+                array_values(array_filter(array_merge(
+                    $this->cover_image ? [$this->cover_image] : [],
+                    is_array($this->additional_images) ? $this->additional_images : []
+                )))
+            ),
             'video_tour_link' => $this->video_tour_link,
             
             // Description
@@ -123,7 +129,7 @@ class PropertyResource extends JsonResource
             'seller_phone' => $this->seller_phone,
             'seller_email' => $this->seller_email,
             'seller_website' => $this->seller_website,
-            'seller_logo' => $this->seller_logo ? asset('storage/' . $this->seller_logo) : null,
+            'seller_logo' => MediaUrlHelper::resolve($this->seller_logo),
             'verified_agent' => $this->verified_agent,
             
             // Status and Visibility

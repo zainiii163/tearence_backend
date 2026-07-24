@@ -146,12 +146,16 @@ class PropertyResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('cover_image')
                             ->image()
+                            ->disk('public')
                             ->directory('properties/cover')
+                            ->visibility('public')
                             ->columnSpanFull(),
                         Forms\Components\FileUpload::make('additional_images')
                             ->multiple()
                             ->image()
+                            ->disk('public')
                             ->directory('properties/additional')
+                            ->visibility('public')
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('video_tour_link')
                             ->url()
@@ -199,7 +203,9 @@ class PropertyResource extends Resource
                             ->maxLength(255),
                         Forms\Components\FileUpload::make('seller_logo')
                             ->image()
-                            ->directory('properties/logos'),
+                            ->disk('public')
+                            ->directory('properties/logos')
+                            ->visibility('public'),
                         Forms\Components\Checkbox::make('verified_agent'),
                     ])
                     ->columns(2),

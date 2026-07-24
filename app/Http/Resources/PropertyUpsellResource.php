@@ -59,7 +59,7 @@ class PropertyUpsellResource extends JsonResource
                     'id' => $this->property->id,
                     'title' => $this->property->title,
                     'slug' => $this->property->slug,
-                    'cover_image' => $this->property->cover_image ? asset('storage/' . $this->property->cover_image) : null,
+                    'cover_image' => \App\Helpers\MediaUrlHelper::resolve($this->property->cover_image),
                 ];
             }),
             
