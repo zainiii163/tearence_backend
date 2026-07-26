@@ -309,11 +309,11 @@ class Property extends Model
     public function scopeByLocation($query, $country = null, $city = null)
     {
         if ($country) {
-            $query->where('country', $country);
+            $query->where('country', 'LIKE', '%' . $country . '%');
         }
         
         if ($city) {
-            $query->where('city', $city);
+            $query->where('city', 'LIKE', '%' . $city . '%');
         }
         
         return $query;

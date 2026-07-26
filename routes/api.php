@@ -2728,6 +2728,8 @@ Route::group([
 
         Route::get('/sponsored', [PropertyController::class, 'sponsored']);
 
+        Route::get('/geo', [PropertyController::class, 'geo']);
+
         // Public data routes (must come before /{property})
 
         Route::get('/data/property-types', [PropertyController::class, 'getPropertyTypes']);
