@@ -467,7 +467,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
      */
     public function communityPosts()
     {
-        return $this->hasMany(CommunityPost::class, 'user_id');
+        return $this->hasMany(CommunityPost::class, 'user_id', 'user_id');
     }
 
     /**

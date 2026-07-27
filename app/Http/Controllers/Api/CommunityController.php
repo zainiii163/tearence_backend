@@ -99,6 +99,23 @@ class CommunityController extends Controller
                                 ->limit($request->get('limit', 10))
                                 ->get();
 
+        $userId = auth('api')->id() ?: auth()->id();
+        if ($userId) {
+            $joinedIds = CommunityMember::where('user_id', $userId)
+                ->whereIn('community_id', $communities->pluck('community_id'))
+                ->pluck('community_id')
+                ->all();
+            $communities->transform(function ($community) use ($joinedIds) {
+                $community->is_joined = in_array($community->community_id, $joinedIds, true);
+                return $community;
+            });
+        } else {
+            $communities->transform(function ($community) {
+                $community->is_joined = false;
+                return $community;
+            });
+        }
+
         return response()->json([
             'success' => true,
             'data' => $communities
@@ -207,7 +224,9 @@ class CommunityController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         // Check if user is admin
         if (!$community->creator || $community->creator->user_id !== auth()->id()) {
@@ -273,7 +292,9 @@ class CommunityController extends Controller
      */
     public function destroy($id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         // Check if user is admin
         if (!$community->creator || $community->creator->user_id !== auth()->id()) {
@@ -302,7 +323,9 @@ class CommunityController extends Controller
      */
     public function join(Request $request, $id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         $existingMember = CommunityMember::where('community_id', $community->community_id)
                                          ->where('user_id', auth()->id())
@@ -339,7 +362,9 @@ class CommunityController extends Controller
      */
     public function leave($id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         $member = CommunityMember::where('community_id', $community->community_id)
                                  ->where('user_id', auth()->id())
@@ -373,7 +398,9 @@ class CommunityController extends Controller
      */
     public function follow($id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         $existingFollow = CommunityFollow::where('community_id', $community->community_id)
                                           ->where('user_id', auth()->id())
@@ -403,7 +430,9 @@ class CommunityController extends Controller
      */
     public function unfollow($id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         $follow = CommunityFollow::where('community_id', $community->community_id)
                                   ->where('user_id', auth()->id())
@@ -429,7 +458,9 @@ class CommunityController extends Controller
      */
     public function members($id)
     {
-        $community = Community::findOrFail($id);
+        $community = Community::where('community_id', $id)
+            ->orWhere('slug', $id)
+            ->firstOrFail();
 
         $members = CommunityMember::where('community_id', $community->community_id)
                                   ->with('user')

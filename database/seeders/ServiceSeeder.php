@@ -2,183 +2,101 @@
 
 namespace Database\Seeders;
 
+use App\Models\Service;
+use App\Models\ServiceCategory;
+use App\Models\ServiceProvider;
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
+use Illuminate\Support\Str;
 
+/**
+ * Sample live Services & Solutions listings for the marketplace browse page.
+ */
 class ServiceSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        // Categories come from ServiceCategorySeeder (IT-only). Do not insert duplicates here.
-        $webId = DB::table('service_categories')->where('slug', 'web-development')->value('id');
-        $appId = DB::table('service_categories')->where('slug', 'app-software')->value('id')
-            ?: DB::table('service_categories')->where('slug', 'web-development')->value('id');
-        $marketingId = DB::table('service_categories')->where('slug', 'digital-marketing')->value('id')
-            ?: DB::table('service_categories')->where('slug', 'web-development')->value('id');
-
-        if (!$webId) {
-            $this->command?->warn('ServiceSeeder skipped: run ServiceCategorySeeder first.');
+        $user = User::query()->orderBy('id')->first();
+        if (!$user) {
+            $this->command?->warn('ServiceSeeder skipped: no users in database.');
             return;
         }
 
-        // Create Service Providers
-        $providers = [
-            ['user_id' => 2, 'business_name' => 'Tech Solutions Pro', 'bio' => 'Full-stack development agency with 10+ years experience', 'phone' => '+1234567890', 'website' => 'https://techsolutions.com', 'country' => 'United States', 'city' => 'New York', 'rating' => 4.8, 'review_count' => 127],
-            ['user_id' => 3, 'business_name' => 'Mobile Masters', 'bio' => 'Specialized in iOS and Android development', 'phone' => '+1234567891', 'website' => 'https://mobilemasters.com', 'country' => 'United States', 'city' => 'San Francisco', 'rating' => 4.9, 'review_count' => 89],
-            ['user_id' => 4, 'business_name' => 'Marketing Gurus', 'bio' => 'Digital marketing experts', 'phone' => '+1234567892', 'website' => 'https://marketinggurus.com', 'country' => 'United Kingdom', 'city' => 'London', 'rating' => 4.7, 'review_count' => 156],
-        ];
-
-        foreach ($providers as $provider) {
-            DB::table('service_providers')->insert(array_merge($provider, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
-
-        // Create Services
-        $services = [
+        $provider = ServiceProvider::firstOrCreate(
+            ['user_id' => $user->id],
             [
-                'user_id' => 2,
-                'service_provider_id' => 1,
-                'category_id' => $webId,
-                'title' => 'Custom Website Development',
-                'slug' => 'custom-website-development',
-                'tagline' => 'Professional websites tailored to your needs',
-                'description' => 'We create custom websites that are responsive, fast, and optimized for search engines. Our team works with you to understand your business needs and deliver a website that helps you achieve your goals.',
-                'service_type' => 'freelance',
-                'starting_price' => 1500.00,
-                'country' => 'United States',
-                'city' => 'New York',
-                'latitude' => 40.7128,
-                'longitude' => -74.0060,
-                'service_area_radius' => 100,
-                'status' => 'active',
-                'promotion_type' => 'standard',
-                'languages' => json_encode(['English', 'Spanish']),
-            ],
-            [
-                'user_id' => 3,
-                'service_provider_id' => 2,
-                'category_id' => $appId,
-                'title' => 'iOS App Development',
-                'slug' => 'ios-app-development',
-                'tagline' => 'Native iOS apps for iPhone and iPad',
-                'description' => 'We develop high-quality iOS applications using Swift and SwiftUI. Our apps are optimized for performance, user experience, and App Store guidelines.',
-                'service_type' => 'freelance',
-                'starting_price' => 5000.00,
-                'country' => 'United States',
-                'city' => 'San Francisco',
-                'latitude' => 37.7749,
-                'longitude' => -122.4194,
-                'service_area_radius' => 50,
-                'status' => 'active',
-                'promotion_type' => 'featured',
-                'languages' => json_encode(['English']),
-            ],
-            [
-                'user_id' => 4,
-                'service_provider_id' => 3,
-                'category_id' => $marketingId,
-                'title' => 'SEO Optimization',
-                'slug' => 'seo-optimization',
-                'tagline' => 'Improve your search engine rankings',
-                'description' => 'Our SEO experts will analyze your website and implement strategies to improve your search engine rankings and drive organic traffic.',
-                'service_type' => 'business',
-                'starting_price' => 800.00,
+                'business_name' => 'Worldwide Adverts Demo Provider',
+                'bio' => 'Demo services for the Services & Solutions marketplace',
                 'country' => 'United Kingdom',
                 'city' => 'London',
-                'latitude' => 51.5074,
-                'longitude' => -0.1278,
-                'service_area_radius' => 200,
-                'status' => 'active',
-                'promotion_type' => 'promoted',
-                'languages' => json_encode(['English', 'French', 'German']),
-            ],
+                'is_verified' => true,
+                'rating' => 4.8,
+                'review_count' => 24,
+            ]
+        );
+
+        $samples = [
+            ['logo-design', 'Professional Logo Design Pack', 'Modern logo + brand kit for startups', 89, 'featured'],
+            ['logo-brand-identity', 'Full Brand Identity Suite', 'Logo, colours, typography and guidelines', 249, 'promoted'],
+            ['wordpress-themes', 'Custom WordPress Theme Build', 'Fast, SEO-ready theme tailored to your brand', 450, 'standard'],
+            ['wordpress-customization', 'WordPress Site Customization', 'Theme tweaks, WooCommerce and speed fixes', 120, 'standard'],
+            ['book-writing', 'Book Ghostwriting Starter', 'Outline + first 10,000 words for your book', 799, 'featured'],
+            ['book-editing', 'Manuscript Developmental Edit', 'Structure, clarity and chapter-level feedback', 350, 'promoted'],
+            ['proofreading', 'Professional Proofreading', 'Final pass for typos, grammar and consistency', 99, 'standard'],
+            ['graphic-design', 'Social Media Creative Pack', '15 branded posts for Instagram & Facebook', 149, 'sponsored'],
+            ['branding', 'Brand Refresh Package', 'Visual system update for growing businesses', 399, 'featured'],
+            ['ui-ux-design', 'Landing Page UI/UX Design', 'Wireframes + high-fidelity desktop & mobile', 299, 'promoted'],
+            ['seo', 'Local SEO Growth Plan', 'Audit, on-page fixes and 30-day ranking plan', 199, 'featured'],
+            ['social-media-marketing', 'Social Media Management (Monthly)', '12 posts, captions and community replies', 350, 'standard'],
+            ['google-ads', 'Google Ads Campaign Setup', 'Search campaign build + conversion tracking', 275, 'promoted'],
+            ['web-development', 'Business Website Development', '5–7 page responsive site with CMS', 1200, 'featured'],
+            ['app-software', 'MVP Mobile App Prototype', 'Clickable prototype for iOS & Android', 1800, 'standard'],
+            ['video-animation', 'Explainer Video (60s)', 'Script, voiceover and motion graphics', 550, 'sponsored'],
+            ['ai-services', 'Custom Chatbot Setup', 'AI chatbot trained on your FAQs & docs', 420, 'featured'],
+            ['business-support', 'Virtual Assistant (20 hrs)', 'Admin, inbox and scheduling support', 280, 'standard'],
+            ['it-consultancy', 'IT Systems Review', 'Stack audit + 90-day improvement roadmap', 650, 'promoted'],
         ];
 
-        foreach ($services as $service) {
-            DB::table('services')->insert(array_merge($service, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+        $created = 0;
+        foreach ($samples as [$slug, $title, $tagline, $price, $promo]) {
+            $category = ServiceCategory::where('slug', $slug)->where('is_active', true)->first();
+            if (!$category) {
+                continue;
+            }
+
+            $serviceSlug = Str::slug($title);
+            Service::updateOrCreate(
+                ['slug' => $serviceSlug],
+                [
+                    'user_id' => $user->id,
+                    'service_provider_id' => $provider->id,
+                    'category_id' => $category->id,
+                    'title' => $title,
+                    'tagline' => $tagline,
+                    'description' => $tagline.' Delivered by verified providers on Worldwide Adverts Services & Solutions. Customise scope after enquiry.',
+                    'whats_included' => ['Discovery call', 'Draft delivery', '2 revision rounds', 'Source files where applicable'],
+                    'whats_not_included' => ['Paid ads spend', 'Third-party licences', 'Hosting fees'],
+                    'requirements' => 'Share your brief, brand assets and deadline.',
+                    'service_type' => 'freelance',
+                    'starting_price' => $price,
+                    'currency' => 'USD',
+                    'delivery_time' => '7-14 days',
+                    'country' => 'United Kingdom',
+                    'city' => 'London',
+                    'status' => 'active',
+                    'promotion_type' => $promo,
+                    'promotion_expires_at' => now()->addMonths(3),
+                    'is_verified' => true,
+                    'languages' => ['English'],
+                    'views' => random_int(40, 900),
+                    'enquiries' => random_int(2, 80),
+                    'rating' => round(mt_rand(42, 50) / 10, 1),
+                    'review_count' => random_int(3, 40),
+                ]
+            );
+            $created++;
         }
 
-        // Create Service Packages
-        $packages = [
-            [
-                'service_id' => 1,
-                'name' => 'Basic Website',
-                'description' => '5-page responsive website with basic features',
-                'price' => 1500.00,
-                'delivery_time' => 14,
-                'features' => json_encode(['Responsive Design', 'Contact Form', 'Basic SEO', '1 Year Support']),
-                'revisions' => 2,
-                'sort_order' => 1,
-            ],
-            [
-                'service_id' => 1,
-                'name' => 'Professional Website',
-                'description' => '10-page website with advanced features and CMS',
-                'price' => 3000.00,
-                'delivery_time' => 21,
-                'features' => json_encode(['Responsive Design', 'CMS Integration', 'Advanced SEO', 'E-commerce Ready', '2 Years Support']),
-                'revisions' => 5,
-                'sort_order' => 2,
-            ],
-            [
-                'service_id' => 2,
-                'name' => 'Basic iOS App',
-                'description' => 'Simple iOS app with core features',
-                'price' => 5000.00,
-                'delivery_time' => 30,
-                'features' => json_encode(['Native iOS Development', 'Basic UI/UX', 'App Store Submission', '3 Months Support']),
-                'revisions' => 3,
-                'sort_order' => 1,
-            ],
-        ];
-
-        foreach ($packages as $package) {
-            DB::table('service_packages')->insert(array_merge($package, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
-
-        // Create Service Media
-        $media = [
-            [
-                'service_id' => 1,
-                'type' => 'image',
-                'file_path' => 'services/web-dev-1.jpg',
-                'file_name' => 'web-development-portfolio-1.jpg',
-                'mime_type' => 'image/jpeg',
-                'file_size' => 245760,
-                'caption' => 'Custom website project',
-                'is_thumbnail' => true,
-                'sort_order' => 1,
-            ],
-            [
-                'service_id' => 2,
-                'type' => 'image',
-                'file_path' => 'services/ios-app-1.jpg',
-                'file_name' => 'ios-app-portfolio-1.jpg',
-                'mime_type' => 'image/jpeg',
-                'file_size' => 327680,
-                'caption' => 'iOS app screenshot',
-                'is_thumbnail' => true,
-                'sort_order' => 1,
-            ],
-        ];
-
-        foreach ($media as $item) {
-            DB::table('service_media')->insert(array_merge($item, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
-        }
-
-        $this->command->info('Service seeder completed successfully!');
+        $this->command?->info("Service listings ready: {$created} demo services");
     }
 }

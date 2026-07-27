@@ -23,39 +23,27 @@ class ServiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Service::with(['user', 'serviceProvider', 'category', 'packages', 'addons', 'promotions', 'media']);
+            $query = Service::with(['user', 'serviceProvider', 'category', 'packages', 'addons', 'promotions', 'media'])
+                ->active();
 
             // Search
             if ($request->search) {
                 $query->search($request->search);
             }
 
-            // Filter by category
+            // Filter by category id
             if ($request->category_id) {
                 $query->byCategory($request->category_id);
             }
 
-            // Filter by top-level group slug (all subcategories in group)
+            // Filter by top-level / parent slug (include children)
             if ($request->group_slug) {
-                $group = ServiceCategory::where('slug', $request->group_slug)
-                    ->whereNull('parent_id')
-                    ->first();
-                if ($group) {
-                    $childIds = ServiceCategory::where('parent_id', $group->id)
-                        ->where('is_active', true)
-                        ->pluck('id');
-                    $query->whereIn('category_id', $childIds);
-                }
+                $this->applyCategorySlugFilter($query, $request->group_slug);
             }
 
-            // Filter by subcategory slug
+            // Filter by category or subcategory slug
             if ($request->category_slug) {
-                $category = ServiceCategory::where('slug', $request->category_slug)
-                    ->whereNotNull('parent_id')
-                    ->first();
-                if ($category) {
-                    $query->where('category_id', $category->id);
-                }
+                $this->applyCategorySlugFilter($query, $request->category_slug);
             }
 
             // Filter by country
@@ -90,34 +78,42 @@ class ServiceController extends Controller
                 $query->where('city', 'like', '%' . $request->city . '%');
             }
 
-            // Sorting
+            // Sorting — featured/promoted first on default browse
             $sortBy = $request->sort_by ?? 'created_at';
             $sortOrder = $request->sort_order ?? 'desc';
 
-            switch ($sortBy) {
-                case 'rating':
-                    $query->orderBy('rating', $sortOrder);
-                    break;
-                case 'price_low':
-                    $query->orderBy('starting_price', 'asc');
-                    break;
-                case 'price_high':
-                    $query->orderBy('starting_price', 'desc');
-                    break;
-                case 'views':
-                    $query->orderBy('views', $sortOrder);
-                    break;
-                case 'enquiries':
-                    $query->orderBy('enquiries', $sortOrder);
-                    break;
-                case 'featured':
-                    $query->featured()->orderBy('created_at', 'desc');
-                    break;
-                case 'trending':
-                    $query->orderBy('views', 'desc')->orderBy('enquiries', 'desc');
-                    break;
-                default:
-                    $query->orderBy($sortBy, $sortOrder);
+            if (! $request->filled('sort_by') || $sortBy === 'created_at') {
+                $query->orderByRaw("CASE
+                    WHEN promotion_type IN ('featured','sponsored','network_boost') THEN 0
+                    WHEN promotion_type = 'promoted' THEN 1
+                    ELSE 2 END")
+                    ->orderBy('created_at', 'desc');
+            } else {
+                switch ($sortBy) {
+                    case 'rating':
+                        $query->orderBy('rating', $sortOrder);
+                        break;
+                    case 'price_low':
+                        $query->orderBy('starting_price', 'asc');
+                        break;
+                    case 'price_high':
+                        $query->orderBy('starting_price', 'desc');
+                        break;
+                    case 'views':
+                        $query->orderBy('views', $sortOrder);
+                        break;
+                    case 'enquiries':
+                        $query->orderBy('enquiries', $sortOrder);
+                        break;
+                    case 'featured':
+                        $query->featured()->orderBy('created_at', 'desc');
+                        break;
+                    case 'trending':
+                        $query->orderBy('views', 'desc')->orderBy('enquiries', 'desc');
+                        break;
+                    default:
+                        $query->orderBy($sortBy, $sortOrder);
+                }
             }
 
             $services = $query->paginate($request->per_page ?? 12);
@@ -132,6 +128,29 @@ class ServiceController extends Controller
                 'message' => 'Failed to get services: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Match a category slug — leaf = exact; parent = self + all active children.
+     */
+    protected function applyCategorySlugFilter($query, string $slug): void
+    {
+        $category = ServiceCategory::where('slug', $slug)->where('is_active', true)->first();
+        if (! $category) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $ids = [$category->id];
+        $childIds = ServiceCategory::where('parent_id', $category->id)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+        if ($childIds) {
+            $ids = array_merge($ids, $childIds);
+        }
+
+        $query->whereIn('category_id', $ids);
     }
 
     public function show(Service $service): JsonResponse
@@ -392,31 +411,37 @@ class ServiceController extends Controller
                 'name' => $group->name,
                 'description' => $group->description,
                 'icon' => $group->icon,
+                'emoji' => $group->icon,
                 'sort_order' => $group->sort_order,
+                'children' => $group->activeChildren->map(fn (ServiceCategory $cat) => $this->formatCategory($cat))->values(),
                 'subcategories' => $group->activeChildren->map(fn (ServiceCategory $cat) => $this->formatCategory($cat))->values(),
             ];
         })->values();
 
-        $flat = ServiceCategory::query()
-            ->leaves()
-            ->active()
-            ->with('parent')
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (ServiceCategory $category) => array_merge(
-                $this->formatCategory($category),
-                [
-                    'group_id' => $category->parent?->id,
-                    'group_slug' => $category->parent?->slug,
-                    'group_name' => $category->parent?->name,
-                ]
-            ))
-            ->values();
+        // Flat list: parents without children + all leaves (for forms / filters)
+        $flat = collect();
+        foreach ($groups as $group) {
+            if ($group->activeChildren->isEmpty()) {
+                $flat->push($this->formatCategory($group));
+            }
+            foreach ($group->activeChildren as $child) {
+                $flat->push(array_merge(
+                    $this->formatCategory($child),
+                    [
+                        'group_id' => $group->id,
+                        'group_slug' => $group->slug,
+                        'group_name' => $group->name,
+                        'parent_slug' => $group->slug,
+                    ]
+                ));
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $flat,
+            'data' => $flat->values(),
             'groups' => $formattedGroups,
+            'mains' => $formattedGroups,
         ]);
     }
 
@@ -429,6 +454,7 @@ class ServiceController extends Controller
             'slug' => $category->slug,
             'description' => $category->description,
             'icon' => $category->icon,
+            'emoji' => $category->icon,
             'sort_order' => $category->sort_order,
             'label' => $category->name,
             'is_active' => $category->is_active,

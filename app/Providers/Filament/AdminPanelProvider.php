@@ -63,6 +63,12 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 \App\Filament\Pages\AdminDashboard::class,
+                \App\Filament\Pages\TemplatesDashboard::class,
+                \App\Filament\Pages\TemplatePricingSettings::class,
+            ])
+            ->resources([
+                \App\Filament\Resources\BusinessTemplateResource::class,
+                \App\Filament\Resources\TemplatePurchaseResource::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
@@ -124,10 +130,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 'Content Management',
+                'Templates',
                 'Banner Management',
                 'Property Hub',
                 'Events & Venues',
                 'Services Management',
+                'Buy & Sell',
                 'Monetization',
                 'Analytics',
                 'Settings',

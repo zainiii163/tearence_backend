@@ -32,18 +32,24 @@ class BusinessTemplate extends Model
         'file_url',
         'status',
         'is_catalog',
+        'is_premium',
+        'premium_until',
+        'premium_fee_paid',
         'sort_order',
         'views',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'premium_fee_paid' => 'decimal:2',
         'is_catalog' => 'boolean',
+        'is_premium' => 'boolean',
+        'premium_until' => 'datetime',
         'views' => 'integer',
         'sort_order' => 'integer',
     ];
 
-    protected $appends = ['display_price'];
+    protected $appends = ['display_price', 'is_premium_active'];
 
     public function user(): BelongsTo
     {
@@ -62,9 +68,31 @@ class BusinessTemplate extends Model
         return "From {$symbol}{$amount}";
     }
 
+    public function getIsPremiumActiveAttribute(): bool
+    {
+        if (!$this->is_premium) {
+            return false;
+        }
+
+        if (!$this->premium_until) {
+            return true;
+        }
+
+        return $this->premium_until->isFuture();
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');
+    }
+
+    public function scopePremiumActive(Builder $query): Builder
+    {
+        return $query->where('is_premium', true)
+            ->where(function (Builder $q) {
+                $q->whereNull('premium_until')
+                    ->orWhere('premium_until', '>', now());
+            });
     }
 
     public function scopeForCategory(Builder $query, string $vertical, ?string $categorySlug = null): Builder
@@ -79,6 +107,28 @@ class BusinessTemplate extends Model
         }
 
         return $query;
+    }
+
+    public function applyPremium(?int $days = null, ?float $feePaid = null): void
+    {
+        $days = $days ?? TemplateSetting::premiumDurationDays();
+        $base = ($this->premium_until && $this->premium_until->isFuture())
+            ? $this->premium_until->copy()
+            : now();
+
+        $this->forceFill([
+            'is_premium' => true,
+            'premium_until' => $base->addDays($days),
+            'premium_fee_paid' => $feePaid ?? TemplateSetting::premiumMonthlyFee(),
+        ])->save();
+    }
+
+    public function clearPremium(): void
+    {
+        $this->forceFill([
+            'is_premium' => false,
+            'premium_until' => null,
+        ])->save();
     }
 
     public static function makeSlug(string $title, string $vertical, string $categorySlug): string

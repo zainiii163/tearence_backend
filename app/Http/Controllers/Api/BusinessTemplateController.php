@@ -6,6 +6,7 @@ use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessTemplate;
 use App\Models\TemplatePurchase;
+use App\Models\TemplateSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -64,7 +65,21 @@ class BusinessTemplateController extends Controller
                 $query->where('template_type', $request->template_type);
             }
 
-            $query->orderBy('sort_order')->orderByDesc('created_at');
+            if ($request->filled('max_price')) {
+                $query->where('price', '<=', (float) $request->max_price);
+            }
+
+            if ($request->filled('is_premium') && $request->boolean('is_premium')) {
+                $query->premiumActive();
+            }
+
+            // Premium listings first, then catalog sort order
+            $query->orderByRaw(
+                'CASE WHEN is_premium = 1 AND (premium_until IS NULL OR premium_until > ?) THEN 0 ELSE 1 END',
+                [now()]
+            )
+                ->orderBy('sort_order')
+                ->orderByDesc('created_at');
 
             $perPage = min((int) ($request->per_page ?? 12), 50);
             $items = $query->paginate($perPage);
@@ -119,10 +134,14 @@ class BusinessTemplateController extends Controller
             $vertical = $request->vertical;
             $categorySlug = $request->category_slug ?: 'default';
 
+            $premiumOrder = 'CASE WHEN is_premium = 1 AND (premium_until IS NULL OR premium_until > ?) THEN 0 ELSE 1 END';
+            $now = now();
+
             $exact = BusinessTemplate::query()
                 ->active()
                 ->where('vertical', $vertical)
                 ->where('category_slug', $categorySlug)
+                ->orderByRaw($premiumOrder, [$now])
                 ->orderBy('sort_order')
                 ->limit(12)
                 ->get();
@@ -133,6 +152,7 @@ class BusinessTemplateController extends Controller
                     ->active()
                     ->where('vertical', $vertical)
                     ->where('category_slug', 'default')
+                    ->orderByRaw($premiumOrder, [$now])
                     ->orderBy('sort_order')
                     ->limit(12)
                     ->get();
@@ -164,6 +184,8 @@ class BusinessTemplateController extends Controller
                         'template_type' => $t->template_type,
                         'preview_image' => $t->preview_image,
                         'file_url' => $t->file_url,
+                        'is_premium' => $t->is_premium_active,
+                        'premium_until' => $t->premium_until,
                     ])->values(),
                 ],
             ]);
@@ -227,6 +249,8 @@ class BusinessTemplateController extends Controller
             'preview_image' => 'nullable|string|max:500',
             'file_url' => 'nullable|string|max:500',
             'status' => 'nullable|in:draft,active,paused,sold',
+            'make_premium' => 'nullable|boolean',
+            'payment_method' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -237,6 +261,9 @@ class BusinessTemplateController extends Controller
         }
 
         $data = $validator->validated();
+        $makePremium = (bool) ($data['make_premium'] ?? false);
+        unset($data['make_premium'], $data['payment_method']);
+
         $data['user_id'] = Auth::id();
         $data['category_slug'] = $data['category_slug'] ?? 'default';
         $data['currency'] = $data['currency'] ?? 'USD';
@@ -248,13 +275,66 @@ class BusinessTemplateController extends Controller
             $data['category_slug']
         );
 
+        if ($makePremium) {
+            $data['is_premium'] = true;
+            $data['premium_until'] = now()->addDays(TemplateSetting::premiumDurationDays());
+            $data['premium_fee_paid'] = TemplateSetting::premiumMonthlyFee();
+        }
+
         $template = BusinessTemplate::create($data);
 
         return response()->json([
             'success' => true,
-            'message' => 'Template listed successfully.',
+            'message' => $makePremium
+                ? 'Template listed as premium for '.TemplateSetting::premiumDurationDays().' days.'
+                : 'Template listed successfully.',
             'data' => $template,
+            'premium' => [
+                'requested' => $makePremium,
+                'fee' => $makePremium ? TemplateSetting::premiumMonthlyFee() : 0,
+                'until' => $template->premium_until,
+            ],
         ], 201);
+    }
+
+    /**
+     * Public settings used by sell form (premium fee is admin-editable).
+     */
+    public function settings(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => TemplateSetting::publicSettings(),
+        ]);
+    }
+
+    /**
+     * Promote an existing listing to premium for one billing period.
+     */
+    public function promote(Request $request, int $id): JsonResponse
+    {
+        $template = BusinessTemplate::find($id);
+
+        if (!$template) {
+            return response()->json(['success' => false, 'message' => 'Template not found.'], 404);
+        }
+
+        if ((int) $template->user_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $fee = TemplateSetting::premiumMonthlyFee();
+        $template->applyPremium(TemplateSetting::premiumDurationDays(), $fee);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Premium activated for {$fee} USD / month.",
+            'data' => $template->fresh(),
+            'premium' => [
+                'fee' => $fee,
+                'until' => $template->fresh()->premium_until,
+            ],
+        ]);
     }
 
     public function update(Request $request, int $id): JsonResponse

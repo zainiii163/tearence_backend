@@ -73,6 +73,7 @@ class CommunityPostController extends Controller
                 $query->trending();
                 break;
             case 'top_rated':
+            case 'top-rated':
                 $query->topRated();
                 break;
             case 'pinned':
@@ -108,31 +109,64 @@ class CommunityPostController extends Controller
     }
 
     /**
-     * Get "For You" feed (personalized)
+     * Get "For You" feed (personalized) — soft-fails to trending feed
      */
     public function forYou(Request $request)
     {
-        $user = auth()->user();
-        $userCategories = $user->communityPosts()
-                              ->pluck('category_id')
-                              ->unique()
-                              ->toArray();
+        try {
+            $user = auth()->user();
+            $query = CommunityPost::query()->notFlagged();
 
-        $query = CommunityPost::query();
+            if ($user) {
+                $userCategories = [];
+                try {
+                    $userCategories = $user->communityPosts()
+                        ->whereNotNull('category_id')
+                        ->pluck('category_id')
+                        ->unique()
+                        ->filter()
+                        ->values()
+                        ->toArray();
+                } catch (\Throwable $e) {
+                    // ignore preference errors
+                }
 
-        if (!empty($userCategories)) {
-            $query->whereIn('category_id', $userCategories);
+                if (!empty($userCategories)) {
+                    $query->whereIn('category_id', $userCategories);
+                }
+            }
+
+            $sort = $request->get('sort', 'trending');
+            if ($sort === 'newest') {
+                $query->newest();
+            } elseif (in_array($sort, ['top_rated', 'top-rated'], true)) {
+                $query->topRated();
+            } else {
+                $query->trending();
+            }
+
+            $posts = $query->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Community forYou failed: '.$e->getMessage());
+
+            $posts = CommunityPost::query()
+                ->notFlagged()
+                ->trending()
+                ->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+                'warning' => 'Fell back to trending feed',
+            ]);
         }
-
-        $query->notFlagged()->trending();
-
-        $posts = $query->with(['user', 'category', 'communities', 'primaryCommunity'])
-                      ->paginate($request->get('per_page', 20));
-
-        return response()->json([
-            'success' => true,
-            'data' => $posts
-        ]);
     }
 
     /**
@@ -140,26 +174,52 @@ class CommunityPostController extends Controller
      */
     public function following(Request $request)
     {
-        $user = auth()->user();
-        $followedCommunityIds = $user->followedCommunities()->pluck('community_id')->toArray();
+        try {
+            $user = auth()->user();
+            $query = CommunityPost::query()->notFlagged();
 
-        $query = CommunityPost::query();
+            if ($user) {
+                try {
+                    $followedCommunityIds = $user->followedCommunities()
+                        ->pluck('communities.community_id')
+                        ->toArray();
+                    if (empty($followedCommunityIds)) {
+                        $followedCommunityIds = $user->followedCommunities()->pluck('community_id')->toArray();
+                    }
+                    if (!empty($followedCommunityIds)) {
+                        $query->whereHas('communities', function ($q) use ($followedCommunityIds) {
+                            $q->whereIn('communities.community_id', $followedCommunityIds);
+                        });
+                    }
+                } catch (\Throwable $e) {
+                    // ignore follow table issues
+                }
+            }
 
-        if (!empty($followedCommunityIds)) {
-            $query->whereHas('communities', function ($q) use ($followedCommunityIds) {
-                $q->whereIn('community_id', $followedCommunityIds);
-            });
+            $query->newest();
+
+            $posts = $query->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Community following failed: '.$e->getMessage());
+
+            $posts = CommunityPost::query()
+                ->notFlagged()
+                ->newest()
+                ->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+                'warning' => 'Fell back to newest feed',
+            ]);
         }
-
-        $query->notFlagged()->newest();
-
-        $posts = $query->with(['user', 'category', 'communities', 'primaryCommunity'])
-                      ->paginate($request->get('per_page', 20));
-
-        return response()->json([
-            'success' => true,
-            'data' => $posts
-        ]);
     }
 
     /**
@@ -167,26 +227,43 @@ class CommunityPostController extends Controller
      */
     public function local(Request $request)
     {
-        $user = auth()->user();
-        $query = CommunityPost::query();
+        try {
+            $user = auth()->user();
+            $query = CommunityPost::query()->notFlagged();
 
-        if ($user->country) {
-            $query->byCountry($user->country);
+            if ($user) {
+                if (!empty($user->country)) {
+                    $query->byCountry($user->country);
+                }
+                if (!empty($user->city)) {
+                    $query->byCity($user->city);
+                }
+            }
+
+            $query->newest();
+
+            $posts = $query->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Community local failed: '.$e->getMessage());
+
+            $posts = CommunityPost::query()
+                ->notFlagged()
+                ->newest()
+                ->with(['user', 'category', 'communities'])
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+                'warning' => 'Fell back to newest feed',
+            ]);
         }
-
-        if ($user->city) {
-            $query->byCity($user->city);
-        }
-
-        $query->notFlagged()->newest();
-
-        $posts = $query->with(['user', 'category', 'communities', 'primaryCommunity'])
-                      ->paginate($request->get('per_page', 20));
-
-        return response()->json([
-            'success' => true,
-            'data' => $posts
-        ]);
     }
 
     /**
@@ -486,6 +563,29 @@ class CommunityPostController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Post saved successfully'
+        ]);
+    }
+
+    /**
+     * Record a share (public or authenticated) and return share URL.
+     */
+    public function share(Request $request, $id)
+    {
+        $post = CommunityPost::findOrFail($id);
+        $post->incrementShares();
+
+        $shareUrl = rtrim(config('app.frontend_url', env('FRONTEND_URL', 'https://worldwideadverts.info')), '/')
+            . '/communities?post=' . $post->post_id;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Share recorded',
+            'data' => [
+                'post_id' => $post->post_id,
+                'shares_count' => $post->fresh()->shares_count,
+                'share_url' => $shareUrl,
+                'title' => $post->title,
+            ],
         ]);
     }
 

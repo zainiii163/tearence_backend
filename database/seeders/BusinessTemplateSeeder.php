@@ -70,8 +70,13 @@ class BusinessTemplateSeeder extends Seeder
                 ['Private sale agreement', 'Buyer/seller details, item description, price, payment and handover terms', 'From $18', 'agreement'],
                 ['Bill of sale', 'Legal transfer receipt for goods — serial numbers, warranty disclaimer, signatures', 'From $12', 'agreement'],
                 ['Item listing description pack', 'Title formulas, feature bullets, condition grades and SEO listing copy', 'From $9', 'listing'],
-                ['Purchase invoice / receipt', 'Professional invoice for marketplace sales with tax lines', 'From $8', 'invoice'],
+                ['Purchase invoice / receipt', 'Fillable professional invoice with tax lines', 'From $8', 'invoice'],
                 ['Escrow & handover checklist', 'Payment confirmation, inspection, delivery and dispute steps', 'From $10', 'checklist'],
+                ['Startup business plan', 'Fillable 10-page plan with fields on every section', 'From $39', 'business_plan'],
+                ['Monthly calendar & planner', 'Fillable month calendar with goals', 'From $12', 'planner'],
+                ['Marketing flyer', 'Fillable flyer / promo brief', 'From $11', 'design'],
+                ['Wedding invitation', 'Fillable wedding invitation', 'From $14', 'design'],
+                ['Birthday invitation', 'Fillable birthday invite', 'From $8', 'design'],
                 ['Reseller / trading plan', 'Sourcing, margins, channels and cash flow', 'From $24', 'business_plan'],
                 ['Marketplace seller pitch', 'Niche, inventory model and growth ask', 'From $22', 'pitch_deck'],
                 ['Micro-business grant pack', 'Need, equipment budget and impact', 'From $28', 'grant'],
@@ -100,11 +105,18 @@ class BusinessTemplateSeeder extends Seeder
 
         // —— Business ——
         $add('business', 'default', 'Business templates for sale',
-            'Pitch decks, grant applications, business plans and proposals — ready to customise.',
+            'Pitch decks, grant applications, fillable business plans and design templates — ready to customise.',
             [
                 ['Investor pitch deck', 'Problem, solution, market, traction, team and funding ask', 'From $29', 'pitch_deck'],
                 ['Grant application pack', 'Need statement, objectives, methods, budget and impact', 'From $35', 'grant'],
-                ['Startup business plan', 'Market analysis, model, GTM, financials and team', 'From $39', 'business_plan'],
+                ['Startup business plan', 'Fillable 10-page HubSpot/LawDepot-style plan with fields on every page', 'From $39', 'business_plan'],
+                ['Professional invoice', 'Fillable invoice with line items, tax and payment fields', 'From $8', 'invoice'],
+                ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
+                ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
+                ['Marketing flyer', 'Fillable flyer copy for print or Canva', 'From $11', 'design'],
+                ['Event / promo banner', 'Fillable banner copy for web or window', 'From $10', 'design'],
+                ['Wedding invitation', 'Fillable ceremony, reception and RSVP', 'From $14', 'design'],
+                ['Birthday invitation', 'Fillable birthday party invite', 'From $8', 'design'],
             ]);
 
         foreach ([
@@ -368,7 +380,25 @@ class BusinessTemplateSeeder extends Seeder
             return '/templates/item-listing-description.html';
         }
         if (str_contains($t, 'invoice') || str_contains($t, 'receipt')) {
-            return '/templates/purchase-invoice-receipt.html';
+            return '/templates/professional-invoice.html';
+        }
+        if (str_contains($t, 'calendar') || str_contains($t, 'monthly planner')) {
+            return '/templates/monthly-calendar-planner.html';
+        }
+        if (str_contains($t, 'weekly planner') || str_contains($t, 'week planner')) {
+            return '/templates/weekly-planner.html';
+        }
+        if (str_contains($t, 'flyer') || str_contains($t, 'flier') || str_contains($t, 'flayer')) {
+            return '/templates/marketing-flyer.html';
+        }
+        if (str_contains($t, 'banner')) {
+            return '/templates/event-banner.html';
+        }
+        if (str_contains($t, 'wedding')) {
+            return '/templates/wedding-invitation.html';
+        }
+        if (str_contains($t, 'birthday')) {
+            return '/templates/birthday-invitation.html';
         }
         if (str_contains($t, 'escrow') || str_contains($t, 'handover')) {
             return '/templates/escrow-handover-checklist.html';

@@ -2233,6 +2233,7 @@ Route::group([
     Route::group(['prefix' => 'business-templates'], function () {
         Route::get('/', [BusinessTemplateController::class, 'index']);
         Route::get('/browse', [BusinessTemplateController::class, 'browse']);
+        Route::get('/settings', [BusinessTemplateController::class, 'settings']);
         Route::get('/download/{token}', [BusinessTemplateController::class, 'download']);
         Route::get('/my-templates', [BusinessTemplateController::class, 'myTemplates'])->middleware('jwt.auth');
         Route::get('/my-purchases', [BusinessTemplateController::class, 'myPurchases'])->middleware('jwt.auth');
@@ -2241,9 +2242,23 @@ Route::group([
 
         Route::middleware('jwt.auth')->group(function () {
             Route::post('/', [BusinessTemplateController::class, 'store']);
+            Route::post('/{id}/promote', [BusinessTemplateController::class, 'promote'])->whereNumber('id');
             Route::put('/{id}', [BusinessTemplateController::class, 'update'])->whereNumber('id');
             Route::delete('/{id}', [BusinessTemplateController::class, 'destroy'])->whereNumber('id');
         });
+    });
+
+    // Admin — business templates + premium fee settings
+    Route::group(['prefix' => 'admin/templates', 'middleware' => ['auth:api', 'admin']], function () {
+        Route::get('/stats', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'stats']);
+        Route::get('/settings', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'settings']);
+        Route::put('/settings', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'updateSettings']);
+        Route::get('/purchases', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'purchases']);
+        Route::get('/', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'update'])->whereNumber('id');
+        Route::delete('/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'destroy'])->whereNumber('id');
+        Route::post('/{id}/premium', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'setPremium'])->whereNumber('id');
     });
 
     // Buy & Sell Marketplace System
@@ -3388,6 +3403,7 @@ Route::group([
     Route::group(['prefix' => 'community-posts'], function () {
         // Public routes
         Route::get('/', [CommunityPostController::class, 'index']);
+        Route::post('/{id}/share', [CommunityPostController::class, 'share']);
 
         // Authenticated routes (static paths before /{id})
         Route::group(['middleware' => 'jwt.auth'], function () {
@@ -3402,6 +3418,7 @@ Route::group([
             Route::delete('/{id}', [CommunityPostController::class, 'destroy']);
             Route::post('/{id}/react', [CommunityPostController::class, 'react']);
             Route::post('/{id}/save', [CommunityPostController::class, 'save']);
+            Route::delete('/{id}/save', [CommunityPostController::class, 'save']);
             Route::post('/{id}/pin', [CommunityPostController::class, 'pin']);
             Route::post('/{id}/flag', [CommunityPostController::class, 'flag']);
         });
