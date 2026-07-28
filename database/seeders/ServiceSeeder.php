@@ -82,7 +82,7 @@ class ServiceSeeder extends Seeder
                     'service_type' => 'freelance',
                     'starting_price' => $price,
                     'currency' => 'USD',
-                    'delivery_time' => '7-14 days',
+                    'delivery_time' => 14, // days (integer column on live)
                     'country' => 'United Kingdom',
                     'city' => 'London',
                     'status' => 'active',
