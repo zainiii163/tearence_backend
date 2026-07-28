@@ -18,6 +18,25 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BusinessTemplateController extends Controller
 {
+    protected function hasPremiumColumns(): bool
+    {
+        return Schema::hasTable('business_templates')
+            && Schema::hasColumn('business_templates', 'is_premium')
+            && Schema::hasColumn('business_templates', 'premium_until');
+    }
+
+    protected function applyPremiumSort($query)
+    {
+        if ($this->hasPremiumColumns()) {
+            $query->orderByRaw(
+                'CASE WHEN is_premium = 1 AND (premium_until IS NULL OR premium_until > ?) THEN 0 ELSE 1 END',
+                [now()]
+            );
+        }
+
+        return $query;
+    }
+
     /**
      * Public list — filter by vertical + category_slug.
      */
@@ -69,15 +88,11 @@ class BusinessTemplateController extends Controller
                 $query->where('price', '<=', (float) $request->max_price);
             }
 
-            if ($request->filled('is_premium') && $request->boolean('is_premium')) {
+            if ($request->filled('is_premium') && $request->boolean('is_premium') && $this->hasPremiumColumns()) {
                 $query->premiumActive();
             }
 
-            // Premium listings first, then catalog sort order
-            $query->orderByRaw(
-                'CASE WHEN is_premium = 1 AND (premium_until IS NULL OR premium_until > ?) THEN 0 ELSE 1 END',
-                [now()]
-            )
+            $this->applyPremiumSort($query)
                 ->orderBy('sort_order')
                 ->orderByDesc('created_at');
 
@@ -89,13 +104,21 @@ class BusinessTemplateController extends Controller
                 'data' => $items,
             ]);
         } catch (\Throwable $e) {
-            Log::error('BusinessTemplate index failed: '.$e->getMessage());
+            Log::error('BusinessTemplate index failed: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
 
+            // Soft-fail so the shop still falls back to static catalog packs
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to load templates.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
+                'success' => true,
+                'data' => [
+                    'data' => [],
+                    'total' => 0,
+                    'current_page' => 1,
+                    'per_page' => (int) ($request->per_page ?? 12),
+                ],
+                'warning' => config('app.debug') ? $e->getMessage() : 'Catalog unavailable — using static packs.',
+            ]);
         }
     }
 
@@ -134,28 +157,23 @@ class BusinessTemplateController extends Controller
             $vertical = $request->vertical;
             $categorySlug = $request->category_slug ?: 'default';
 
-            $premiumOrder = 'CASE WHEN is_premium = 1 AND (premium_until IS NULL OR premium_until > ?) THEN 0 ELSE 1 END';
-            $now = now();
-
-            $exact = BusinessTemplate::query()
+            $exactQuery = BusinessTemplate::query()
                 ->active()
                 ->where('vertical', $vertical)
-                ->where('category_slug', $categorySlug)
-                ->orderByRaw($premiumOrder, [$now])
-                ->orderBy('sort_order')
-                ->limit(12)
-                ->get();
+                ->where('category_slug', $categorySlug);
+            $this->applyPremiumSort($exactQuery);
+            $exact = $exactQuery->orderBy('sort_order')->limit(12)->get();
 
-            $items = $exact->isNotEmpty()
-                ? $exact
-                : BusinessTemplate::query()
+            if ($exact->isNotEmpty()) {
+                $items = $exact;
+            } else {
+                $fallbackQuery = BusinessTemplate::query()
                     ->active()
                     ->where('vertical', $vertical)
-                    ->where('category_slug', 'default')
-                    ->orderByRaw($premiumOrder, [$now])
-                    ->orderBy('sort_order')
-                    ->limit(12)
-                    ->get();
+                    ->where('category_slug', 'default');
+                $this->applyPremiumSort($fallbackQuery);
+                $items = $fallbackQuery->orderBy('sort_order')->limit(12)->get();
+            }
 
             if ($items->isEmpty()) {
                 return response()->json([
@@ -184,8 +202,8 @@ class BusinessTemplateController extends Controller
                         'template_type' => $t->template_type,
                         'preview_image' => $t->preview_image,
                         'file_url' => $t->file_url,
-                        'is_premium' => $t->is_premium_active,
-                        'premium_until' => $t->premium_until,
+                        'is_premium' => (bool) ($t->is_premium_active ?? false),
+                        'premium_until' => $t->premium_until ?? null,
                     ])->values(),
                 ],
             ]);

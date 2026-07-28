@@ -70,15 +70,19 @@ class BusinessTemplate extends Model
 
     public function getIsPremiumActiveAttribute(): bool
     {
-        if (!$this->is_premium) {
+        if (!array_key_exists('is_premium', $this->attributes) || !$this->attributes['is_premium']) {
             return false;
         }
 
-        if (!$this->premium_until) {
+        if (empty($this->attributes['premium_until'])) {
             return true;
         }
 
-        return $this->premium_until->isFuture();
+        try {
+            return $this->premium_until && $this->premium_until->isFuture();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function scopeActive(Builder $query): Builder
