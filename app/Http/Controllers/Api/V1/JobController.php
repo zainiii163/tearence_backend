@@ -114,15 +114,21 @@ class JobController extends Controller
     }
 
     /**
-     * Get single job details
+     * Get single job details by numeric id or slug
      */
     public function show($id): JsonResponse
     {
-        $job = Job::with(['category', 'user'])
-                 ->where('id', $id)
-                 ->active()
-                 ->notExpired()
-                 ->first();
+        $query = Job::with(['category', 'user'])
+            ->active()
+            ->notExpired();
+
+        if (ctype_digit((string) $id)) {
+            $query->where('id', (int) $id);
+        } else {
+            $query->where('slug', $id);
+        }
+
+        $job = $query->first();
 
         if (!$job) {
             return response()->json([
