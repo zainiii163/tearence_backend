@@ -40,6 +40,22 @@ class RemoteJobsCliveDemoSeeder extends Seeder
             return $found ?: $categories->first();
         };
 
+        // Card images (office / team / workspace) so Jobs browse matches other marketplaces
+        $images = [
+            'https://images.unsplash.com/photo-1497366214041-512025aae3b4?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1517041899536-9a241eaceb3d?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1573164713714-d95e436ab8d6?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=80',
+        ];
+
         $demos = [
             [
                 'slug' => 'clive-demo-senior-react-engineer-remote',
@@ -52,6 +68,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 145000,
                 'salary_type' => 'yearly',
                 'is_featured' => 1,
+                'image' => $images[0],
                 'description' => 'Build customer-facing React apps for a global remote-first product team. Inspired by roles you see on Remotive / Dynamite Jobs — posted on Worldwide Adverts for layout review.',
                 'skills_needed' => 'React, TypeScript, Next.js, GraphQL, Git',
             ],
@@ -66,6 +83,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 160000,
                 'salary_type' => 'yearly',
                 'is_featured' => 1,
+                'image' => $images[1],
                 'description' => 'Own CI/CD, Kubernetes and observability for a distributed engineering org. Fully remote worldwide.',
                 'skills_needed' => 'AWS, Kubernetes, Terraform, Docker, GitHub Actions',
             ],
@@ -80,6 +98,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 110000,
                 'salary_type' => 'yearly',
                 'is_featured' => 0,
+                'image' => $images[2],
                 'description' => 'Design end-to-end product flows for a SaaS dashboard. Async-friendly remote team across EU & US timezones.',
                 'skills_needed' => 'Figma, Prototyping, Design Systems, User Research',
             ],
@@ -94,6 +113,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 85000,
                 'salary_type' => 'yearly',
                 'is_sponsored' => 1,
+                'image' => $images[3],
                 'description' => 'Own blog, SEO and newsletter growth. Style similar to Jobspresso / SkipTheDrive remote marketing roles.',
                 'skills_needed' => 'SEO, Content Strategy, Analytics, Copywriting',
             ],
@@ -107,6 +127,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_min' => 70000,
                 'salary_max' => 95000,
                 'salary_type' => 'yearly',
+                'image' => $images[4],
                 'description' => 'Onboard and retain mid-market accounts. Fully remote with quarterly offsites.',
                 'skills_needed' => 'CRM, Communication, Account Management, SaaS',
             ],
@@ -120,6 +141,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_min' => 60000,
                 'salary_max' => 80000,
                 'salary_type' => 'yearly',
+                'image' => $images[5],
                 'description' => 'Turn product data into dashboards and insights. Work-from-anywhere role for assessing Jobs UI cards.',
                 'skills_needed' => 'SQL, Python, Looker, Excel',
             ],
@@ -133,6 +155,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_min' => 45,
                 'salary_max' => 70,
                 'salary_type' => 'hourly',
+                'image' => $images[6],
                 'description' => 'Write API docs and developer guides for a developer-tools company. Contract remote (Virtual Vocations / Remotive style).',
                 'skills_needed' => 'Technical Writing, Markdown, APIs, Git',
             ],
@@ -147,6 +170,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 120000,
                 'salary_type' => 'yearly',
                 'is_urgent' => 1,
+                'image' => $images[7],
                 'description' => 'Close mid-market SaaS deals. Base + commission. Fully remote sales role for Jobs section review.',
                 'skills_needed' => 'B2B Sales, Salesforce, Negotiation, Prospecting',
             ],
@@ -160,6 +184,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_min' => 40000,
                 'salary_max' => 52000,
                 'salary_type' => 'yearly',
+                'image' => $images[8],
                 'description' => 'Chat and email support for a consumer app. Overlap with US business hours; inspired by Outsourcely / CloudPeeps style roles.',
                 'skills_needed' => 'Zendesk, Written English, Empathy, Troubleshooting',
             ],
@@ -174,6 +199,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 200000,
                 'salary_type' => 'yearly',
                 'is_featured' => 1,
+                'image' => $images[9],
                 'description' => 'Lead a Rails + React squad. High-salary remote engineering role to stress-test featured job cards.',
                 'skills_needed' => 'Ruby on Rails, React, PostgreSQL, Leadership',
             ],
@@ -188,6 +214,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_max' => 170,
                 'salary_type' => 'hourly',
                 'is_sponsored' => 1,
+                'image' => $images[10],
                 'description' => 'Short-cycle AI product builds. Contract / freelance remote listing for Jobs UI assessment.',
                 'skills_needed' => 'Python, LLMs, LangChain, FastAPI, MLOps',
             ],
@@ -201,6 +228,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_min' => 75000,
                 'salary_max' => 100000,
                 'salary_type' => 'yearly',
+                'image' => $images[11],
                 'description' => 'Source engineers for remote-first clients. Pangian / EuropeRemotely style recruiting role on WWA.',
                 'skills_needed' => 'Sourcing, LinkedIn Recruiter, ATS, Communication',
             ],
@@ -244,10 +272,16 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 $cols['category'] => $category->id,
                 $cols['remote'] => true,
                 $cols['verified'] => true,
+                $cols['logo'] => $demo['image'],
                 $cols['email'] => 'careers@' . $host,
                 'created_at' => Carbon::now()->subDays(($index % 10) + 1),
                 'updated_at' => Carbon::now(),
             ];
+
+            // Prefer company_logo; also set logo_url if both columns exist
+            if ($cols['logo'] === 'company_logo' && \Illuminate\Support\Facades\Schema::hasColumn('jobs', 'logo_url')) {
+                $payload['logo_url'] = $demo['image'];
+            }
 
             Job::updateOrCreate(
                 ['slug' => $demo['slug']],

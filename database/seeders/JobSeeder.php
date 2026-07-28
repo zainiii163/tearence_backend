@@ -39,6 +39,7 @@ class JobSeeder extends Seeder
                 'skills_needed' => 'React, Node.js, PostgreSQL, AWS, JavaScript, TypeScript, Git, Docker',
                 'company_name' => 'TechCorp Solutions',
                 'company_website' => 'https://techcorp.example.com',
+                'company_logo' => 'https://images.unsplash.com/photo-1497366214041-512025aae3b4?auto=format&fit=crop&w=800&q=80',
                 'work_type' => 'full_time',
                 'experience_level' => 'senior',
                 'education_level' => 'bachelor',
@@ -63,6 +64,7 @@ class JobSeeder extends Seeder
                 'skills_needed' => 'Digital Marketing, SEO, SEM, Content Marketing, Analytics, Team Leadership',
                 'company_name' => 'Growth Dynamics',
                 'company_website' => 'https://growthdynamics.example.com',
+                'company_logo' => 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=800&q=80',
                 'work_type' => 'full_time',
                 'experience_level' => 'mid',
                 'education_level' => 'bachelor',
@@ -87,6 +89,7 @@ class JobSeeder extends Seeder
                 'skills_needed' => 'Figma, Adobe XD, Sketch, User Research, Prototyping, Design Systems',
                 'company_name' => 'Creative Studio',
                 'company_website' => 'https://creativestudio.example.com',
+                'company_logo' => 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=800&q=80',
                 'work_type' => 'contract',
                 'experience_level' => 'junior',
                 'education_level' => 'diploma',
@@ -110,6 +113,7 @@ class JobSeeder extends Seeder
                 'skills_needed' => 'Python, R, Machine Learning, Statistics, Data Visualization, SQL, TensorFlow',
                 'company_name' => 'Data Insights Co',
                 'company_website' => 'https://datainsights.example.com',
+                'company_logo' => 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80',
                 'work_type' => 'full_time',
                 'experience_level' => 'senior',
                 'education_level' => 'master',
@@ -134,6 +138,7 @@ class JobSeeder extends Seeder
                 'skills_needed' => 'HTML, CSS, JavaScript, React, Node.js, Git, Basic Backend',
                 'company_name' => 'StartUp Tech',
                 'company_website' => 'https://startuptech.example.com',
+                'company_logo' => 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
                 'work_type' => 'full_time',
                 'experience_level' => 'entry',
                 'education_level' => 'diploma',
@@ -167,6 +172,13 @@ class JobSeeder extends Seeder
             if (isset($jobData['verified_employer'])) {
                 $jobData[$cols['verified']] = (bool) $jobData['verified_employer'];
                 unset($jobData['verified_employer']);
+            }
+
+            if (isset($jobData['company_logo'])) {
+                $jobData[$cols['logo']] = $jobData['company_logo'];
+                if ($cols['logo'] !== 'company_logo') {
+                    unset($jobData['company_logo']);
+                }
             }
 
             $jobData[$cols['email']] = 'hr@' . parse_url($jobData['company_website'], PHP_URL_HOST);
