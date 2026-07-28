@@ -16,14 +16,16 @@ class ServiceSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::query()->orderBy('id')->first();
+        $user = User::query()->orderBy('user_id')->first();
         if (!$user) {
             $this->command?->warn('ServiceSeeder skipped: no users in database.');
             return;
         }
 
+        $userId = $user->user_id ?? $user->getKey();
+
         $provider = ServiceProvider::firstOrCreate(
-            ['user_id' => $user->id],
+            ['user_id' => $userId],
             [
                 'business_name' => 'Worldwide Adverts Demo Provider',
                 'bio' => 'Demo services for the Services & Solutions marketplace',
@@ -68,7 +70,7 @@ class ServiceSeeder extends Seeder
             Service::updateOrCreate(
                 ['slug' => $serviceSlug],
                 [
-                    'user_id' => $user->id,
+                    'user_id' => $userId,
                     'service_provider_id' => $provider->id,
                     'category_id' => $category->id,
                     'title' => $title,
