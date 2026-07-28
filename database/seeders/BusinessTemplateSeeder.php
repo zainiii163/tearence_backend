@@ -424,6 +424,9 @@ class BusinessTemplateSeeder extends Seeder
         if (str_contains($t, 'website') || str_contains($t, 'web ')) {
             return '/templates/website-project-proposal.html';
         }
+        if (str_contains($t, 'executive summary') || str_contains($t, 'exec summary')) {
+            return '/templates/business-plan-executive-summary.html';
+        }
         if (str_contains($t, 'restaurant') || str_contains($t, 'catering') || str_contains($t, 'hospitality')) {
             return '/templates/restaurant-business-plan.html';
         }
