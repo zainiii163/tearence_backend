@@ -74,7 +74,9 @@ class BusinessTemplateSeeder extends Seeder
                 ['Escrow & handover checklist', 'Payment confirmation, inspection, delivery and dispute steps', 'From $10', 'checklist'],
                 ['Startup business plan', 'Fillable 10-page plan with fields on every section', 'From $39', 'business_plan'],
                 ['Monthly calendar & planner', 'Fillable month calendar with goals', 'From $12', 'planner'],
+                ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
                 ['Marketing flyer', 'Fillable flyer / promo brief', 'From $11', 'design'],
+                ['Editable banner ads pack', 'Multi-size IAB + social banners — editable canvas', 'From $15', 'design'],
                 ['Wedding invitation', 'Fillable wedding invitation', 'From $14', 'design'],
                 ['Birthday invitation', 'Fillable birthday invite', 'From $8', 'design'],
                 ['Reseller / trading plan', 'Sourcing, margins, channels and cash flow', 'From $24', 'business_plan'],
@@ -110,11 +112,12 @@ class BusinessTemplateSeeder extends Seeder
                 ['Investor pitch deck', 'Problem, solution, market, traction, team and funding ask', 'From $29', 'pitch_deck'],
                 ['Grant application pack', 'Need statement, objectives, methods, budget and impact', 'From $35', 'grant'],
                 ['Startup business plan', 'Fillable 10-page HubSpot/LawDepot-style plan with fields on every page', 'From $39', 'business_plan'],
+                ['Business Plan — Executive Summary', 'Premium fillable exec summary — autosave, validation, print/PDF', 'From $19', 'business_plan'],
                 ['Professional invoice', 'Fillable invoice with line items, tax and payment fields', 'From $8', 'invoice'],
                 ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
                 ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
                 ['Marketing flyer', 'Fillable flyer copy for print or Canva', 'From $11', 'design'],
-                ['Event / promo banner', 'Fillable banner copy for web or window', 'From $10', 'design'],
+                ['Editable banner ads pack', 'Multi-size IAB + social banners — editable canvas for buyers', 'From $15', 'design'],
                 ['Wedding invitation', 'Fillable ceremony, reception and RSVP', 'From $14', 'design'],
                 ['Birthday invitation', 'Fillable birthday party invite', 'From $8', 'design'],
             ]);
@@ -212,9 +215,14 @@ class BusinessTemplateSeeder extends Seeder
         $add('property', 'default', 'Property templates for sale',
             'Agency plans, investment decks and landlord packs — ready to customise.',
             [
-                ['Agency business plan', 'Areas, fee model, pipeline and team for estate agencies', 'From $34', 'business_plan'],
+                ['Agency business plan', 'Areas, fee model, pipeline and team for estate agencies — fillable', 'From $34', 'business_plan'],
                 ['Investment pitch deck', 'Deal thesis, comps, returns and risks', 'From $32', 'pitch_deck'],
-                ['Property management proposal', 'Services, fees and SLA for landlords', 'From $22', 'proposal'],
+                ['Sale prospectus', 'Property highlights, specs and offer structure — fillable', 'From $28', 'business_plan'],
+                ['Rental listing pack', 'Lease terms, inventory and tenant checklist — fillable', 'From $22', 'listing'],
+                ['Landlord / PM proposal', 'Services, fees and SLA for property managers — fillable', 'From $20', 'proposal'],
+                ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
+                ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
+                ['Editable banner ads pack', 'Multi-size banners for property promotions', 'From $15', 'design'],
             ]);
 
         foreach ([
@@ -392,7 +400,16 @@ class BusinessTemplateSeeder extends Seeder
             return '/templates/marketing-flyer.html';
         }
         if (str_contains($t, 'banner')) {
-            return '/templates/event-banner.html';
+            return '/templates/banner-ads.html';
+        }
+        if (str_contains($t, 'agency business') || (str_contains($t, 'agency') && str_contains($t, 'plan'))) {
+            return '/templates/agency-business-plan.html';
+        }
+        if (str_contains($t, 'rental listing')) {
+            return '/templates/rental-listing-pack.html';
+        }
+        if (str_contains($t, 'landlord') || str_contains($t, 'property manager') || str_contains($t, 'pm proposal')) {
+            return '/templates/landlord-proposal.html';
         }
         if (str_contains($t, 'wedding')) {
             return '/templates/wedding-invitation.html';
