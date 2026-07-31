@@ -2238,6 +2238,7 @@ Route::group([
         Route::get('/my-templates', [BusinessTemplateController::class, 'myTemplates'])->middleware('jwt.auth');
         Route::get('/my-purchases', [BusinessTemplateController::class, 'myPurchases'])->middleware('jwt.auth');
         Route::post('/purchase', [BusinessTemplateController::class, 'purchase'])->middleware('jwt.auth');
+        Route::post('/quote-request', [BusinessTemplateController::class, 'requestQuote'])->middleware('jwt.auth');
         Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
 
         Route::middleware('jwt.auth')->group(function () {
@@ -2254,6 +2255,8 @@ Route::group([
         Route::get('/settings', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'settings']);
         Route::put('/settings', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'updateSettings']);
         Route::get('/purchases', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'purchases']);
+        Route::get('/quotes', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'quotes']);
+        Route::put('/quotes/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'updateQuote'])->whereNumber('id');
         Route::get('/', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'index']);
         Route::get('/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'show'])->whereNumber('id');
         Route::put('/{id}', [\App\Http\Controllers\Api\Admin\BusinessTemplateAdminController::class, 'update'])->whereNumber('id');

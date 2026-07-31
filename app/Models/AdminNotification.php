@@ -67,9 +67,19 @@ class AdminNotification extends Model
      */
     public static function notifyAllAdmins(string $type, string $message, array $data = [])
     {
-        $adminUsers = User::where('can_manage_listings', true)
-            ->orWhere('is_super_admin', true)
+        $adminUsers = User::query()
+            ->where(function ($q) {
+                $q->where('can_manage_listings', true)
+                    ->orWhere('is_super_admin', true)
+                    ->orWhere('is_business_admin', true)
+                    ->orWhere('role', 'admin')
+                    ->orWhere('is_admin', true);
+            })
             ->get();
+
+        if ($adminUsers->isEmpty()) {
+            return;
+        }
 
         $notifications = [];
         foreach ($adminUsers as $admin) {

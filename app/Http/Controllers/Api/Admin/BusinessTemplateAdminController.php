@@ -287,4 +287,44 @@ class BusinessTemplateAdminController extends Controller
             'data' => TemplateSetting::publicSettings(),
         ]);
     }
+
+    /** List professional fill-in quote requests (business admins). */
+    public function quotes(Request $request): JsonResponse
+    {
+        if (!Schema::hasTable('template_quote_requests')) {
+            return response()->json(['success' => true, 'data' => ['data' => []]]);
+        }
+
+        $query = \App\Models\TemplateQuoteRequest::query()->orderByDesc('created_at');
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->paginate($request->integer('per_page', 20)),
+        ]);
+    }
+
+    public function updateQuote(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::hasTable('template_quote_requests')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 404);
+        }
+
+        $quote = \App\Models\TemplateQuoteRequest::findOrFail($id);
+        $validator = Validator::make($request->all(), [
+            'status' => 'nullable|in:new,contacted,quoted,closed',
+            'admin_notes' => 'nullable|string|max:5000',
+            'assigned_to' => 'nullable|integer',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $quote->fill($validator->validated());
+        $quote->save();
+
+        return response()->json(['success' => true, 'data' => $quote]);
+    }
 }

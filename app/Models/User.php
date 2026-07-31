@@ -43,6 +43,15 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         return $this->role === 'admin' || $this->is_admin === true || $this->email === 'admin@worldwideadverts.com';
     }
 
+    /** Business admins handle template professional fill-in quotes (Clive). */
+    public function isBusinessAdmin(): bool
+    {
+        return (bool) ($this->is_business_admin ?? false)
+            || $this->isAdmin()
+            || (bool) ($this->is_super_admin ?? false)
+            || $this->canManageListings();
+    }
+
     /**
      * Check if user is authenticated.
      */
@@ -114,6 +123,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_manage_listings',
         'can_manage_dashboard',
         'can_view_analytics',
+        'is_business_admin',
         'timezone',
         'avatar',
         'kyc_status',

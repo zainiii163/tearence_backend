@@ -599,4 +599,78 @@ class BusinessTemplateController extends Controller
         // Fallback: open under /templates/
         return redirect()->away(url('/templates/'.basename($relative)));
     }
+
+    /**
+     * User requests a professional fill-in quote → business admins (Clive).
+     */
+    public function requestQuote(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:120',
+            'email' => 'required|email|max:190',
+            'phone' => 'nullable|string|max:60',
+            'company' => 'nullable|string|max:190',
+            'message' => 'required|string|max:5000',
+            'template_title' => 'nullable|string|max:255',
+            'template_slug' => 'nullable|string|max:255',
+            'template_id' => 'nullable|integer',
+            'file_url' => 'nullable|string|max:500',
+            'vertical' => 'nullable|string|max:64',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if (!Schema::hasTable('template_quote_requests')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Quote requests are not available yet. Please contact support.',
+            ], 503);
+        }
+
+        $user = Auth::user();
+        $data = $validator->validated();
+
+        $quote = \App\Models\TemplateQuoteRequest::create([
+            'user_id' => $user?->user_id ?? $user?->id ?? null,
+            'template_title' => $data['template_title'] ?? null,
+            'template_slug' => $data['template_slug'] ?? null,
+            'template_id' => $data['template_id'] ?? null,
+            'file_url' => $data['file_url'] ?? null,
+            'vertical' => $data['vertical'] ?? null,
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'phone' => $data['phone'] ?? null,
+            'company' => $data['company'] ?? null,
+            'message' => $data['message'],
+            'status' => 'new',
+        ]);
+
+        try {
+            $title = $quote->template_title ?: 'a template';
+            \App\Models\AdminNotification::notifyAllAdmins(
+                'template_quote',
+                "New template fill-in quote: {$quote->name} — {$title}",
+                [
+                    'quote_id' => $quote->id,
+                    'email' => $quote->email,
+                    'vertical' => $quote->vertical,
+                    'template_title' => $quote->template_title,
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Failed to notify admins of template quote', ['error' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quote request sent to our business team.',
+            'data' => ['id' => $quote->id],
+        ], 201);
+    }
 }
