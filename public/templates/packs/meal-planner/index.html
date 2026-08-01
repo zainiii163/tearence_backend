@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Meal Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_meal_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Meal Planner</h1>
+        <p class="subtitle">Weekly meals · shopping list · prep · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Plan breakfast, lunch, dinner and snacks for each day. Build a shopping list from your plan and note prep batches. Print and stick on the fridge.</p>
+          <ul class="tips"><li><strong>Plan protein first</strong> — then build sides around it.</li><li><strong>Repeat 2 dinners</strong> mid-week to cut cooking time.</li><li><strong>Shop from the list only</strong> — stick to budget.</li></ul>
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Mon dinner: Grilled chicken + rice + salad<br/>Shop: chicken, rice, greens, olive oil<br/>Prep Sunday: cook grains, chop veg</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Week setup</legend>
+        <div class="form-grid">
+          <label>Week commencing * <input name="week_start" type="date" required /></label>
+          <label>Household size * <input name="household" type="number" min="1" placeholder="e.g. 3" required /></label>
+          <label>Weekly food budget <input name="food_budget" placeholder="e.g. $120" /></label>
+          <label>Preferred cuisine <input name="cuisine" placeholder="e.g. Mixed · Mediterranean" /></label>
+          <label class="full">Diet notes / allergies *
+            <textarea name="diet_notes" rows="2" required placeholder="e.g. No shellfish · Prefer high protein"></textarea>
+            <span class="field-hint">Example: Halal · lactose-free · 1800 kcal target</span>
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Daily meals</legend>
+        <div class="table-scroll">
+          <table class="fill-table">
+            <thead><tr><th>Day</th><th>Breakfast</th><th>Lunch</th><th>Dinner</th><th>Snacks</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>Mon</strong></td>
+                <td><textarea name="bf_0" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_0" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_0" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_0" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Tue</strong></td>
+                <td><textarea name="bf_1" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_1" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_1" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_1" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Wed</strong></td>
+                <td><textarea name="bf_2" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_2" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_2" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_2" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Thu</strong></td>
+                <td><textarea name="bf_3" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_3" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_3" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_3" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Fri</strong></td>
+                <td><textarea name="bf_4" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_4" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_4" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_4" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Sat</strong></td>
+                <td><textarea name="bf_5" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_5" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_5" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_5" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr><tr>
+                <td><strong>Sun</strong></td>
+                <td><textarea name="bf_6" rows="2" placeholder="e.g. Oats + berries"></textarea></td>
+                <td><textarea name="ln_6" rows="2" placeholder="e.g. Chicken wrap"></textarea></td>
+                <td><textarea name="dn_6" rows="2" placeholder="e.g. Salmon + veg"></textarea></td>
+                <td><textarea name="sn_6" rows="2" placeholder="e.g. Yoghurt"></textarea></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Shopping & prep</legend>
+        <div class="form-grid">
+          <label class="full">Shopping list (by aisle) * <textarea name="shopping" rows="5" required placeholder="Produce…&#10;Protein…&#10;Dairy…&#10;Pantry…"></textarea></label>
+          <label class="full">Batch prep plan <textarea name="prep" rows="3" placeholder="Sunday: chop veg, cook grains, portion snacks…"></textarea></label>
+          <label class="full">Leftover / reuse notes <textarea name="leftovers" rows="2" placeholder="Tue lunch uses Mon roast leftovers"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  
+</body>
+</html>

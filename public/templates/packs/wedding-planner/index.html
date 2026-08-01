@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wedding Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_wedding_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Wedding Planner</h1>
+        <p class="subtitle">Couple details · vendors · timeline · budget · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Organise ceremony and reception details, vendors, guest estimate, budget and day-of timeline.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Venue: Oak Hall · Guests: 80 · Budget: $12,000 · Photographer booked</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Couple & date</legend>
+        <div class="form-grid">
+          <label>Partner 1 * <input name="p1" required /></label>
+          <label>Partner 2 * <input name="p2" required /></label>
+          <label>Wedding date * <input name="date" type="date" required /></label>
+          <label>Guest estimate * <input name="guests" type="number" required /></label>
+          <label>Ceremony venue * <input name="ceremony" required /></label>
+          <label>Reception venue <input name="reception" /></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Vendors</legend>
+        <div class="form-grid">
+          <label>Photographer <input name="photo" /></label>
+          <label>Caterer <input name="caterer" /></label>
+          <label>Florist <input name="florist" /></label>
+          <label>Music / DJ <input name="music" /></label>
+          <label class="full">Other vendors <textarea name="other_vendors" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Budget & day-of</legend>
+        <div class="form-grid">
+          <label>Total budget * <input name="budget" required /></label>
+          <label>Deposit paid <input name="deposit" /></label>
+          <label class="full">Day-of timeline * <textarea name="timeline" rows="4" required placeholder="09:00 Hair · 13:00 Ceremony…"></textarea></label>
+          <label class="full">Notes <textarea name="notes" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  
+</body>
+</html>

@@ -75,6 +75,17 @@ class BusinessTemplateSeeder extends Seeder
                 ['Startup business plan', 'Fillable 10-page plan with fields on every section', 'From $39', 'business_plan'],
                 ['Monthly calendar & planner', 'Fillable month calendar with goals', 'From $12', 'planner'],
                 ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
+                ['Meal planner', 'Weekly meals, shopping list and batch prep — fillable', 'From $9', 'planner'],
+                ['Fitness planner', 'Goals, weekly workouts and recovery — fillable', 'From $9', 'planner'],
+                ['Diet planner', 'Macros, meal templates and grocery list — fillable', 'From $9', 'planner'],
+                ['Event planner', 'Brief, run-of-show, budget and vendors — fillable', 'From $12', 'planner'],
+                ['Party planner', 'Theme, guests, menu and day-of checklist — fillable', 'From $10', 'planner'],
+                ['Wedding planner', 'Couple details, vendors, budget and timeline — fillable', 'From $14', 'planner'],
+                ['Travel planner', 'Itinerary, bookings, budget and packing — fillable', 'From $10', 'planner'],
+                ['Weekly budget tracker', 'Income, expenses and variance — fillable', 'From $8', 'planner'],
+                ['Monthly budget tracker', 'Monthly bills and category budgets — fillable', 'From $9', 'planner'],
+                ['Yearly budget tracker', 'Annual goals and category plan — fillable', 'From $10', 'planner'],
+                ['Social media captions pack', 'Multi-niche caption sets with hooks, CTAs and hashtags', 'From $12', 'design'],
                 ['Marketing flyer', 'Fillable flyer / promo brief', 'From $11', 'design'],
                 ['Editable banner ads pack', 'Multi-size IAB + social banners — editable canvas', 'From $15', 'design'],
                 ['Wedding invitation', 'Fillable wedding invitation', 'From $14', 'design'],
@@ -116,6 +127,17 @@ class BusinessTemplateSeeder extends Seeder
                 ['Professional invoice', 'Fillable invoice with line items, tax and payment fields', 'From $8', 'invoice'],
                 ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
                 ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
+                ['Meal planner', 'Weekly meals, shopping list and batch prep — fillable', 'From $9', 'planner'],
+                ['Fitness planner', 'Goals, weekly workouts and recovery — fillable', 'From $9', 'planner'],
+                ['Diet planner', 'Macros, meal templates and grocery list — fillable', 'From $9', 'planner'],
+                ['Event planner', 'Brief, run-of-show, budget and vendors — fillable', 'From $12', 'planner'],
+                ['Party planner', 'Theme, guests, menu and day-of checklist — fillable', 'From $10', 'planner'],
+                ['Wedding planner', 'Couple details, vendors, budget and timeline — fillable', 'From $14', 'planner'],
+                ['Travel planner', 'Itinerary, bookings, budget and packing — fillable', 'From $10', 'planner'],
+                ['Weekly budget tracker', 'Income, expenses and variance — fillable', 'From $8', 'planner'],
+                ['Monthly budget tracker', 'Monthly bills and category budgets — fillable', 'From $9', 'planner'],
+                ['Yearly budget tracker', 'Annual goals and category plan — fillable', 'From $10', 'planner'],
+                ['Social media captions pack', 'Multi-niche caption sets with hooks, CTAs and hashtags', 'From $12', 'design'],
                 ['Marketing flyer', 'Fillable flyer copy for print or Canva', 'From $11', 'design'],
                 ['Editable banner ads pack', 'Multi-size IAB + social banners — editable canvas for buyers', 'From $15', 'design'],
                 ['Wedding invitation', 'Fillable ceremony, reception and RSVP', 'From $14', 'design'],
@@ -222,6 +244,11 @@ class BusinessTemplateSeeder extends Seeder
                 ['Landlord / PM proposal', 'Services, fees and SLA for property managers — fillable', 'From $20', 'proposal'],
                 ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
                 ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
+                ['Meal planner', 'Weekly meals, shopping list and batch prep — fillable', 'From $9', 'planner'],
+                ['Event planner', 'Brief, run-of-show, budget and vendors — fillable', 'From $12', 'planner'],
+                ['Travel planner', 'Itinerary, bookings, budget and packing — fillable', 'From $10', 'planner'],
+                ['Monthly budget tracker', 'Monthly bills and category budgets — fillable', 'From $9', 'planner'],
+                ['Social media captions pack', 'Multi-niche caption sets for listings and ads', 'From $12', 'design'],
                 ['Editable banner ads pack', 'Multi-size banners for property promotions', 'From $15', 'design'],
             ]);
 
@@ -392,6 +419,42 @@ class BusinessTemplateSeeder extends Seeder
         }
         if (str_contains($t, 'calendar') || str_contains($t, 'monthly planner')) {
             return '/templates/monthly-calendar-planner.html';
+        }
+        if (str_contains($t, 'weekly budget')) {
+            return '/templates/budget-tracker-weekly.html';
+        }
+        if (str_contains($t, 'monthly budget')) {
+            return '/templates/budget-tracker-monthly.html';
+        }
+        if (str_contains($t, 'yearly budget') || str_contains($t, 'annual budget')) {
+            return '/templates/budget-tracker-yearly.html';
+        }
+        if (str_contains($t, 'budget tracker')) {
+            return '/templates/budget-tracker-monthly.html';
+        }
+        if (str_contains($t, 'meal planner')) {
+            return '/templates/meal-planner.html';
+        }
+        if (str_contains($t, 'fitness planner')) {
+            return '/templates/fitness-planner.html';
+        }
+        if (str_contains($t, 'diet planner')) {
+            return '/templates/diet-planner.html';
+        }
+        if (str_contains($t, 'event planner')) {
+            return '/templates/event-planner.html';
+        }
+        if (str_contains($t, 'party planner')) {
+            return '/templates/party-planner.html';
+        }
+        if (str_contains($t, 'wedding planner')) {
+            return '/templates/wedding-planner.html';
+        }
+        if (str_contains($t, 'travel planner')) {
+            return '/templates/travel-planner.html';
+        }
+        if (str_contains($t, 'social media caption') || str_contains($t, 'captions pack')) {
+            return '/templates/social-media-captions.html';
         }
         if (str_contains($t, 'weekly planner') || str_contains($t, 'week planner')) {
             return '/templates/weekly-planner.html';

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fitness Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_fitness_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Fitness Planner</h1>
+        <p class="subtitle">Goals · weekly workouts · recovery · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Set fitness goals, schedule workouts by day, track sets/reps or cardio, and plan recovery.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Goal: 3× strength + 2× cardio<br/>Mon: Upper body 45m · Wed: Run 5k</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Goals</legend>
+        <div class="form-grid">
+          <label>Start date * <input name="start" type="date" required /></label>
+          <label>Primary goal * <input name="goal" required placeholder="e.g. Build strength / lose 4kg" /></label>
+          <label>Days per week * <input name="days_week" type="number" min="1" max="7" required placeholder="4" /></label>
+          <label>Level <select name="level"><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label>
+          <label class="full">Limitations / injuries <textarea name="limits" rows="2" placeholder="Knee — avoid deep squats"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Weekly schedule</legend>
+        <div class="table-scroll">
+          <table class="fill-table">
+            <thead><tr><th>Day</th><th>Focus</th><th>Exercises / plan</th><th>Duration</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>Mon</strong></td>
+                <td><input name="focus_0" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_0" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_0" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Tue</strong></td>
+                <td><input name="focus_1" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_1" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_1" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Wed</strong></td>
+                <td><input name="focus_2" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_2" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_2" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Thu</strong></td>
+                <td><input name="focus_3" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_3" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_3" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Fri</strong></td>
+                <td><input name="focus_4" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_4" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_4" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Sat</strong></td>
+                <td><input name="focus_5" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_5" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_5" placeholder="45 min" /></td>
+              </tr><tr>
+                <td><strong>Sun</strong></td>
+                <td><input name="focus_6" placeholder="Strength / Cardio / Rest" /></td>
+                <td><textarea name="plan_6" rows="2" placeholder="Exercises, sets, reps"></textarea></td>
+                <td><input name="dur_6" placeholder="45 min" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Recovery</legend>
+        <div class="form-grid">
+          <label class="full">Sleep / recovery plan <textarea name="recovery" rows="2" placeholder="Sleep 7–8h · stretch after sessions"></textarea></label>
+          <label class="full">Weekly check-in <textarea name="checkin" rows="2" placeholder="Energy, PRs, adjustments"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Diet Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_diet_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Diet Planner</h1>
+        <p class="subtitle">Macros · meal targets · grocery · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Define calorie/macro targets, daily meal structure, and a grocery list aligned to your diet.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Target: 2000 kcal · P 140g · C 180g · F 60g<br/>Rule: protein at every meal</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Targets</legend>
+        <div class="form-grid">
+          <label>Diet style * <input name="style" required placeholder="e.g. Balanced / Keto / Mediterranean" /></label>
+          <label>Daily calories * <input name="cals" required placeholder="2000" /></label>
+          <label>Protein (g) <input name="protein" placeholder="140" /></label>
+          <label>Carbs (g) <input name="carbs" placeholder="180" /></label>
+          <label>Fat (g) <input name="fat" placeholder="60" /></label>
+          <label>Water goal <input name="water" placeholder="3 litres" /></label>
+          <label class="full">Foods to include * <textarea name="include" rows="2" required placeholder="Eggs, fish, oats, berries, yoghurt…"></textarea></label>
+          <label class="full">Foods to limit <textarea name="limit" rows="2" placeholder="Sugary drinks, deep fried…"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Daily structure</legend>
+        <div class="form-grid">
+          <label>Breakfast template <textarea name="bf_t" rows="2"></textarea></label>
+          <label>Lunch template <textarea name="ln_t" rows="2"></textarea></label>
+          <label>Dinner template <textarea name="dn_t" rows="2"></textarea></label>
+          <label>Snacks template <textarea name="sn_t" rows="2"></textarea></label>
+          <label class="full">Grocery list * <textarea name="grocery" rows="4" required></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  
+</body>
+</html>

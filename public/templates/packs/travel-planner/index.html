@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Travel Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_travel_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Travel Planner</h1>
+        <p class="subtitle">Itinerary · bookings · budget · packing · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Plan trip dates, daily itinerary, bookings, budget and packing list.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Trip: Istanbul 5 nights · Flight + hotel booked · Daily budget $80</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Trip overview</legend>
+        <div class="form-grid">
+          <label>Trip name * <input name="name" required placeholder="e.g. Family summer trip" /></label>
+          <label>Destination * <input name="dest" required /></label>
+          <label>Depart * <input name="depart" type="date" required /></label>
+          <label>Return * <input name="ret" type="date" required /></label>
+          <label>Travellers <input name="travellers" type="number" /></label>
+          <label>Total budget <input name="budget" /></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Bookings</legend>
+        <div class="form-grid">
+          <label class="full">Flights / transport <textarea name="flights" rows="2"></textarea></label>
+          <label class="full">Hotels / stays <textarea name="hotels" rows="2"></textarea></label>
+          <label class="full">Activities booked <textarea name="activities" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Daily itinerary</legend>
+        <div class="table-scroll">
+          <table class="fill-table" data-row-table="days">
+            <thead><tr><th>Day</th><th>Plan</th><th>Notes</th><th class="no-print"></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn secondary no-print" id="add-day">+ Add day</button>
+        <div class="form-grid" style="margin-top:1rem">
+          <label class="full">Packing list * <textarea name="packing" rows="3" required></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  <script>
+window.__addRow = function(key, data = {}) {
+  if (key !== 'days') return;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input name="day" value="${data.day||''}" placeholder="Day 1" /></td>
+    <td><textarea name="plan" rows="2">${data.plan||''}</textarea></td>
+    <td><textarea name="notes" rows="2">${data.notes||''}</textarea></td>
+    <td class="no-print"><button type="button" class="icon-btn">Remove</button></td>`;
+  tr.querySelector('button').onclick = () => tr.remove();
+  document.querySelector('[data-row-table="days"] tbody').appendChild(tr);
+};
+window.__seedRows = () => { for (let i=1;i<=3;i++) window.__addRow('days',{day:'Day '+i}); };
+document.getElementById('add-day')?.addEventListener('click', () => window.__addRow('days'));
+</script>
+</body>
+</html>

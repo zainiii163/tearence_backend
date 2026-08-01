@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weekly Budget Tracker | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_budget_tracker_weekly_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Weekly Budget Tracker</h1>
+        <p class="subtitle">Income · expenses · variance · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Track weekly income and expenses. Compare planned vs actual and note adjustments.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Income: $900 · Expenses planned: $720 · Left to save: $180</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Week setup</legend>
+        <div class="form-grid">
+          <label>Week commencing * <input name="period" type="date" required /></label>
+          <label>Currency <input name="currency" placeholder="USD / GBP / EUR" value="USD" /></label>
+          <label>Income total * <input name="income" required placeholder="0.00" /></label>
+          <label>Savings goal <input name="savings_goal" placeholder="0.00" /></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Income lines</legend>
+        <div class="table-scroll">
+          <table class="fill-table" data-row-table="income">
+            <thead><tr><th>Source</th><th>Amount</th><th class="no-print"></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn secondary no-print" data-add="income">+ Add income</button>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Expense lines</legend>
+        <div class="table-scroll">
+          <table class="fill-table" data-row-table="expense">
+            <thead><tr><th>Category</th><th>Planned</th><th>Actual</th><th class="no-print"></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn secondary no-print" data-add="expense">+ Add expense</button>
+        <div class="form-grid" style="margin-top:1rem">
+          <label class="full">Notes / adjustments <textarea name="notes" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  <script>
+function addMoneyRow(kind, data = {}) {
+  const table = document.querySelector('[data-row-table="'+kind+'"] tbody');
+  const tr = document.createElement('tr');
+  if (kind === 'income') {
+    tr.innerHTML = '<td><input name="source" value="'+(data.source||'')+'" placeholder="Salary / side hustle" /></td>'+
+      '<td><input name="amount" value="'+(data.amount||'')+'" placeholder="0.00" /></td>'+
+      '<td class="no-print"><button type="button" class="icon-btn">Remove</button></td>';
+  } else {
+    tr.innerHTML = '<td><input name="category" value="'+(data.category||'')+'" placeholder="Rent / Food / Ads" /></td>'+
+      '<td><input name="planned" value="'+(data.planned||'')+'" placeholder="0.00" /></td>'+
+      '<td><input name="actual" value="'+(data.actual||'')+'" placeholder="0.00" /></td>'+
+      '<td class="no-print"><button type="button" class="icon-btn">Remove</button></td>';
+  }
+  tr.querySelector('button').onclick = () => tr.remove();
+  table.appendChild(tr);
+}
+window.__addRow = (key, data) => addMoneyRow(key, data || {});
+window.__seedRows = () => {
+  addMoneyRow('income'); addMoneyRow('income');
+  ['Housing','Food','Transport','Utilities','Fun'].forEach((c) => addMoneyRow('expense',{category:c}));
+};
+document.querySelectorAll('[data-add]').forEach((btn) => {
+  btn.addEventListener('click', () => addMoneyRow(btn.getAttribute('data-add')));
+});
+</script>
+</body>
+</html>

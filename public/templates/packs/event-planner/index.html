@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Event Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_event_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Event Planner</h1>
+        <p class="subtitle">Brief · timeline · budget · vendors · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Capture event brief, guest count, venue, run-of-show timeline, budget and vendor contacts.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Event: Product launch · 120 guests · Venue: City Hall foyer · Budget: $4,500</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Event brief</legend>
+        <div class="form-grid">
+          <label>Event name * <input name="name" required placeholder="e.g. Client appreciation night" /></label>
+          <label>Date * <input name="date" type="date" required /></label>
+          <label>Start time <input name="start" type="time" /></label>
+          <label>End time <input name="end" type="time" /></label>
+          <label>Venue * <input name="venue" required /></label>
+          <label>Guest count * <input name="guests" type="number" required /></label>
+          <label class="full">Purpose / outcome * <textarea name="purpose" rows="2" required placeholder="What success looks like"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Run of show</legend>
+        <div class="table-scroll">
+          <table class="fill-table" data-row-table="timeline">
+            <thead><tr><th>Time</th><th>Activity</th><th>Owner</th><th class="no-print"></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn secondary no-print" data-add-row="timeline" id="add-timeline">+ Add timeline row</button>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Budget & vendors</legend>
+        <div class="form-grid">
+          <label>Total budget * <input name="budget" required placeholder="$" /></label>
+          <label>Spent so far <input name="spent" placeholder="$" /></label>
+          <label class="full">Vendors / contacts <textarea name="vendors" rows="3" placeholder="Caterer — name — phone"></textarea></label>
+          <label class="full">Risks / contingency <textarea name="risks" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  <script>
+window.__addRow = function(key, data = {}) {
+  if (key !== 'timeline') return;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input name="time" value="${data.time||''}" placeholder="18:00" /></td>
+    <td><textarea name="activity" rows="1">${data.activity||''}</textarea></td>
+    <td><input name="owner" value="${data.owner||''}" /></td>
+    <td class="no-print"><button type="button" class="icon-btn">Remove</button></td>`;
+  tr.querySelector('button').onclick = () => tr.remove();
+  document.querySelector('[data-row-table="timeline"] tbody').appendChild(tr);
+  document.querySelectorAll('#tpl-form input, #tpl-form textarea').forEach((n)=>{
+    n.addEventListener('input', ()=>document.getElementById('btn-save'));
+  });
+};
+window.__seedRows = () => { for (let i=0;i<3;i++) window.__addRow('timeline'); };
+document.getElementById('add-timeline')?.addEventListener('click', () => window.__addRow('timeline'));
+</script>
+</body>
+</html>

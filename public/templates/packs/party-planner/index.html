@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Party Planner | Worldwide Adverts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-storage-key="wwa_party_planner_v1">
+  <header class="site-header">
+    <div class="container header-grid">
+      <div>
+        <h1 class="brand">Party Planner</h1>
+        <p class="subtitle">Theme · guest list · menu · checklist · autosave · print/PDF</p>
+      </div>
+      <div class="header-actions no-print">
+        <button type="button" id="btn-save" class="btn primary">Save</button>
+        <button type="button" id="btn-validate" class="btn">Validate</button>
+        <button type="button" id="btn-reset" class="btn danger">Reset</button>
+        <button type="button" id="btn-print" class="btn">Print / PDF</button>
+      </div>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card intro no-print">
+      <div class="intro-grid">
+        <div>
+          <h2>How to fill this template</h2>
+          <p class="muted">Plan theme, guests, food/drink, décor, playlist and a day-of checklist.</p>
+          
+        </div>
+        <aside class="example-box">
+          <h3>Filled example</h3>
+          <p class="small example">Theme: Garden BBQ · 25 guests · Menu: burgers, salads, mocktails</p>
+        </aside>
+      </div>
+    </section>
+    <form id="tpl-form" class="card form" autocomplete="off">
+
+      <fieldset class="section">
+        <legend>Party details</legend>
+        <div class="form-grid">
+          <label>Party name * <input name="name" required /></label>
+          <label>Date * <input name="date" type="date" required /></label>
+          <label>Theme * <input name="theme" required placeholder="e.g. Retro disco" /></label>
+          <label>Location * <input name="location" required /></label>
+          <label>Guest count <input name="guests" type="number" /></label>
+          <label>Budget <input name="budget" placeholder="$" /></label>
+          <label class="full">Guest list notes <textarea name="guest_list" rows="3" placeholder="Names / RSVP"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="section">
+        <legend>Food, drink & vibe</legend>
+        <div class="form-grid">
+          <label class="full">Menu * <textarea name="menu" rows="3" required></textarea></label>
+          <label class="full">Drinks <textarea name="drinks" rows="2"></textarea></label>
+          <label class="full">Décor / playlist <textarea name="decor" rows="2"></textarea></label>
+          <label class="full">Day-of checklist <textarea name="checklist" rows="3" placeholder="Ice · speakers · cleanup bags"></textarea></label>
+        </div>
+      </fieldset>
+  
+      <fieldset class="section">
+        <legend>Ready checklist</legend>
+        <div class="checklist"><ul>
+          <li><label><input type="checkbox" name="chk_complete"> All required fields filled</label></li>
+          <li><label><input type="checkbox" name="chk_reviewed"> Reviewed against the example</label></li>
+          <li><label><input type="checkbox" name="chk_print"> Ready to print / PDF / share</label></li>
+        </ul></div>
+      </fieldset>
+    </form>
+  </main>
+  <div id="toast" class="toast" style="display:none"></div>
+  <script src="script.js"></script>
+  
+</body>
+</html>
