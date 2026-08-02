@@ -38,15 +38,13 @@ class AuthenticatedSessionController extends Controller
         $adminUser = \App\Models\User::where('email', $credentials['email'])->first();
         
         if ($adminUser && \Hash::check($credentials['password'], $adminUser->password)) {
-            // Authenticate admin user with session using attempt method
-            if (\Illuminate\Support\Facades\Auth::guard('admin-web')->attempt($credentials)) {
-                $request->session()->regenerate();
-                
-                \Log::info('Admin login successful for: ' . $adminUser->email);
-                
-                // Redirect to admin dashboard
-                return redirect()->intended('/admin');
-            }
+            // Login directly — more reliable than attempt() after Hash::check
+            \Illuminate\Support\Facades\Auth::guard('admin-web')->login($adminUser, (bool) $request->boolean('remember'));
+            $request->session()->regenerate();
+
+            \Log::info('Admin login successful for: ' . $adminUser->email);
+
+            return redirect()->intended('/admin');
         }
 
         // Check if it's a customer user
