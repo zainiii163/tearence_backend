@@ -16,7 +16,9 @@ class RestoreCliveAdminSeeder extends Seeder
     public function run(): void
     {
         $email = 'worldwideadverts@gmail.com';
-        $tempPassword = 'Password.1';
+        // Avoid special chars that browsers/password managers often mangle on paste.
+        $tempPassword = 'CliveAdmin2026';
+
 
         $user = User::where('email', $email)->first();
 

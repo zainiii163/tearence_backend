@@ -31,41 +31,44 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required'],
         ]);
 
-        // Debug: Log the login attempt
-        \Log::info('Login attempt for email: ' . $credentials['email']);
+        $email = strtolower(trim($credentials['email']));
+        $password = trim($credentials['password']);
+
+        \Log::info('Login attempt for email: ' . $email);
 
         // First check if it's an admin user
-        $adminUser = \App\Models\User::where('email', $credentials['email'])->first();
-        
-        if ($adminUser && \Hash::check($credentials['password'], $adminUser->password)) {
-            // Login directly — more reliable than attempt() after Hash::check
-            \Illuminate\Support\Facades\Auth::guard('admin-web')->login($adminUser, (bool) $request->boolean('remember'));
-            $request->session()->regenerate();
+        $adminUser = \App\Models\User::where('email', $email)->first();
 
-            \Log::info('Admin login successful for: ' . $adminUser->email);
+        if ($adminUser) {
+            $adminPasswordOk = \Hash::check($password, $adminUser->password);
+            \Log::info('Admin user found; password_ok=' . ($adminPasswordOk ? '1' : '0'));
 
-            return redirect()->intended('/admin');
+            if ($adminPasswordOk) {
+                \Illuminate\Support\Facades\Auth::guard('admin-web')->login($adminUser, (bool) $request->boolean('remember'));
+                $request->session()->regenerate();
+
+                \Log::info('Admin login successful for: ' . $adminUser->email);
+
+                return redirect()->intended('/admin');
+            }
         }
 
         // Check if it's a customer user
-        $customer = \App\Models\Customer::where('email', $credentials['email'])->first();
-        
-        if ($customer && \Hash::check($credentials['password'], $customer->password_hash)) {
-            // Manually authenticate customer user
+        $customer = \App\Models\Customer::where('email', $email)->first();
+
+        if ($customer && \Hash::check($password, $customer->password_hash)) {
             \Illuminate\Support\Facades\Auth::guard('web')->login($customer);
             $request->session()->regenerate();
-            
+
             \Log::info('Customer login successful for: ' . $customer->email);
-            
-            // Redirect to customer dashboard
+
             return redirect()->intended('/dashboard');
         }
-        
-        // If we reach here, authentication failed
-        \Log::warning('Authentication failed for email: ' . $credentials['email']);
-        
+
+        \Log::warning('Authentication failed for email: ' . $email . ' admin_found=' . ($adminUser ? '1' : '0') . ' customer_found=' . ($customer ? '1' : '0'));
+
         return back()->withErrors([
-            'email' => 'The provided credentials do not match our records.',
+            'email' => 'The provided credentials do not match our records. Admins: use https://api.worldwideadverts.info/admin and type the password manually (disable browser autofill).',
         ])->onlyInput('email');
     }
 

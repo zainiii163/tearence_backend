@@ -249,6 +249,7 @@ body {
         <!-- RIGHT PANEL -->
         <div class="login-form">
             <h3>Welcome Back</h3>
+            <small>Staff / Clive: use the <a class="link" href="{{ url('/admin') }}">Admin panel</a> (not this page).</small>
 
             @if(session('error'))
                 <div class="alert alert-danger">{{ session('error') }}</div>
@@ -259,18 +260,18 @@ body {
             @endif
 
             
-            <form method="POST" action="{{ route('login') }}">
+            <form method="POST" action="{{ url('/login') }}" autocomplete="off">
                 @csrf
 
                 <div class="form-group">
                     <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input @error('email') is-invalid @enderror" value="{{ old('email') }}" required>
+                    <input type="email" name="email" class="form-input @error('email') is-invalid @enderror" value="{{ old('email') }}" required autocomplete="username">
                     @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
                 <div class="form-group form-group-icon">
                     <label class="form-label">Password</label>
-                    <input type="password" id="password" name="password" class="form-input @error('password') is-invalid @enderror" required>
+                    <input type="password" id="password" name="password" class="form-input @error('password') is-invalid @enderror" required autocomplete="current-password">
                     <button type="button" class="toggle-pass" onclick="togglePassword()">👁</button>
                     @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
