@@ -43,13 +43,15 @@ class EventsVenuesCategory extends Model
 
     public function scopeEvents($query)
     {
-        return $query->where('type', 'event')
-                     ->orWhere('type', 'both');
+        return $query->where(function ($q) {
+            $q->where('type', 'event')->orWhere('type', 'both');
+        });
     }
 
     public function scopeVenues($query)
     {
-        return $query->where('type', 'venue')
-                     ->orWhere('type', 'both');
+        return $query->where(function ($q) {
+            $q->where('type', 'venue')->orWhere('type', 'both');
+        });
     }
 }

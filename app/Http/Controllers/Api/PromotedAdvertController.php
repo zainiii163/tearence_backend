@@ -7,6 +7,7 @@ use App\Models\PromotedAdvert;
 use App\Models\PromotedAdvertCategory;
 use App\Models\PromotedAdvertFavorite;
 use App\Models\PromotedAdvertAnalytic;
+use App\Services\CrossPromotionFeedService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -250,6 +251,30 @@ class PromotedAdvertController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Promoted advert deleted successfully',
+        ]);
+    }
+
+    /**
+     * Cross-category promoted feed (vehicles, property, buy-sell, events, etc.)
+     */
+    public function siteFeed(Request $request, CrossPromotionFeedService $feed): JsonResponse
+    {
+        $result = $feed->feed('promoted', $request->only(['search', 'country', 'per_page', 'page']));
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Trending topics for public promoted page sidebar
+     */
+    public function trendingTopics(Request $request, CrossPromotionFeedService $feed): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $feed->trendingTopics('promoted', (int) $request->get('limit', 8)),
         ]);
     }
 

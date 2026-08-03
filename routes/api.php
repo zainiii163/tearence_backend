@@ -2121,6 +2121,10 @@ Route::group([
 
         Route::get('/trending-categories', [PromotedAdvertController::class, 'trendingCategories']);
 
+        Route::get('/site-feed', [PromotedAdvertController::class, 'siteFeed']);
+
+        Route::get('/trending-topics', [PromotedAdvertController::class, 'trendingTopics']);
+
         Route::get('/{slug}', [PromotedAdvertController::class, 'show'])->where('slug', '^[a-zA-Z0-9-_]+$');
 
         Route::post('/{slug}/track-click', [PromotedAdvertController::class, 'trackClick'])->where('slug', '^[a-zA-Z0-9-_]+$');
@@ -2684,6 +2688,8 @@ Route::group([
         Route::get('/categories', [SponsoredAdvertController::class, 'categories']);
         Route::get('/trending-categories', [SponsoredAdvertController::class, 'trendingCategories']);
         Route::get('/pricing-plans', [SponsoredAdvertController::class, 'pricingPlans']);
+        Route::get('/site-feed', [SponsoredAdvertController::class, 'siteFeed']);
+        Route::get('/trending-topics', [SponsoredAdvertController::class, 'trendingTopics']);
 
         // Authenticated static routes must come before /{slug}
         Route::middleware('jwt.auth')->group(function () {
@@ -3457,9 +3463,10 @@ Route::group([
             Route::get('/my-adverts', [EventsVenuesController::class, 'myAdverts']);
             Route::post('/{id}/save', [EventsVenuesController::class, 'save']);
             Route::get('/saved', [EventsVenuesController::class, 'savedAdverts']);
+            Route::post('/upload-image', [EventsVenuesController::class, 'uploadImage']);
         });
 
-        // Public routes
+        // Public routes (browse without login)
         Route::get('/', [EventsVenuesController::class, 'index']);
         Route::get('/featured', [EventsVenuesController::class, 'featured']);
         Route::get('/sponsored', [EventsVenuesController::class, 'sponsored']);
@@ -3467,7 +3474,6 @@ Route::group([
         Route::get('/statistics', [EventsVenuesController::class, 'statistics']);
         Route::get('/live-activity', [EventsVenuesController::class, 'liveActivity']);
         Route::get('/promotion-tiers', [EventsVenuesController::class, 'promotionTiers']);
-        Route::post('/upload-image', [EventsVenuesController::class, 'uploadImage']);
         Route::get('/{slug}', [EventsVenuesController::class, 'show']);
     });
 

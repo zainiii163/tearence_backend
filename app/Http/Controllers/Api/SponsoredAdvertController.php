@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SponsoredAdvert;
+use App\Services\CrossPromotionFeedService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -628,6 +629,30 @@ class SponsoredAdvertController extends Controller
             'success' => true,
             'message' => $isSaved ? 'Advert saved successfully' : 'Advert unsaved successfully',
             'is_saved' => $isSaved
+        ]);
+    }
+
+    /**
+     * Cross-category sponsored feed (vehicles, property, buy-sell, events, etc.)
+     */
+    public function siteFeed(Request $request, CrossPromotionFeedService $feed)
+    {
+        $result = $feed->feed('sponsored', $request->only(['search', 'country', 'per_page', 'page']));
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Trending topics for public sponsored page sidebar
+     */
+    public function trendingTopics(Request $request, CrossPromotionFeedService $feed)
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $feed->trendingTopics('sponsored', (int) $request->get('limit', 8)),
         ]);
     }
 

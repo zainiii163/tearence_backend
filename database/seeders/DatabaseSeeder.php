@@ -39,6 +39,9 @@ class DatabaseSeeder extends Seeder
             ServiceCategorySeeder::class,
             ServiceSeeder::class,
 
+            // Events & Venues categories (Explore Events / Explore Venues)
+            EventsVenuesCategorySeeder::class,
+
             // Business document templates (pitch, grant, plans)
             BusinessTemplateSeeder::class,
             

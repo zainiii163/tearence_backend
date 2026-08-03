@@ -543,12 +543,19 @@ class EventsVenuesController extends Controller
         ]);
     }
 
-    public function featured()
+    public function featured(Request $request)
     {
-        $adverts = EventsVenuesAdvert::active()
+        $query = EventsVenuesAdvert::active()
                                     ->featured()
-                                    ->with(['category', 'user'])
-                                    ->orderBy('created_at', 'desc')
+                                    ->with(['category', 'user']);
+
+        if ($request->advert_type === 'event') {
+            $query->events();
+        } elseif ($request->advert_type === 'venue') {
+            $query->venues();
+        }
+
+        $adverts = $query->orderBy('created_at', 'desc')
                                     ->limit(10)
                                     ->get();
 
@@ -558,12 +565,19 @@ class EventsVenuesController extends Controller
         ]);
     }
 
-    public function sponsored()
+    public function sponsored(Request $request)
     {
-        $adverts = EventsVenuesAdvert::active()
+        $query = EventsVenuesAdvert::active()
                                     ->sponsored()
-                                    ->with(['category', 'user'])
-                                    ->orderBy('created_at', 'desc')
+                                    ->with(['category', 'user']);
+
+        if ($request->advert_type === 'event') {
+            $query->events();
+        } elseif ($request->advert_type === 'venue') {
+            $query->venues();
+        }
+
+        $adverts = $query->orderBy('created_at', 'desc')
                                     ->limit(10)
                                     ->get();
 
@@ -573,10 +587,21 @@ class EventsVenuesController extends Controller
         ]);
     }
 
-    public function categories()
+    public function categories(Request $request)
     {
-        $categories = EventsVenuesCategory::active()
-                                          ->orderBy('sort_order')
+        $query = EventsVenuesCategory::active();
+
+        // Support Explore Events / Explore Venues pages: ?type=event|venue|both
+        $type = $request->query('type') ?: $request->query('advert_type');
+        if ($type === 'event') {
+            $query->events();
+        } elseif ($type === 'venue') {
+            $query->venues();
+        } elseif ($type === 'both') {
+            $query->byType('both');
+        }
+
+        $categories = $query->orderBy('sort_order')
                                           ->orderBy('name')
                                           ->get();
 

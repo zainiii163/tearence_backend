@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\JobCategory;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Seeder;
 
 class JobCategorySeeder extends Seeder
 {
@@ -13,8 +12,7 @@ class JobCategorySeeder extends Seeder
      */
     public function run(): void
     {
-        // Clear existing categories
-        DB::table('job_categories')->delete();
+        // Upsert categories (do not wipe existing production data)
 
         $categories = [
             [
@@ -125,10 +123,58 @@ class JobCategorySeeder extends Seeder
                 'sort_order' => 12,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Science',
+                'slug' => 'science',
+                'description' => 'Research, laboratory, and science roles',
+                'icon' => 'flask',
+                'color' => '#0EA5E9',
+                'sort_order' => 13,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Agriculture',
+                'slug' => 'agriculture',
+                'description' => 'Farming, agribusiness, and agricultural roles',
+                'icon' => 'seedling',
+                'color' => '#65A30D',
+                'sort_order' => 14,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Professional',
+                'slug' => 'professional',
+                'description' => 'Professional services and specialist roles',
+                'icon' => 'briefcase',
+                'color' => '#475569',
+                'sort_order' => 15,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Consultancy',
+                'slug' => 'consultancy',
+                'description' => 'Consulting and advisory roles',
+                'icon' => 'comments',
+                'color' => '#7C3AED',
+                'sort_order' => 16,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Other',
+                'slug' => 'other',
+                'description' => 'Other job categories',
+                'icon' => 'ellipsis-h',
+                'color' => '#94A3B8',
+                'sort_order' => 17,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($categories as $category) {
-            JobCategory::create($category);
+            JobCategory::updateOrCreate(
+                ['slug' => $category['slug']],
+                $category
+            );
         }
 
         $this->command->info('Job categories seeded successfully!');
