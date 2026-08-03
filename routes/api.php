@@ -2832,6 +2832,10 @@ Route::group([
 
         Route::get('/carousel', [FeaturedAdvertController::class, 'carousel']);
 
+        Route::get('/site-feed', [FeaturedAdvertController::class, 'siteFeed']);
+
+        Route::get('/trending-topics', [FeaturedAdvertController::class, 'trendingTopics']);
+
         Route::get('/category-grid', [FeaturedAdvertController::class, 'categoryGrid']);
 
         Route::get('/trending-countries', [FeaturedAdvertController::class, 'trendingCountries']);

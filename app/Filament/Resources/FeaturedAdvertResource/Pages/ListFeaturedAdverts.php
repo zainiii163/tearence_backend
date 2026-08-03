@@ -16,13 +16,12 @@ class ListFeaturedAdverts extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
-            
+
             Action::make('export')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function () {
-                    // Export functionality
                     Notification::make()
                         ->title('Export started')
                         ->body('Featured adverts data will be exported to CSV.')

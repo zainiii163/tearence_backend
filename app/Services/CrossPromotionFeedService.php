@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BuySellAdvert;
 use App\Models\EventsVenuesAdvert;
+use App\Models\FeaturedAdvert;
 use App\Models\PromotedAdvert;
 use App\Models\Property;
 use App\Models\ResortsTravel;
@@ -11,16 +12,17 @@ use App\Models\Service;
 use App\Models\SponsoredAdvert;
 use App\Models\Vehicle;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
- * Aggregates sponsored / promoted listings from across marketplace categories
+ * Aggregates sponsored / promoted / featured listings from across marketplace categories
  * into a single public feed (Clive: pull from existing category posts).
  */
 class CrossPromotionFeedService
 {
     /**
-     * @param  string  $mode  sponsored|promoted
+     * @param  string  $mode  sponsored|promoted|featured
      * @param  array{search?:string,country?:string,per_page?:int,page?:int}  $filters
      */
     public function feed(string $mode = 'sponsored', array $filters = []): array
@@ -33,6 +35,7 @@ class CrossPromotionFeedService
         $items = collect()
             ->merge($this->fromDedicatedSponsored($mode, $search, $country))
             ->merge($this->fromDedicatedPromoted($mode, $search, $country))
+            ->merge($this->fromDedicatedFeatured($mode, $search, $country))
             ->merge($this->fromVehicles($mode, $search, $country))
             ->merge($this->fromProperties($mode, $search, $country))
             ->merge($this->fromBuySell($mode, $search, $country))
@@ -81,6 +84,57 @@ class CrossPromotionFeedService
             ->all();
     }
 
+    /**
+     * Lightweight admin counter for Filament (Clive: counters belong in admin, not public pages).
+     */
+    public function adminCount(string $mode = 'sponsored'): int
+    {
+        return (int) Cache::remember(
+            "cross_promo_admin_count_{$mode}",
+            now()->addMinutes(5),
+            fn () => (int) ($this->feed($mode, ['per_page' => 1, 'page' => 1])['total'] ?? 0)
+        );
+    }
+
+    /**
+     * Admin snapshot: total feed items + top countries from a sample.
+     *
+     * @return array{total:int,countries:array<int,array{name:string,count:int}>}
+     */
+    public function adminSnapshot(string $mode = 'sponsored', int $countryLimit = 8): array
+    {
+        return Cache::remember(
+            "cross_promo_admin_snapshot_{$mode}_{$countryLimit}",
+            now()->addMinutes(5),
+            function () use ($mode, $countryLimit) {
+                $feed = $this->feed($mode, ['per_page' => 200, 'page' => 1]);
+                $countryCounts = [];
+
+                foreach ($feed['data'] as $item) {
+                    $country = trim((string) ($item['country'] ?? ''));
+                    if ($country === '') {
+                        continue;
+                    }
+                    $countryCounts[$country] = ($countryCounts[$country] ?? 0) + 1;
+                }
+
+                arsort($countryCounts);
+
+                return [
+                    'total' => (int) ($feed['total'] ?? 0),
+                    'countries' => collect($countryCounts)
+                        ->take($countryLimit)
+                        ->map(fn ($count, $name) => [
+                            'name' => $name,
+                            'count' => $count,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            }
+        );
+    }
+
     private function fromDedicatedSponsored(string $mode, string $search, string $country): Collection
     {
         if ($mode !== 'sponsored') {
@@ -126,7 +180,7 @@ class CrossPromotionFeedService
 
     private function fromDedicatedPromoted(string $mode, string $search, string $country): Collection
     {
-        if ($mode !== 'promoted') {
+        if (! in_array($mode, ['promoted', 'featured'], true)) {
             return collect();
         }
 
@@ -134,6 +188,12 @@ class CrossPromotionFeedService
             $query = PromotedAdvert::query();
             if (method_exists(PromotedAdvert::class, 'scopeActive')) {
                 $query->active();
+            }
+            if ($mode === 'featured') {
+                $query->where(function ($q) {
+                    $q->where('is_featured', true)
+                        ->orWhere('promotion_tier', 'featured');
+                });
             }
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
@@ -145,7 +205,7 @@ class CrossPromotionFeedService
                 $query->where('country', 'like', "%{$country}%");
             }
 
-            return $query->orderByDesc('id')->limit(40)->get()->map(function ($ad) {
+            return $query->orderByDesc('id')->limit(40)->get()->map(function ($ad) use ($mode) {
                 return $this->normalize([
                     'source' => 'promoted',
                     'source_id' => $ad->id,
@@ -162,7 +222,7 @@ class CrossPromotionFeedService
                     'category_name' => $ad->category?->name ?? ($ad->advert_type ?? 'Promoted'),
                     'href' => '/promoted-adverts/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -170,21 +230,129 @@ class CrossPromotionFeedService
         }
     }
 
+    private function fromDedicatedFeatured(string $mode, string $search, string $country): Collection
+    {
+        if ($mode !== 'featured') {
+            return collect();
+        }
+
+        try {
+            $query = FeaturedAdvert::query();
+            if (method_exists(FeaturedAdvert::class, 'scopeActive')) {
+                $query->active();
+            }
+            if ($search !== '') {
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+            if ($country !== '') {
+                $query->where('country', 'like', "%{$country}%");
+            }
+
+            return $query->orderByDesc('id')->limit(40)->get()->map(function ($ad) {
+                $images = is_array($ad->images) ? $ad->images : [];
+                $main = $images[0] ?? $ad->main_image ?? null;
+
+                return $this->normalize([
+                    'source' => 'featured',
+                    'source_id' => $ad->id,
+                    'source_label' => 'Featured',
+                    'title' => $ad->title,
+                    'slug' => $ad->slug,
+                    'description' => Str::limit(strip_tags((string) ($ad->description ?? '')), 160),
+                    'price' => $ad->price ?? null,
+                    'currency' => $ad->currency ?? 'USD',
+                    'country' => $ad->country ?? null,
+                    'city' => $ad->city ?? null,
+                    'main_image' => $main,
+                    'views_count' => $ad->view_count ?? 0,
+                    'category_name' => $ad->category?->name ?? ($ad->advert_type ?? 'Featured'),
+                    'href' => '/featured-adverts/' . ($ad->slug ?: $ad->id),
+                    'created_at' => optional($ad->created_at)?->toIso8601String(),
+                    'badge' => 'Featured',
+                    'is_featured' => true,
+                    'featured' => true,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            return collect();
+        }
+    }
+
+    private function badgeFor(string $mode): string
+    {
+        return match ($mode) {
+            'sponsored' => 'Sponsored',
+            'featured' => 'Featured',
+            default => 'Promoted',
+        };
+    }
+
+    private function applyModeFilter($query, string $mode, string $style = 'flags'): void
+    {
+        if ($style === 'advert_type') {
+            if ($mode === 'sponsored') {
+                $query->where('advert_type', 'sponsored');
+            } elseif ($mode === 'featured') {
+                $query->where('advert_type', 'featured');
+            } else {
+                $query->whereIn('advert_type', ['promoted', 'featured']);
+            }
+
+            return;
+        }
+
+        if ($style === 'promotion_type') {
+            if ($mode === 'sponsored') {
+                $query->whereIn('promotion_type', ['sponsored', 'network_boost']);
+            } elseif ($mode === 'featured') {
+                $query->where('promotion_type', 'featured');
+            } else {
+                $query->whereIn('promotion_type', ['promoted', 'featured']);
+            }
+
+            return;
+        }
+
+        if ($style === 'resorts') {
+            if ($mode === 'sponsored') {
+                $query->whereIn('promotion_tier', ['sponsored', 'network_wide']);
+            } elseif ($mode === 'featured') {
+                $query->where('promotion_tier', 'featured');
+            } else {
+                $query->whereIn('promotion_tier', ['promoted', 'featured']);
+            }
+
+            return;
+        }
+
+        // flags / promotion_tier default
+        if ($mode === 'sponsored') {
+            $query->where(function ($q) {
+                $q->where('is_sponsored', true)
+                    ->orWhere('promotion_tier', 'sponsored');
+            });
+        } elseif ($mode === 'featured') {
+            $query->where(function ($q) {
+                $q->where('is_featured', true)
+                    ->orWhere('promotion_tier', 'featured');
+            });
+        } else {
+            $query->where(function ($q) {
+                $q->where('is_promoted', true)
+                    ->orWhere('is_featured', true)
+                    ->orWhereIn('promotion_tier', ['promoted', 'featured']);
+            });
+        }
+    }
+
     private function fromVehicles(string $mode, string $search, string $country): Collection
     {
         try {
             $query = Vehicle::query();
-            if ($mode === 'sponsored') {
-                $query->where(function ($q) {
-                    $q->where('is_sponsored', true)
-                        ->orWhere('promotion_tier', 'sponsored');
-                });
-            } else {
-                $query->where(function ($q) {
-                    $q->where('is_promoted', true)
-                        ->orWhereIn('promotion_tier', ['promoted', 'featured']);
-                });
-            }
+            $this->applyModeFilter($query, $mode, 'flags');
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
@@ -213,7 +381,7 @@ class CrossPromotionFeedService
                     'category_name' => 'Vehicles',
                     'href' => '/vehicles/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -225,11 +393,7 @@ class CrossPromotionFeedService
     {
         try {
             $query = Property::query();
-            if ($mode === 'sponsored') {
-                $query->where('advert_type', 'sponsored');
-            } else {
-                $query->whereIn('advert_type', ['promoted', 'featured']);
-            }
+            $this->applyModeFilter($query, $mode, 'advert_type');
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
@@ -257,7 +421,7 @@ class CrossPromotionFeedService
                     'category_name' => 'Property',
                     'href' => '/property/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -269,15 +433,7 @@ class CrossPromotionFeedService
     {
         try {
             $query = BuySellAdvert::query();
-            if ($mode === 'sponsored') {
-                $query->where('is_sponsored', true);
-            } else {
-                $query->where(function ($q) {
-                    $q->where('is_promoted', true)
-                        ->orWhere('is_featured', true)
-                        ->orWhereIn('promotion_tier', ['promoted', 'featured']);
-                });
-            }
+            $this->applyModeFilter($query, $mode, 'flags');
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
@@ -305,7 +461,7 @@ class CrossPromotionFeedService
                     'category_name' => $ad->category?->name ?? 'Buy & Sell',
                     'href' => '/buy-sell/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -319,6 +475,8 @@ class CrossPromotionFeedService
             $query = EventsVenuesAdvert::query()->active();
             if ($mode === 'sponsored') {
                 $query->where('promotion_tier', 'sponsored');
+            } elseif ($mode === 'featured') {
+                $query->where('promotion_tier', 'featured');
             } else {
                 $query->whereIn('promotion_tier', ['promoted', 'featured']);
             }
@@ -349,7 +507,7 @@ class CrossPromotionFeedService
                     'category_name' => $ad->category?->name ?? 'Events & Venues',
                     'href' => '/events-venues/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -361,11 +519,7 @@ class CrossPromotionFeedService
     {
         try {
             $query = Service::query();
-            if ($mode === 'sponsored') {
-                $query->whereIn('promotion_type', ['sponsored', 'network_boost']);
-            } else {
-                $query->whereIn('promotion_type', ['promoted', 'featured']);
-            }
+            $this->applyModeFilter($query, $mode, 'promotion_type');
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
@@ -393,7 +547,7 @@ class CrossPromotionFeedService
                     'category_name' => $ad->category?->name ?? 'Services',
                     'href' => '/services/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {
@@ -405,11 +559,7 @@ class CrossPromotionFeedService
     {
         try {
             $query = ResortsTravel::query();
-            if ($mode === 'sponsored') {
-                $query->whereIn('promotion_tier', ['sponsored', 'network_wide']);
-            } else {
-                $query->whereIn('promotion_tier', ['promoted', 'featured']);
-            }
+            $this->applyModeFilter($query, $mode, 'resorts');
             if ($search !== '') {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
@@ -437,7 +587,7 @@ class CrossPromotionFeedService
                     'category_name' => 'Travel & Experiences',
                     'href' => '/resorts-travel/' . ($ad->slug ?: $ad->id),
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
-                    'badge' => $mode === 'sponsored' ? 'Sponsored' : 'Promoted',
+                    'badge' => $this->badgeFor($mode),
                 ]);
             });
         } catch (\Throwable $e) {

@@ -2,9 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Clusters\DashboardCluster\Pages\AnalyticsOverview;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Filament\Widgets\WidgetConfiguration;
 
+/**
+ * Home entry kept for Filament routing; navigation uses DashboardCluster drawer instead.
+ */
 class AdminDashboard extends BaseDashboard
 {
     protected static ?string $navigationIcon = 'heroicon-o-home';
@@ -17,25 +20,28 @@ class AdminDashboard extends BaseDashboard
 
     protected static string $panel = 'admin';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     protected function getHeaderWidgets(): array
     {
-        return [
-            // Temporarily disabled to prevent timeout issues
-            // \App\Filament\Widgets\VehicleOverviewWidget::class,
-            // \App\Filament\Widgets\AffiliateOverviewWidget::class,
-            // \App\Filament\Resources\AdminResource\Widgets\SponsoredOverviewWidget::class,
-        ];
+        return [];
+    }
+
+    public function getWidgets(): array
+    {
+        return [];
     }
 
     protected function getFooterWidgets(): array
     {
-        return [
-            // Temporarily disabled to prevent timeout issues
-            // \App\Filament\Widgets\AffiliateStatsChart::class,
-            // \App\Filament\Widgets\RecentAffiliateContent::class,
-            // \App\Filament\Resources\AdminResource\Widgets\RecentSponsoredAdvertsWidget::class,
-            // \App\Filament\Resources\AdminResource\Widgets\SponsoredStatsChartWidget::class,
-        ];
+        return [];
+    }
+
+    public function mount(): void
+    {
+        $this->redirect(AnalyticsOverview::getUrl());
     }
 }
-

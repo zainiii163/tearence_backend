@@ -130,6 +130,9 @@ class ImagesAdvertController extends Controller
             'description' => 'required|string',
             'short_description' => 'nullable|string|max:500',
             'main_image' => 'required|string',
+            'media_type' => 'nullable|in:image,video',
+            'video_url' => 'nullable|string|max:500',
+            'video_path' => 'nullable|string|max:500',
             'images' => 'nullable|array',
             'images.*' => 'string',
             'thumbnail' => 'nullable|string',
@@ -166,6 +169,7 @@ class ImagesAdvertController extends Controller
 
         $validated['user_id'] = Auth::id();
         $validated['verification_status'] = 'pending';
+        $validated['media_type'] = $validated['media_type'] ?? 'image';
         $validated['currency'] = $validated['currency'] ?? 'GBP';
         $validated['has_model_release'] = $validated['has_model_release'] ?? false;
         $validated['has_property_release'] = $validated['has_property_release'] ?? false;
@@ -553,25 +557,29 @@ class ImagesAdvertController extends Controller
     public function uploadImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'image' => 'required|file|mimes:jpeg,png,jpg,gif,webp,mp4,webm,mov,qt|max:51200',
         ]);
 
-        $path = $request->file('image')->store('images', 'public');
+        $file = $request->file('image');
+        $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
+        $path = $file->store($isVideo ? 'images/videos' : 'images', 'public');
 
-        // Get image dimensions
-        $imageInfo = getimagesize($request->file('image')->getPathname());
-        $width = $imageInfo[0] ?? null;
-        $height = $imageInfo[1] ?? null;
-
-        // Determine orientation
+        $width = null;
+        $height = null;
         $orientation = 'landscape';
-        if ($width && $height) {
-            if ($width > $height) {
-                $orientation = 'landscape';
-            } elseif ($width < $height) {
-                $orientation = 'portrait';
-            } else {
-                $orientation = 'square';
+
+        if (!$isVideo) {
+            $imageInfo = @getimagesize($file->getPathname());
+            $width = $imageInfo[0] ?? null;
+            $height = $imageInfo[1] ?? null;
+            if ($width && $height) {
+                if ($width > $height) {
+                    $orientation = 'landscape';
+                } elseif ($width < $height) {
+                    $orientation = 'portrait';
+                } else {
+                    $orientation = 'square';
+                }
             }
         }
 
@@ -583,6 +591,7 @@ class ImagesAdvertController extends Controller
                 'width' => $width,
                 'height' => $height,
                 'orientation' => $orientation,
+                'media_type' => $isVideo ? 'video' : 'image',
             ],
         ]);
     }

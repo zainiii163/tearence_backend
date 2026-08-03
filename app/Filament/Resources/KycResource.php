@@ -38,6 +38,8 @@ class KycResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-check';
 
+    protected static ?string $navigationLabel = 'KYC Verification';
+
     protected static ?string $navigationGroup = 'User Management';
 
     protected static ?int $navigationSort = 3;

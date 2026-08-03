@@ -16,18 +16,27 @@ class GroupResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationGroup = 'Admin Management';
+    protected static ?string $navigationLabel = 'User Roles';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?string $modelLabel = 'User Role';
+
+    protected static ?string $pluralModelLabel = 'User Roles';
+
+    protected static ?string $navigationGroup = 'User Management';
+
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
+                    ->label('Role name')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->helperText('e.g. Sales Admin, Marketing Admin, Content Moderator'),
                 Forms\Components\Textarea::make('description')
+                    ->label('Role description')
                     ->maxLength(65535)
                     ->columnSpanFull(),
                 Forms\Components\Toggle::make('is_active')
@@ -40,8 +49,10 @@ class GroupResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Role')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('description')
+                    ->label('Description')
                     ->limit(50),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean(),

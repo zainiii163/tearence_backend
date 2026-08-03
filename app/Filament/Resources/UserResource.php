@@ -22,9 +22,25 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $navigationGroup = 'Admin Management';
+    protected static ?string $navigationLabel = 'Users';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?string $navigationGroup = 'User Management';
+
+    protected static ?int $navigationSort = 2;
+
+    public static function canEdit($record): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+        return $user->is_super_admin || $user->can_manage_users;
+    }
+
+    public static function canView($record): bool
+    {
+        return static::canEdit($record);
+    }
 
     public static function canViewAny(): bool
     {
@@ -36,15 +52,6 @@ class UserResource extends Resource
     }
 
     public static function canCreate(): bool
-    {
-        $user = auth()->user();
-        if (!$user) {
-            return false;
-        }
-        return $user->is_super_admin || $user->can_manage_users;
-    }
-
-    public static function canEdit($record): bool
     {
         $user = auth()->user();
         if (!$user) {
@@ -88,10 +95,11 @@ class UserResource extends Resource
                     ->maxLength(100),
                 Forms\Components\Select::make('group_id')
                     ->required()
-                    ->label('Group')
+                    ->label('User Role')
                     ->default(1)
                     ->options(Group::all()->pluck('name', 'group_id'))
-                    ->searchable(),
+                    ->searchable()
+                    ->helperText('Assign a role (e.g. sales admin, marketing admin)'),
                 Forms\Components\Section::make('Permissions')
                     ->description('Manage user permissions and access control')
                     ->schema([
@@ -157,10 +165,29 @@ class UserResource extends Resource
                     ])
                     ->columns(2)
                     ->collapsible(),
-                Forms\Components\TextInput::make('email')
-                    ->required()
-                    ->email()
-                    ->maxLength(150),
+                Forms\Components\Section::make('Contact details')
+                    ->description('Email, phone and address — shown clearly on the users list and profile')
+                    ->schema([
+                        Forms\Components\TextInput::make('email')
+                            ->required()
+                            ->email()
+                            ->maxLength(150)
+                            ->columnSpan(1),
+                        Forms\Components\TextInput::make('mobile_number')
+                            ->label('Phone')
+                            ->tel()
+                            ->maxLength(40)
+                            ->columnSpan(1),
+                        Forms\Components\TextInput::make('address')
+                            ->label('Address')
+                            ->maxLength(255)
+                            ->columnSpan(2),
+                        Forms\Components\TextInput::make('city')
+                            ->maxLength(120),
+                        Forms\Components\TextInput::make('country')
+                            ->maxLength(120),
+                    ])
+                    ->columns(2),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->maxLength(64)
@@ -169,8 +196,8 @@ class UserResource extends Resource
                     ->required(fn(string $context): bool => $context === 'create'),
                 Forms\Components\Select::make('timezone')
                     ->label('Timezone')
-                    ->options(array_combine(timezone_identifiers_list(), timezone_identifiers_list())) // Use the same value for keys and labels
-                    ->searchable(), // Make the dropdown searchable
+                    ->options(array_combine(timezone_identifiers_list(), timezone_identifiers_list()))
+                    ->searchable(),
                 Forms\Components\FileUpload::make('avatar')
                     ->maxSize(512)
                     ->columnSpan('full')
@@ -182,29 +209,55 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('avatar'),
-                Tables\Columns\TextColumn::make('user_uid')
-                    ->searchable(),
+                Tables\Columns\ImageColumn::make('avatar')
+                    ->circular()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Name')
+                    ->searchable(['first_name', 'last_name'])
+                    ->sortable(['first_name'])
+                    ->weight('medium')
+                    ->description(fn ($record) => $record->user_uid)
+                    ->wrap(),
                 Tables\Columns\TextColumn::make('group.name')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('first_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('last_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('name'),
+                    ->label('Role')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
+                    ->label('Email')
+                    ->searchable()
+                    ->copyable()
+                    ->icon('heroicon-m-envelope')
+                    ->wrap()
+                    ->limit(40),
+                Tables\Columns\TextColumn::make('mobile_number')
+                    ->label('Phone')
+                    ->searchable()
+                    ->copyable()
+                    ->icon('heroicon-m-phone')
+                    ->placeholder('—')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('address')
+                    ->label('Address')
+                    ->searchable()
+                    ->wrap()
+                    ->limit(48)
+                    ->placeholder('—')
+                    ->description(fn ($record) => collect([$record->city, $record->country])->filter()->implode(', ') ?: null)
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('is_super_admin')
-                    ->label('Super Admin')
-                    ->boolean(),
+                    ->label('Super')
+                    ->boolean()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('post_count')
                     ->label('Posts')
                     ->sortable()
-                    ->formatStateUsing(fn ($record) => "{$record->post_count}/{$record->posting_limit}"),
+                    ->formatStateUsing(fn ($record) => ($record->post_count ?? $record->posts_count ?? 0) . '/' . ($record->posting_limit ?? $record->posts_limit ?? '—'))
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('kyc_status')
                     ->label('KYC')
                     ->colors([
@@ -213,18 +266,16 @@ class UserResource extends Resource
                         'success' => 'verified',
                         'danger' => 'rejected',
                     ])
-                    ->formatStateUsing(fn ($state) => match($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'pending' => 'Pending',
                         'submitted' => 'Submitted',
                         'verified' => 'Verified',
                         'rejected' => 'Rejected',
                         default => $state,
-                    }),
-                Tables\Columns\TextColumn::make('email_verified_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label('Joined')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -234,6 +285,9 @@ class UserResource extends Resource
                     ->label('Super Admin'),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active'),
+                Tables\Filters\SelectFilter::make('group_id')
+                    ->label('User Role')
+                    ->relationship('group', 'name'),
                 Tables\Filters\SelectFilter::make('kyc_status')
                     ->label('KYC Status')
                     ->options([
@@ -242,24 +296,33 @@ class UserResource extends Resource
                         'verified' => 'Verified',
                         'rejected' => 'Rejected',
                     ]),
+                Tables\Filters\Filter::make('backend_staff')
+                    ->label('Backend staff')
+                    ->query(fn (Builder $query): Builder => $query->where(function ($q) {
+                        $q->where('is_super_admin', true)
+                            ->orWhere('can_manage_users', true)
+                            ->orWhere('can_manage_dashboard', true)
+                            ->orWhere('can_manage_listings', true)
+                            ->orWhere('can_manage_categories', true)
+                            ->orWhere('can_view_analytics', true);
+                    })),
                 Tables\Filters\Filter::make('posting_limit_reached')
                     ->label('Posting Limit Reached')
                     ->query(fn (Builder $query): Builder => $query->whereRaw('post_count >= posting_limit')),
-                Tables\Filters\Filter::make('can_manage_users')
-                    ->label('Can Manage Users')
-                    ->query(fn (Builder $query): Builder => $query->where('can_manage_users', true)),
-                Tables\Filters\Filter::make('can_manage_categories')
-                    ->label('Can Manage Categories')
-                    ->query(fn (Builder $query): Builder => $query->where('can_manage_categories', true)),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
+            ->recordUrl(fn ($record): string => static::getUrl('view', ['record' => $record]))
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->striped()
+            ->paginated([10, 25, 50]);
     }
 
     public static function getRelations(): array
@@ -274,6 +337,7 @@ class UserResource extends Resource
         return [
             'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
+            'view' => Pages\ViewUser::route('/{record}'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }

@@ -12,6 +12,8 @@ class FeaturedAdvertsChartWidget extends ChartWidget
 
     protected static ?int $sort = 2;
 
+    protected static bool $isDiscovered = false;
+
     protected static ?string $maxHeight = '300px';
 
     protected function getData(): array

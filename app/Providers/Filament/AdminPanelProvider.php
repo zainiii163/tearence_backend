@@ -60,59 +60,30 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Amber,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
+            ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\\Filament\\Clusters')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            ->sidebarCollapsibleOnDesktop()
             ->pages([
                 \App\Filament\Pages\AdminDashboard::class,
                 \App\Filament\Pages\TemplatesDashboard::class,
                 \App\Filament\Pages\TemplatePricingSettings::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\AnalyticsOverview::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\RevenueOverview::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\AffiliatePayouts::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\MarketplaceSnapshot::class,
+                \App\Filament\Clusters\AdvertAnalyticsCluster\Pages\FeaturedAdvertsAnalytics::class,
+                \App\Filament\Clusters\AdvertAnalyticsCluster\Pages\SponsoredAdvertsAnalytics::class,
+                \App\Filament\Clusters\AdvertAnalyticsCluster\Pages\PromotedAdvertsAnalytics::class,
+                \App\Filament\Clusters\AdvertAnalyticsCluster\Pages\SiteWideFeedTotals::class,
             ])
+            ->homeUrl(fn () => \App\Filament\Clusters\DashboardCluster\Pages\AnalyticsOverview::getUrl())
             ->resources([
                 \App\Filament\Resources\BusinessTemplateResource::class,
                 \App\Filament\Resources\TemplatePurchaseResource::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                // Events & Venues Widgets
-                \App\Filament\Widgets\EventsOverviewWidget::class,
-                \App\Filament\Widgets\VenuesOverviewWidget::class,
-                \App\Filament\Widgets\RecentEventsWidget::class,
-                \App\Filament\Widgets\RecentVenuesWidget::class,
-                
-                // Property Management Widgets
-                \App\Filament\Widgets\PropertyOverviewWidget::class,
-                \App\Filament\Widgets\RecentPropertiesWidget::class,
-                \App\Filament\Widgets\PropertyEnquiriesWidget::class,
-                
-                // Banner Management Widgets
-                \App\Filament\Widgets\BannerOverviewWidget::class,
-                \App\Filament\Widgets\RecentBannersWidget::class,
-                
-                // Other widgets (temporarily disabled to prevent timeout issues)
-                // \App\Filament\Widgets\JobsOverviewWidget::class,
-                // \App\Filament\Widgets\RevenueOverviewWidget::class,
-                // \App\Filament\Widgets\CandidatesOverviewWidget::class,
-                // \App\Filament\Widgets\UpsellsOverviewWidget::class,
-                // \App\Filament\Widgets\ServicesOverviewWidget::class,
-                // \App\Filament\Widgets\PromotedAdvertsOverviewWidget::class,
-                // \App\Filament\Widgets\RecentPromotedAdvertsWidget::class,
-                // \App\Filament\Widgets\PromotedAdvertsStatsWidget::class,
-                // \App\Filament\Widgets\RevenueChartWidget::class,
-                // \App\Filament\Widgets\JobsChartWidget::class,
-                // \App\Filament\Widgets\ServicesChartWidget::class,
-                // \App\Filament\Widgets\RecentJobsWidget::class,
-                // \App\Filament\Widgets\RecentUpsellsWidget::class,
-                // \App\Filament\Widgets\RecentServicesWidget::class,
-                // \App\Filament\Widgets\RecentPromotionsWidget::class,
-                // \App\Filament\Widgets\FundingOverviewWidget::class,
-                // \App\Filament\Widgets\FundingChartWidget::class,
-                // \App\Filament\Widgets\RecentFundingProjectsWidget::class,
-                // VehicleOverviewWidget::class,
-                // AffiliateOverviewWidget::class,
-                // AffiliateStatsChart::class,
-                // RecentAffiliateContent::class,
-                // SponsoredOverviewWidget::class,
-                // RecentSponsoredAdvertsWidget::class,
-                // SponsoredStatsChartWidget::class,
+                // Heavy widgets live under DashboardCluster pages — keep panel widget list empty
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -129,6 +100,7 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->navigationGroups([
+                'User Management',
                 'Content Management',
                 'Templates',
                 'Banner Management',
@@ -137,9 +109,8 @@ class AdminPanelProvider extends PanelProvider
                 'Services Management',
                 'Buy & Sell',
                 'Monetization',
-                'Analytics',
+                'Affiliates Hub',
                 'Settings',
-                'Admin Management',
             ])
             ->renderHook(
                 'panels::head.end',

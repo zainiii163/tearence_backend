@@ -80,8 +80,32 @@ class ImagesAdvertResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('main_image')
                             ->image()
-                            ->directory('images')
+                            ->directory('images-adverts')
+                            ->disk('public')
+                            ->required(fn ($get) => $get('media_type') !== 'video'),
+
+                        Forms\Components\Select::make('media_type')
+                            ->label('Media type')
+                            ->options([
+                                'image' => 'Image',
+                                'video' => 'Short video advert',
+                            ])
+                            ->default('image')
                             ->required(),
+
+                        Forms\Components\FileUpload::make('video_path')
+                            ->label('Video file (MP4)')
+                            ->acceptedFileTypes(['video/mp4', 'video/webm', 'video/quicktime'])
+                            ->directory('images-adverts/videos')
+                            ->disk('public')
+                            ->maxSize(51200)
+                            ->visible(fn ($get) => $get('media_type') === 'video'),
+
+                        Forms\Components\TextInput::make('video_url')
+                            ->label('Or external video URL')
+                            ->url()
+                            ->maxLength(500)
+                            ->visible(fn ($get) => $get('media_type') === 'video'),
 
                         Forms\Components\FileUpload::make('images')
                             ->multiple()

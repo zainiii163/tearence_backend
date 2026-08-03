@@ -7,6 +7,7 @@ use App\Models\FeaturedAdvert;
 use App\Models\Listing;
 use App\Models\Category;
 use App\Models\Country;
+use App\Services\CrossPromotionFeedService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,30 @@ use Illuminate\Validation\Rule;
 
 class FeaturedAdvertController extends Controller
 {
+    /**
+     * Cross-category featured feed (vehicles, property, buy-sell, dedicated featured, etc.)
+     */
+    public function siteFeed(Request $request, CrossPromotionFeedService $feed): JsonResponse
+    {
+        $result = $feed->feed('featured', $request->only(['search', 'country', 'per_page', 'page']));
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Trending topics for public featured page
+     */
+    public function trendingTopics(Request $request, CrossPromotionFeedService $feed): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $feed->trendingTopics('featured', (int) $request->get('limit', 8)),
+        ]);
+    }
+
     /**
      * Display a listing of featured adverts.
      */

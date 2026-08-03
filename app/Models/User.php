@@ -137,6 +137,9 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'mobile_verified',
         'mobile_verified_at',
         'mobile_number',
+        'address',
+        'city',
+        'country',
         'remember_token',
     ];
 
