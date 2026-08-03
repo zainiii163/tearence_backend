@@ -42,6 +42,13 @@ class DatabaseSeeder extends Seeder
             // Events & Venues categories (Explore Events / Explore Venues)
             EventsVenuesCategorySeeder::class,
 
+            // Stock Images & Media samples (Clive client photos)
+            ClientStockImagesSeeder::class,
+            DocsWhatsAppImagesSeeder::class,
+
+            // Funding & Crowdfunding sample campaigns
+            FundingSeeder::class,
+
             // Business document templates (pitch, grant, plans)
             BusinessTemplateSeeder::class,
             

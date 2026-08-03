@@ -846,6 +846,17 @@ Route::group([
 
         Route::get('/statistics', [ImagesAdvertController::class, 'statistics']);
 
+        // Authenticated routes (declared before /{slug} so paths like my-images / admin match correctly)
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::get('/admin/all', [ImagesAdvertController::class, 'adminIndex']);
+            Route::get('/my-images', [ImagesAdvertController::class, 'myImages']);
+            Route::post('/', [ImagesAdvertController::class, 'store']);
+            Route::put('/{id}', [ImagesAdvertController::class, 'update']);
+            Route::delete('/{id}', [ImagesAdvertController::class, 'destroy']);
+            Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
+            Route::post('/{id}/reject', [ImagesAdvertController::class, 'reject']);
+        });
+
         Route::get('/{slug}', [ImagesAdvertController::class, 'show']);
 
         Route::post('/upload', [ImagesAdvertController::class, 'uploadImage']);
@@ -857,25 +868,6 @@ Route::group([
         Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
 
         Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment']);
-
-
-
-        // Authenticated routes
-
-        Route::group(['middleware' => 'jwt.auth'], function () {
-
-            Route::post('/', [ImagesAdvertController::class, 'store']);
-
-            Route::put('/{id}', [ImagesAdvertController::class, 'update']);
-
-            Route::delete('/{id}', [ImagesAdvertController::class, 'destroy']);
-
-            Route::get('/my-images', [ImagesAdvertController::class, 'myImages']);
-
-            Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
-
-        });
-
     });
 
 

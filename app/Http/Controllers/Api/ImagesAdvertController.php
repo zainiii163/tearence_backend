@@ -180,6 +180,16 @@ class ImagesAdvertController extends Controller
         $validated['saves_count'] = 0;
         $validated['rating'] = 0;
         $validated['rating_count'] = 0;
+        $validated['is_active'] = true;
+
+        // Super admin uploads go live immediately
+        $authUser = Auth::user();
+        if ($authUser && ($authUser->is_super_admin || $authUser->can_manage_listings || $authUser->can_manage_dashboard)) {
+            $validated['verification_status'] = 'verified';
+            $validated['verified_at'] = now();
+            $validated['verified_by'] = $authUser->user_id ?? $authUser->id;
+            $validated['is_verified_creator'] = true;
+        }
 
         // Generate unique slug
         $validated['slug'] = $this->generateUniqueSlug($validated['title']);
@@ -188,7 +198,9 @@ class ImagesAdvertController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Image uploaded successfully and pending admin verification',
+            'message' => $validated['verification_status'] === 'verified'
+                ? 'Image uploaded and published'
+                : 'Image uploaded successfully and pending admin verification',
             'data' => $image->load(['user']),
         ], 201);
     }
@@ -253,7 +265,15 @@ class ImagesAdvertController extends Controller
 
     public function destroy($id)
     {
-        $image = ImagesAdvert::where('user_id', Auth::id())->findOrFail($id);
+        $user = Auth::user();
+        $query = ImagesAdvert::query();
+
+        // Owners can delete their own; admins can delete any
+        if (! ($user && ($user->is_super_admin || $user->can_manage_listings || $user->can_manage_dashboard))) {
+            $query->where('user_id', Auth::id());
+        }
+
+        $image = $query->findOrFail($id);
         $image->delete();
 
         return response()->json([
@@ -545,12 +565,67 @@ class ImagesAdvertController extends Controller
         $image->verification_status = 'verified';
         $image->verified_by = Auth::id();
         $image->verified_at = now();
+        $image->is_active = true;
         $image->save();
 
         return response()->json([
             'success' => true,
             'message' => 'Image verified successfully',
             'data' => $image,
+        ]);
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'rejection_reason' => 'nullable|string|max:500',
+        ]);
+
+        $image = ImagesAdvert::findOrFail($id);
+        $image->verification_status = 'rejected';
+        $image->rejection_reason = $validated['rejection_reason'] ?? 'Rejected by admin';
+        $image->verified_by = Auth::id();
+        $image->verified_at = now();
+        $image->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image rejected',
+            'data' => $image,
+        ]);
+    }
+
+    /**
+     * Super admin: list all stock images (including pending).
+     */
+    public function adminIndex(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user || ! ($user->is_super_admin || $user->can_manage_listings || $user->can_manage_dashboard)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $query = ImagesAdvert::with(['user'])->orderByDesc('created_at');
+
+        if ($request->filled('verification_status')) {
+            $query->where('verification_status', $request->input('verification_status'));
+        }
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        if ($request->filled('image_category')) {
+            $query->where('image_category', $request->input('image_category'));
+        }
+
+        $perPage = min(50, max(1, (int) $request->input('per_page', 24)));
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->paginate($perPage),
         ]);
     }
 

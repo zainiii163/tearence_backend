@@ -3,14 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ImagesAdvertResource\Pages;
-use App\Filament\Resources\ImagesAdvertResource\RelationManagers;
 use App\Models\ImagesAdvert;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 class ImagesAdvertResource extends Resource
@@ -19,11 +18,11 @@ class ImagesAdvertResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-photo';
 
-    protected static ?string $navigationLabel = 'Stock Images';
+    protected static ?string $navigationLabel = 'Images & Media';
 
     protected static ?string $modelLabel = 'Stock Image';
 
-    protected static ?string $pluralModelLabel = 'Stock Images';
+    protected static ?string $pluralModelLabel = 'Images & Media';
 
     protected static ?string $navigationGroup = 'Marketplace';
 
@@ -33,9 +32,22 @@ class ImagesAdvertResource extends Resource
     {
         return $form
             ->schema([
-                // Basic Information
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
+                        Forms\Components\Select::make('user_id')
+                            ->label('Owner')
+                            ->options(fn () => User::query()
+                                ->orderBy('first_name')
+                                ->limit(200)
+                                ->get()
+                                ->mapWithKeys(fn ($u) => [
+                                    $u->user_id => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) . ' (' . $u->email . ')',
+                                ])
+                                ->all())
+                            ->searchable()
+                            ->required()
+                            ->default(fn () => auth()->id()),
+
                         Forms\Components\TextInput::make('title')
                             ->required()
                             ->maxLength(255)
@@ -45,8 +57,7 @@ class ImagesAdvertResource extends Resource
                         Forms\Components\TextInput::make('slug')
                             ->required()
                             ->maxLength(255)
-                            ->unique(ImagesAdvert::class, 'slug', ignoreRecord: true)
-                            ->disabled(),
+                            ->unique(ImagesAdvert::class, 'slug', ignoreRecord: true),
 
                         Forms\Components\Textarea::make('description')
                             ->required()
@@ -56,7 +67,8 @@ class ImagesAdvertResource extends Resource
                             ->maxLength(500)
                             ->columnSpanFull(),
 
-                        Forms\Components\Select::make('category')
+                        Forms\Components\Select::make('image_category')
+                            ->label('Category')
                             ->required()
                             ->options([
                                 'business' => 'Business',
@@ -66,23 +78,22 @@ class ImagesAdvertResource extends Resource
                                 'technology' => 'Technology',
                                 'real_estate' => 'Real Estate',
                                 'travel' => 'Travel',
-                                'sports' => 'Sports',
-                                'education' => 'Education',
-                                'health' => 'Health',
-                                'art' => 'Art',
-                                'other' => 'Other',
+                                'abstract' => 'Abstract',
                             ]),
                     ])
                     ->columns(2),
 
-                // Image Details
-                Forms\Components\Section::make('Image Details')
+                Forms\Components\Section::make('Upload image / video')
+                    ->description('Upload files here from the admin panel')
                     ->schema([
                         Forms\Components\FileUpload::make('main_image')
+                            ->label('Main image')
                             ->image()
-                            ->directory('images-adverts')
+                            ->directory('images')
                             ->disk('public')
-                            ->required(fn ($get) => $get('media_type') !== 'video'),
+                            ->imageEditor()
+                            ->required(fn ($get) => $get('media_type') !== 'video')
+                            ->columnSpanFull(),
 
                         Forms\Components\Select::make('media_type')
                             ->label('Media type')
@@ -91,12 +102,13 @@ class ImagesAdvertResource extends Resource
                                 'video' => 'Short video advert',
                             ])
                             ->default('image')
-                            ->required(),
+                            ->required()
+                            ->live(),
 
                         Forms\Components\FileUpload::make('video_path')
                             ->label('Video file (MP4)')
                             ->acceptedFileTypes(['video/mp4', 'video/webm', 'video/quicktime'])
-                            ->directory('images-adverts/videos')
+                            ->directory('images/videos')
                             ->disk('public')
                             ->maxSize(51200)
                             ->visible(fn ($get) => $get('media_type') === 'video'),
@@ -108,9 +120,11 @@ class ImagesAdvertResource extends Resource
                             ->visible(fn ($get) => $get('media_type') === 'video'),
 
                         Forms\Components\FileUpload::make('images')
+                            ->label('Additional images')
                             ->multiple()
                             ->image()
                             ->directory('images')
+                            ->disk('public')
                             ->columnSpanFull(),
 
                         Forms\Components\Select::make('orientation')
@@ -118,39 +132,59 @@ class ImagesAdvertResource extends Resource
                                 'landscape' => 'Landscape',
                                 'portrait' => 'Portrait',
                                 'square' => 'Square',
-                            ]),
+                            ])
+                            ->default('landscape')
+                            ->required(),
 
                         Forms\Components\Select::make('color_type')
                             ->options([
                                 'color' => 'Color',
-                                'black_and_white' => 'Black and White',
-                                'sepia' => 'Sepia',
-                            ]),
+                                'black_white' => 'Black and White',
+                            ])
+                            ->default('color')
+                            ->required(),
 
-                        Forms\Components\TextInput::make('resolution_width')
+                        Forms\Components\TextInput::make('width')
                             ->numeric()
                             ->label('Width (px)'),
 
-                        Forms\Components\TextInput::make('resolution_height')
+                        Forms\Components\TextInput::make('height')
                             ->numeric()
                             ->label('Height (px)'),
+
+                        Forms\Components\TagsInput::make('tags')
+                            ->placeholder('Add tag')
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
 
-                // Pricing
                 Forms\Components\Section::make('Pricing')
                     ->schema([
-                        Forms\Components\TextInput::make('price')
+                        Forms\Components\TextInput::make('standard_price')
+                            ->label('Standard price')
                             ->required()
                             ->numeric()
-                            ->prefix('$'),
+                            ->default(9.99)
+                            ->prefix('£'),
+
+                        Forms\Components\TextInput::make('extended_price')
+                            ->numeric()
+                            ->default(29.99)
+                            ->prefix('£'),
+
+                        Forms\Components\TextInput::make('exclusive_price')
+                            ->numeric()
+                            ->default(199.99)
+                            ->prefix('£'),
 
                         Forms\Components\Select::make('currency')
                             ->options([
-                                'USD' => 'USD',
                                 'GBP' => 'GBP',
+                                'USD' => 'USD',
                                 'EUR' => 'EUR',
-                            ]),
+                            ])
+                            ->default('GBP')
+                            ->required(),
 
                         Forms\Components\Select::make('license_type')
                             ->required()
@@ -158,7 +192,10 @@ class ImagesAdvertResource extends Resource
                                 'royalty_free' => 'Royalty Free',
                                 'rights_managed' => 'Rights Managed',
                                 'extended' => 'Extended License',
-                            ]),
+                                'editorial' => 'Editorial',
+                                'exclusive' => 'Exclusive',
+                            ])
+                            ->default('royalty_free'),
 
                         Forms\Components\Select::make('promotion_tier')
                             ->options([
@@ -166,31 +203,35 @@ class ImagesAdvertResource extends Resource
                                 'promoted' => 'Promoted',
                                 'featured' => 'Featured',
                                 'sponsored' => 'Sponsored',
-                            ]),
+                            ])
+                            ->default('standard'),
                     ])
-                    ->columns(2),
+                    ->columns(3),
 
-                // Contact Information
-                Forms\Components\Section::make('Contact Information')
+                Forms\Components\Section::make('Contact')
                     ->schema([
                         Forms\Components\TextInput::make('contact_name')
-                            ->maxLength(255),
+                            ->required()
+                            ->maxLength(255)
+                            ->default(fn () => auth()->user()?->getFilamentName() ?? 'WWA Admin'),
 
                         Forms\Components\TextInput::make('contact_email')
                             ->email()
-                            ->maxLength(255),
+                            ->required()
+                            ->maxLength(255)
+                            ->default(fn () => auth()->user()?->email),
 
                         Forms\Components\TextInput::make('contact_phone')
-                            ->maxLength(20),
+                            ->tel()
+                            ->maxLength(40),
 
-                        Forms\Components\TextInput::make('website_url')
+                        Forms\Components\TextInput::make('website')
                             ->url()
                             ->maxLength(255),
                     ])
                     ->columns(2),
 
-                // Verification
-                Forms\Components\Section::make('Verification')
+                Forms\Components\Section::make('Publishing')
                     ->schema([
                         Forms\Components\Select::make('verification_status')
                             ->options([
@@ -198,16 +239,18 @@ class ImagesAdvertResource extends Resource
                                 'verified' => 'Verified',
                                 'rejected' => 'Rejected',
                             ])
-                            ->default('pending'),
+                            ->default('verified')
+                            ->required(),
 
                         Forms\Components\Toggle::make('is_verified_creator')
-                            ->label('Verified Creator'),
+                            ->label('Verified Creator')
+                            ->default(true),
 
                         Forms\Components\Toggle::make('is_active')
                             ->label('Active')
                             ->default(true),
                     ])
-                    ->columns(2),
+                    ->columns(3),
             ]);
     }
 
@@ -216,30 +259,37 @@ class ImagesAdvertResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\ImageColumn::make('main_image')
-                    ->label('Image'),
+                    ->label('Image')
+                    ->disk('public')
+                    ->square(),
 
                 Tables\Columns\TextColumn::make('title')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->limit(40),
 
-                Tables\Columns\TextColumn::make('category')
+                Tables\Columns\TextColumn::make('image_category')
+                    ->label('Category')
+                    ->badge()
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('User')
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Owner')
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('price')
-                    ->money()
+                Tables\Columns\TextColumn::make('standard_price')
+                    ->label('Price')
+                    ->money(fn ($record) => $record->currency ?? 'GBP')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('verification_status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'verified' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\IconColumn::make('is_active')
@@ -248,11 +298,8 @@ class ImagesAdvertResource extends Resource
 
                 Tables\Columns\TextColumn::make('views_count')
                     ->label('Views')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('downloads_count')
-                    ->label('Downloads')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -260,7 +307,8 @@ class ImagesAdvertResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('category')
+                Tables\Filters\SelectFilter::make('image_category')
+                    ->label('Category')
                     ->options([
                         'business' => 'Business',
                         'people' => 'People',
@@ -269,11 +317,7 @@ class ImagesAdvertResource extends Resource
                         'technology' => 'Technology',
                         'real_estate' => 'Real Estate',
                         'travel' => 'Travel',
-                        'sports' => 'Sports',
-                        'education' => 'Education',
-                        'health' => 'Health',
-                        'art' => 'Art',
-                        'other' => 'Other',
+                        'abstract' => 'Abstract',
                     ]),
 
                 Tables\Filters\SelectFilter::make('verification_status')
@@ -284,13 +328,9 @@ class ImagesAdvertResource extends Resource
                     ]),
 
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active')
-                    ->placeholder('All')
-                    ->trueLabel('Active')
-                    ->falseLabel('Inactive'),
+                    ->label('Active'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
@@ -298,14 +338,8 @@ class ImagesAdvertResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getPages(): array
