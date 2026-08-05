@@ -60,6 +60,9 @@ class DatabaseSeeder extends Seeder
             // Clive promo pricing + reward codes
             PromoPricingPlanSeeder::class,
             AffiliateUpsellPlanSeeder::class,
+
+            // Department teams & sub-roles (Clive)
+            TeamRoleSeeder::class,
             
             // Banner Adverts System
             BannerCategorySeeder::class,

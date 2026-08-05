@@ -46,6 +46,14 @@ class AdminPanelProvider extends PanelProvider
         Gate::define('view-financial', function ($user) {
             return $user->is_super_admin || $user->can_manage_dashboard;
         });
+
+        Gate::define('view-listings', function ($user) {
+            return $user->is_super_admin || $user->can_manage_listings;
+        });
+
+        Gate::define('view-teams-roles', function ($user) {
+            return $user->is_super_admin || $user->can_manage_users;
+        });
     }
 
     public function panel(Panel $panel): Panel

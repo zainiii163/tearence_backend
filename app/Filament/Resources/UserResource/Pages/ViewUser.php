@@ -15,12 +15,19 @@ class ViewUser extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('userDashboard')
+                ->label('Open user dashboard')
+                ->icon('heroicon-o-computer-desktop')
+                ->color('primary')
+                ->url(fn () => UserResource::getUrl('dashboard', ['record' => $this->record])),
             Actions\EditAction::make(),
         ];
     }
 
     public function infolist(Infolist $infolist): Infolist
     {
+        $stats = UserDashboardPreview::collectStats($this->record);
+
         return $infolist
             ->schema([
                 Infolists\Components\Section::make('Contact & profile')
@@ -36,8 +43,9 @@ class ViewUser extends ViewRecord
                             Infolists\Components\TextEntry::make('user_uid')
                                 ->label('User UID')
                                 ->copyable(),
-                            Infolists\Components\TextEntry::make('group.name')
-                                ->label('User role')
+                            Infolists\Components\TextEntry::make('group_label')
+                                ->label('Team / Role')
+                                ->state(fn ($record) => $record->group?->fullLabel() ?? '—')
                                 ->badge(),
                         ])->columnSpan(2),
                         Infolists\Components\TextEntry::make('email')
@@ -99,6 +107,42 @@ class ViewUser extends ViewRecord
                             ->formatStateUsing(fn ($record) => ($record->post_count ?? $record->posts_count ?? 0) . ' / ' . ($record->posting_limit ?? $record->posts_limit ?? '—')),
                     ]),
 
+                Infolists\Components\Section::make('User Dashboard')
+                    ->description('Marketplace activity snapshot — open the full dashboard for recent items.')
+                    ->headerActions([
+                        Infolists\Components\Actions\Action::make('openDashboard')
+                            ->label('Open full dashboard')
+                            ->icon('heroicon-m-arrow-top-right-on-square')
+                            ->url(fn ($record) => UserResource::getUrl('dashboard', ['record' => $record])),
+                    ])
+                    ->columns(4)
+                    ->schema([
+                        Infolists\Components\TextEntry::make('dash_buy_sell')
+                            ->label('Buy & Sell')
+                            ->state($stats['buy_sell_total'] . ' total · ' . $stats['buy_sell_active'] . ' active · ' . $stats['buy_sell_expired'] . ' expired'),
+                        Infolists\Components\TextEntry::make('dash_promoted')
+                            ->label('Promoted')
+                            ->state($stats['promoted_total']),
+                        Infolists\Components\TextEntry::make('dash_sponsored')
+                            ->label('Sponsored')
+                            ->state($stats['sponsored_total']),
+                        Infolists\Components\TextEntry::make('dash_featured')
+                            ->label('Featured')
+                            ->state($stats['featured_total']),
+                        Infolists\Components\TextEntry::make('dash_affiliate')
+                            ->label('Affiliate posts')
+                            ->state($stats['affiliate_total'] . ' (' . $stats['affiliate_active'] . ' active)'),
+                        Infolists\Components\TextEntry::make('dash_communities')
+                            ->label('Communities')
+                            ->state($stats['communities']),
+                        Infolists\Components\TextEntry::make('dash_saved')
+                            ->label('Saved ads')
+                            ->state($stats['saved']),
+                        Infolists\Components\TextEntry::make('dash_quota')
+                            ->label('Post quota')
+                            ->state($stats['post_usage']),
+                    ]),
+
                 Infolists\Components\Section::make('Backend permissions')
                     ->columns(3)
                     ->schema([
@@ -108,48 +152,6 @@ class ViewUser extends ViewRecord
                         Infolists\Components\IconEntry::make('can_manage_dashboard')->boolean(),
                         Infolists\Components\IconEntry::make('can_view_analytics')->boolean(),
                         Infolists\Components\IconEntry::make('is_business_admin')->boolean()->label('Business admin'),
-                    ]),
-
-                Infolists\Components\Section::make('Activity on the website')
-                    ->description('What this user is signed up for / using')
-                    ->columns(4)
-                    ->schema([
-                        Infolists\Components\TextEntry::make('buy_sell_count')
-                            ->label('Buy & Sell ads')
-                            ->state(function ($record) {
-                                try {
-                                    return (int) $record->buySellAdverts()->count();
-                                } catch (\Throwable $e) {
-                                    return 0;
-                                }
-                            }),
-                        Infolists\Components\TextEntry::make('promoted_count')
-                            ->label('Promoted ads')
-                            ->state(function ($record) {
-                                try {
-                                    return (int) $record->promotedAdverts()->count();
-                                } catch (\Throwable $e) {
-                                    return 0;
-                                }
-                            }),
-                        Infolists\Components\TextEntry::make('community_count')
-                            ->label('Communities')
-                            ->state(function ($record) {
-                                try {
-                                    return (int) $record->communityMemberships()->count();
-                                } catch (\Throwable $e) {
-                                    return 0;
-                                }
-                            }),
-                        Infolists\Components\TextEntry::make('saved_count')
-                            ->label('Saved Buy & Sell')
-                            ->state(function ($record) {
-                                try {
-                                    return (int) $record->buySellSavedAdverts()->count();
-                                } catch (\Throwable $e) {
-                                    return 0;
-                                }
-                            }),
                     ]),
             ]);
     }

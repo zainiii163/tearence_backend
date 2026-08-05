@@ -95,11 +95,30 @@ class UserResource extends Resource
                     ->maxLength(100),
                 Forms\Components\Select::make('group_id')
                     ->required()
-                    ->label('User Role')
-                    ->default(1)
-                    ->options(Group::all()->pluck('name', 'group_id'))
+                    ->label('Team / Sub-role')
+                    ->options(fn () => Group::optionsGroupedByTeam())
                     ->searchable()
-                    ->helperText('Assign a role (e.g. sales admin, marketing admin)'),
+                    ->helperText('Assign to a department team sub-role (HR, Accounts, Legal, etc.). Only Super Admin / user managers can change membership.')
+                    ->disabled(fn () => ! auth()->user()?->is_super_admin && ! auth()->user()?->can_manage_users)
+                    ->dehydrated()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Forms\Set $set, Forms\Get $get) {
+                        if ($get('is_super_admin')) {
+                            return;
+                        }
+                        $group = Group::find($state);
+                        if (!$group || $group->isTeam()) {
+                            return;
+                        }
+                        $set('can_manage_users', (bool) $group->can_manage_users);
+                        $set('can_manage_categories', (bool) $group->can_manage_categories);
+                        $set('can_manage_listings', (bool) $group->can_manage_listings);
+                        $set('can_manage_dashboard', (bool) $group->can_manage_dashboard);
+                        $set('can_view_analytics', (bool) $group->can_view_analytics);
+                        if (is_array($group->permissions)) {
+                            $set('permissions', $group->permissions);
+                        }
+                    }),
                 Forms\Components\Section::make('Permissions')
                     ->description('Manage user permissions and access control')
                     ->schema([
@@ -220,7 +239,8 @@ class UserResource extends Resource
                     ->description(fn ($record) => $record->user_uid)
                     ->wrap(),
                 Tables\Columns\TextColumn::make('group.name')
-                    ->label('Role')
+                    ->label('Team / Role')
+                    ->formatStateUsing(fn ($state, $record) => $record->group?->fullLabel() ?? $state)
                     ->badge()
                     ->sortable()
                     ->toggleable(),
@@ -286,8 +306,12 @@ class UserResource extends Resource
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active'),
                 Tables\Filters\SelectFilter::make('group_id')
-                    ->label('User Role')
-                    ->relationship('group', 'name'),
+                    ->label('Team / Sub-role')
+                    ->options(fn () => collect(Group::optionsGroupedByTeam())
+                        ->flatMap(fn ($roles, $team) => collect($roles)->mapWithKeys(
+                            fn ($label, $id) => [$id => "{$team} / {$label}"]
+                        ))
+                        ->all()),
                 Tables\Filters\SelectFilter::make('kyc_status')
                     ->label('KYC Status')
                     ->options([
@@ -313,6 +337,10 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('dashboard')
+                    ->label('Dashboard')
+                    ->icon('heroicon-o-computer-desktop')
+                    ->url(fn ($record): string => static::getUrl('dashboard', ['record' => $record])),
             ])
             ->recordUrl(fn ($record): string => static::getUrl('view', ['record' => $record]))
             ->bulkActions([
@@ -338,6 +366,7 @@ class UserResource extends Resource
             'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
             'view' => Pages\ViewUser::route('/{record}'),
+            'dashboard' => Pages\UserDashboardPreview::route('/{record}/dashboard'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
