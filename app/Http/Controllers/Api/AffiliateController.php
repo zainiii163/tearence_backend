@@ -181,12 +181,13 @@ class AffiliateController extends Controller
             ], 422);
         }
 
-        // Auto-approve for now so business offers go live immediately
+        // Auto-approve for now so business offers go live immediately (default live window: 30 days)
         $offer = BusinessAffiliateOffer::create([
             'user_id' => Auth::id(),
             'status' => 'approved',
             'is_active' => true,
             'payment_status' => 'paid',
+            'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
             'affiliate_category_id' => $request->affiliate_category_id,
             'business_name' => $request->business_name,
             'product_service_title' => $request->product_service_title,
@@ -239,12 +240,13 @@ class AffiliateController extends Controller
             ], 422);
         }
 
-        // Auto-approve for now so Vikas/Shihab posts go live immediately
+        // Auto-approve for now so Vikas/Shihab posts go live immediately (default live window: 30 days)
         $post = UserAffiliatePost::create([
             'user_id' => Auth::id(),
             'status' => 'approved',
             'is_active' => true,
             'payment_status' => 'paid',
+            'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
             'affiliate_category_id' => $request->affiliate_category_id,
             'title' => $request->title,
             'description' => $request->description,

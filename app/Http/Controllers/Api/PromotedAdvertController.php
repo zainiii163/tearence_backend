@@ -364,66 +364,18 @@ class PromotedAdvertController extends Controller
      */
     public function promotionOptions(): JsonResponse
     {
-        $options = [
-            [
-                'tier' => 'promoted_basic',
-                'name' => 'Promoted Basic',
-                'price' => 29.99,
-                'currency' => 'GBP',
-                'features' => [
-                    'Highlighted listing',
-                    'Appears above standard ads',
-                    '"Promoted" badge',
-                    '2× more visibility',
-                ],
-                'popular' => false,
-            ],
-            [
-                'tier' => 'promoted_plus',
-                'name' => 'Promoted Plus',
-                'price' => 59.99,
-                'currency' => 'GBP',
-                'features' => [
-                    'All Basic features',
-                    'Top of category placement',
-                    'Larger advert card',
-                    'Priority in search results',
-                    'Included in weekly "Promoted Highlights" email',
-                ],
-                'popular' => true,
-            ],
-            [
-                'tier' => 'promoted_premium',
-                'name' => 'Promoted Premium',
-                'price' => 99.99,
-                'currency' => 'GBP',
-                'features' => [
-                    'Homepage placement',
-                    'Category top placement',
-                    'Included in homepage slider',
-                    '"Premium Promoted" badge',
-                    'Maximum visibility',
-                ],
-                'popular' => false,
-            ],
-            [
-                'tier' => 'network_wide_boost',
-                'name' => 'Network-Wide Boost',
-                'price' => 199.99,
-                'currency' => 'GBP',
-                'features' => [
-                    'Appears across multiple pages',
-                    'Promoted Adverts Page',
-                    'Homepage',
-                    'Category pages',
-                    'Related search pages',
-                    'Included in email newsletters',
-                    'Included in push notifications',
-                    '"Top Spotlight" badge',
-                ],
-                'popular' => false,
-            ],
-        ];
+        $promo = app(\App\Services\PromoPricingService::class);
+        $options = $promo->allActivePlans()->map(function ($plan) {
+            return [
+                'tier' => $plan->slug,
+                'name' => $plan->name,
+                'price' => (float) $plan->price_usd,
+                'currency' => 'USD',
+                'duration_days' => (int) $plan->duration_days,
+                'features' => $plan->features ?? [],
+                'popular' => $plan->tier === 'featured',
+            ];
+        })->values()->all();
 
         return response()->json([
             'success' => true,

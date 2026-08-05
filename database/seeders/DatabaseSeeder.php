@@ -56,6 +56,10 @@ class DatabaseSeeder extends Seeder
             SponsoredCategorySeeder::class,
             SponsoredPricingPlanSeeder::class,
             SponsoredAdvertSeeder::class,
+
+            // Clive promo pricing + reward codes
+            PromoPricingPlanSeeder::class,
+            AffiliateUpsellPlanSeeder::class,
             
             // Banner Adverts System
             BannerCategorySeeder::class,

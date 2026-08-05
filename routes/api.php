@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\AffiliateProgramController;
 
 use App\Http\Controllers\Api\AffiliateController as ApiAffiliateController;
 
+use App\Http\Controllers\Api\PromoController;
+
 use App\Http\Controllers\AnalyticsController;
 
 use App\Http\Controllers\AuthController;
@@ -867,6 +869,8 @@ Route::group([
 
         Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
 
+        Route::post('/{id}/download', [ImagesAdvertController::class, 'download']);
+
         Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment']);
     });
 
@@ -1461,6 +1465,15 @@ Route::group([
 
     });
 
+
+    // Promo pricing plans + reward codes + duration extend (Clive matrix)
+    Route::group(['prefix' => 'promo'], function () {
+        Route::get('/pricing-plans', [PromoController::class, 'pricingPlans']);
+        Route::post('/codes/validate', [PromoController::class, 'validateCode']);
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/extend-duration', [PromoController::class, 'extendDuration']);
+        });
+    });
     // Main affiliate system routes (comprehensive system)
     Route::group(['prefix' => 'affiliates'], function () {
 

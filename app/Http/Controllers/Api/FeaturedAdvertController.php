@@ -167,22 +167,30 @@ class FeaturedAdvertController extends Controller
             ->first();
         $countryId = $country ? $country->country_id : null;
 
-        // Set pricing from tier if not provided
-        $tierPrices = [
-            FeaturedAdvert::TIER_PROMOTED  => 29.99,
-            FeaturedAdvert::TIER_FEATURED  => 59.99,
-            FeaturedAdvert::TIER_SPONSORED => 99.99,
-        ];
+        // Clive matrix via PromoPricingService
+        $promo = app(\App\Services\PromoPricingService::class);
+        $tierKey = match ($validated['upsell_tier'] ?? '') {
+            FeaturedAdvert::TIER_SPONSORED, 'sponsored' => 'sponsored',
+            FeaturedAdvert::TIER_FEATURED, 'featured' => 'featured',
+            default => 'promoted',
+        };
+        $plan = $promo->findByTier($tierKey);
+        $durationDays = $plan ? (int) $plan->duration_days : $promo->durationForTier($tierKey);
+        $tierPrice = $plan ? (float) $plan->price_usd : $promo->priceForTier($tierKey);
 
         $validated['customer_id'] = $customer->customer_id;
         $validated['category_id'] = $categoryId;
         $validated['country_id']  = $countryId;
-        $validated['currency']    = $validated['currency'] ?? 'GBP';
-        $validated['upsell_price'] = $validated['upsell_price'] ?? $tierPrices[$validated['upsell_tier']] ?? 29.99;
+        $validated['currency']    = $validated['currency'] ?? 'USD';
+        $validated['upsell_price'] = $validated['upsell_price'] ?? $tierPrice;
         $validated['starts_at']   = $validated['starts_at']   ?? now();
-        $validated['expires_at']  = $validated['expires_at']  ?? now()->addDays(30);
+        $validated['expires_at']  = $validated['expires_at']  ?? now()->addDays($durationDays);
         $validated['payment_status'] = FeaturedAdvert::PAYMENT_PAID;
         $validated['is_active'] = true;
+
+        if ($request->filled('promo_code')) {
+            $promo->redeemCode($request->promo_code);
+        }
 
         $featuredAdvert = FeaturedAdvert::create($validated);
 
@@ -511,38 +519,39 @@ class FeaturedAdvertController extends Controller
      */
     public function getPricing(): JsonResponse
     {
+        $promo = app(\App\Services\PromoPricingService::class);
+        $byTier = [];
+        foreach ($promo->allActivePlans() as $plan) {
+            if (in_array($plan->tier, ['promoted', 'featured', 'sponsored'], true)) {
+                $byTier[$plan->tier] = [
+                    'name' => $plan->name,
+                    'price' => (float) $plan->price_usd,
+                    'currency' => 'USD',
+                    'duration_days' => (int) $plan->duration_days,
+                    'features' => $plan->features ?? [],
+                    'slug' => $plan->slug,
+                ];
+            }
+        }
         $pricing = [
-            'promoted' => [
+            'promoted' => $byTier['promoted'] ?? [
                 'name' => 'Promoted',
-                'price' => 29.99,
-                'currency' => 'GBP',
-                'duration_days' => 30,
-                'features' => [
-                    'Highlighted card',
-                    'Appears above standard listings',
-                    '"Promoted" badge',
-                    '2× more visibility',
-                ]
+                'price' => 50,
+                'currency' => 'USD',
+                'duration_days' => 21,
+                'features' => ['Highlighted card', 'Appears above standard listings', '"Promoted" badge'],
             ],
-            'featured' => [
+            'featured' => array_merge($byTier['featured'] ?? [
                 'name' => 'Featured',
-                'price' => 59.99,
-                'currency' => 'GBP',
-                'duration_days' => 30,
-                'features' => [
-                    'Top of category pages',
-                    'Larger advert card',
-                    'Priority in search results',
-                    'Included in weekly "Top Featured Ads" email',
-                    '"Featured" badge',
-                    '4× more visibility',
-                ],
-                'is_most_popular' => true
-            ],
-            'sponsored' => [
+                'price' => 30,
+                'currency' => 'USD',
+                'duration_days' => 14,
+                'features' => ['Top of category pages', 'Featured badge', 'Priority search'],
+            ], ['is_most_popular' => true]),
+            'sponsored' => $byTier['sponsored'] ?? [
                 'name' => 'Sponsored',
-                'price' => 99.99,
-                'currency' => 'GBP',
+                'price' => 100,
+                'currency' => 'USD',
                 'duration_days' => 30,
                 'features' => [
                     'Homepage placement',

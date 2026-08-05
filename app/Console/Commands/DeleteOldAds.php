@@ -13,14 +13,14 @@ class DeleteOldAds extends Command
      *
      * @var string
      */
-    protected $signature = 'ads:delete-old {days=21 : The age in days after which ads should be deleted}';
+    protected $signature = 'ads:delete-old {days=90 : The age in days after which inactive ads may be deleted}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Delete ads older than specified number of days (default: 21 days)';
+    protected $description = 'Hard-delete inactive ads older than specified days (default: 90). Prefer ads:disable-expired for live windows.';
 
     /**
      * Execute the console command.
@@ -32,8 +32,12 @@ class DeleteOldAds extends Command
 
         $this->info("Deleting ads older than {$days} days (before {$cutoffDate->format('Y-m-d H:i:s')})...");
 
-        // Get old ads
+        // Only hard-delete inactive ads past the cutoff (active ones are disabled by ads:disable-expired)
         $oldAds = Listing::where('created_at', '<', $cutoffDate)
+            ->when(
+                \Illuminate\Support\Facades\Schema::hasColumn('listings', 'is_active'),
+                fn ($q) => $q->where('is_active', false)
+            )
             ->get();
 
         if ($oldAds->isEmpty()) {

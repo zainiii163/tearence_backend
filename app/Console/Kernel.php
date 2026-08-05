@@ -16,10 +16,17 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Delete old ads older than 3 weeks - runs daily at midnight
-        $schedule->command('ads:delete-old 21')
+        // Disable expired promo/listing windows (do not hard-delete at 21 days)
+        $schedule->command('ads:disable-expired')
                 ->daily()
-                ->at('00:00')
+                ->at('00:15')
+                ->withoutOverlapping()
+                ->runInBackground();
+
+        // Hard-delete only very old inactive ads (90+ days) — after disable window
+        $schedule->command('ads:delete-old 90')
+                ->daily()
+                ->at('01:00')
                 ->withoutOverlapping()
                 ->runInBackground();
 

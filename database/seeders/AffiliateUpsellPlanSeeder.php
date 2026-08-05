@@ -4,23 +4,33 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AffiliateUpsellPlanSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Clive matrix: Promoted $50/21d, Featured $30/14d, Sponsored $100/30d
      */
     public function run(): void
     {
+        $table = Schema::hasTable('affiliate_upsell_plans')
+            ? 'affiliate_upsell_plans'
+            : (Schema::hasTable('ea_affiliate_upsell_plans') ? 'ea_affiliate_upsell_plans' : null);
+
+        if (!$table) {
+            return;
+        }
+
         $plans = [
             [
                 'name' => 'Promoted Post',
                 'slug' => 'promoted',
-                'description' => 'Get highlighted background and appear above standard posts with 2x more visibility',
-                'price' => 29.99,
-                'currency' => 'GBP',
-                'duration_type' => 'monthly',
-                'duration_value' => 1,
+                'description' => 'Highlighted promotion for 3 weeks',
+                'price' => 50.00,
+                'currency' => 'USD',
+                'duration_type' => 'weekly',
+                'duration_value' => 3,
+                'duration_days' => 21,
                 'highlighted_background' => true,
                 'appears_above_standard' => true,
                 'visibility_multiplier' => 2,
@@ -34,17 +44,16 @@ class AffiliateUpsellPlanSeeder extends Seeder
                 'weekly_email_blast' => false,
                 'is_active' => true,
                 'sort_order' => 1,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Featured Post',
                 'slug' => 'featured',
-                'description' => 'Top of category pages, larger card size, priority in search results, and weekly email blast inclusion',
-                'price' => 59.99,
-                'currency' => 'GBP',
-                'duration_type' => 'monthly',
-                'duration_value' => 1,
+                'description' => 'Top of category for 2 weeks',
+                'price' => 30.00,
+                'currency' => 'USD',
+                'duration_type' => 'weekly',
+                'duration_value' => 2,
+                'duration_days' => 14,
                 'highlighted_background' => true,
                 'appears_above_standard' => true,
                 'visibility_multiplier' => 3,
@@ -58,17 +67,16 @@ class AffiliateUpsellPlanSeeder extends Seeder
                 'weekly_email_blast' => true,
                 'is_active' => true,
                 'sort_order' => 2,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Sponsored Post',
                 'slug' => 'sponsored',
-                'description' => 'Maximum visibility with homepage placement, category top placement, homepage slider, and social media promotion',
-                'price' => 99.99,
-                'currency' => 'GBP',
+                'description' => 'Maximum visibility for 1 month',
+                'price' => 100.00,
+                'currency' => 'USD',
                 'duration_type' => 'monthly',
                 'duration_value' => 1,
+                'duration_days' => 30,
                 'highlighted_background' => true,
                 'appears_above_standard' => true,
                 'visibility_multiplier' => 5,
@@ -82,11 +90,22 @@ class AffiliateUpsellPlanSeeder extends Seeder
                 'weekly_email_blast' => true,
                 'is_active' => true,
                 'sort_order' => 3,
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
         ];
 
-        DB::table('ea_affiliate_upsell_plans')->insert($plans);
+        foreach ($plans as $plan) {
+            $existing = DB::table($table)->where('slug', $plan['slug'])->first();
+            $payload = array_merge($plan, ['updated_at' => now()]);
+            // Only set duration_days if column exists
+            if (!Schema::hasColumn($table, 'duration_days')) {
+                unset($payload['duration_days']);
+            }
+            if ($existing) {
+                DB::table($table)->where('slug', $plan['slug'])->update($payload);
+            } else {
+                $payload['created_at'] = now();
+                DB::table($table)->insert($payload);
+            }
+        }
     }
 }

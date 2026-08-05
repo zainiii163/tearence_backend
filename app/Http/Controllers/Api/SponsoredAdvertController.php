@@ -804,52 +804,22 @@ class SponsoredAdvertController extends Controller
      */
     public function pricingPlans()
     {
-        $plans = [
-            [
-                'tier' => 'basic',
-                'name' => 'Sponsored Basic',
-                'price' => 29.99,
+        $promo = app(\App\Services\PromoPricingService::class);
+        $plans = $promo->allActivePlans()->map(function ($plan) {
+            $days = (int) $plan->duration_days;
+            $label = $days === 30 ? '1 month' : (($days % 7 === 0) ? (($days / 7) . ' weeks') : "{$days} days");
+            return [
+                'tier' => $plan->tier,
+                'slug' => $plan->slug,
+                'name' => $plan->name,
+                'price' => (float) $plan->price_usd,
                 'currency' => 'USD',
-                'duration_days' => 30,
-                'benefits' => [
-                    'Listed on Sponsored Adverts Page',
-                    'Highlighted card',
-                    'Sponsored badge',
-                    '3x more visibility than standard ads'
-                ]
-            ],
-            [
-                'tier' => 'plus',
-                'name' => 'Sponsored Plus',
-                'price' => 79.99,
-                'currency' => 'USD',
-                'duration_days' => 60,
-                'is_popular' => true,
-                'benefits' => [
-                    'All Basic features',
-                    'Top of category placement',
-                    'Larger advert card',
-                    'Priority in search results',
-                    'Included in weekly "Sponsored Highlights" email'
-                ]
-            ],
-            [
-                'tier' => 'premium',
-                'name' => 'Sponsored Premium',
-                'price' => 199.99,
-                'currency' => 'USD',
-                'duration_days' => 90,
-                'is_vip' => true,
-                'benefits' => [
-                    'Homepage placement',
-                    'Featured in homepage slider',
-                    'Category top placement',
-                    'Included in social media promotion',
-                    'Premium Sponsored badge',
-                    'Maximum visibility across the platform'
-                ]
-            ]
-        ];
+                'duration_days' => $days,
+                'duration_label' => $label,
+                'benefits' => $plan->features ?? [],
+                'is_popular' => $plan->tier === 'featured',
+            ];
+        })->values();
 
         return response()->json([
             'success' => true,
