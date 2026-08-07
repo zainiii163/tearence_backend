@@ -86,19 +86,38 @@ class AffiliateResource extends Resource
                     ->default('active'),
                 Forms\Components\Select::make('pricing_plan_id')
                     ->label('Pricing Plan')
-                    ->options(AdPricingPlan::where('ad_type', 'affiliate')->active()->pluck('name', 'id'))
-                    ->reactive()
-                    ->afterStateUpdated(fn ($state, callable $set) => $state ? $set('price', AdPricingPlan::find($state)?->price) : null)
+                    ->options(fn () => AdPricingPlan::query()
+                        ->where('ad_type', 'affiliate')
+                        ->active()
+                        ->pluck('name', 'id'))
+                    ->live()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        if (!$state) {
+                            return;
+                        }
+                        $plan = AdPricingPlan::find($state);
+                        if (!$plan) {
+                            return;
+                        }
+                        $set('price', $plan->price);
+                        $set('expires_at', now()->addDays((int) ($plan->duration_days ?: 30)));
+                    })
+                    // Not a DB column on affiliate_links — only used to populate price/expires_at
+                    ->dehydrated(false)
                     ->required(),
                 Forms\Components\Placeholder::make('plan_info')
                     ->label('Plan Details')
                     ->content(function ($get) {
                         $planId = $get('pricing_plan_id');
-                        if (!$planId) return 'Select a pricing plan to see details';
-                        
+                        if (!$planId) {
+                            return 'Select a pricing plan to see details';
+                        }
+
                         $plan = AdPricingPlan::find($planId);
-                        if (!$plan) return 'Plan not found';
-                        
+                        if (!$plan) {
+                            return 'Plan not found';
+                        }
+
                         return "Duration: {$plan->duration_days} days | Featured: " . ($plan->is_featured ? 'Yes' : 'No');
                     })
                     ->columnSpan('full'),
@@ -122,9 +141,6 @@ class AffiliateResource extends Resource
                     ->label('Image')
                     ->defaultImageUrl(url('/placeholder.png'))
                     ->square(),
-                Tables\Columns\TextColumn::make('pricingPlan.name')
-                    ->label('Pricing Plan')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('price')
                     ->label('Price')
                     ->money('USD')
@@ -177,9 +193,6 @@ class AffiliateResource extends Resource
                         'active' => 'Active',
                         'inactive' => 'Inactive',
                     ]),
-                Tables\Filters\SelectFilter::make('pricing_plan_id')
-                    ->label('Pricing Plan')
-                    ->options(AdPricingPlan::where('ad_type', 'affiliate')->active()->pluck('name', 'id')),
                 Tables\Filters\Filter::make('expires_soon')
                     ->label('Expires Soon')
                     ->query(fn (Builder $query) => $query->where('expires_at', '<=', now()->addDays(7))

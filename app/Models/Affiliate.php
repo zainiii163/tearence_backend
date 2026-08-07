@@ -10,7 +10,23 @@ class Affiliate extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    /**
+     * Only real affiliate_links columns — prevents Filament from inserting virtual fields.
+     */
+    protected $fillable = [
+        'position',
+        'link',
+        'title',
+        'image_url',
+        'price',
+        'payment_status',
+        'payment_transaction_id',
+        'paid_at',
+        'expires_at',
+        'is_active',
+        'status',
+        'customer_id',
+    ];
 
     /**
      * The database table used by the model.
