@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ImagesAdvert extends Model
@@ -87,6 +88,11 @@ class ImagesAdvert extends Model
 
         static::creating(function ($advert) {
             $advert->slug = static::generateUniqueSlug($advert->title);
+
+            // Older production DBs may not have video columns yet
+            if (! Schema::hasColumn('images_adverts', 'media_type')) {
+                unset($advert->media_type, $advert->video_url, $advert->video_path);
+            }
         });
 
         static::updating(function ($advert) {

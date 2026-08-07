@@ -9,82 +9,75 @@ class SponsoredPricingPlanSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     * Aligns with live columns: tier, is_active, is_featured, slug, etc.
      */
     public function run(): void
     {
+        $defaults = SponsoredPricingPlan::getDefaultFeatures();
+        $visibility = SponsoredPricingPlan::getDefaultVisibilitySettings();
+        $badges = SponsoredPricingPlan::getDefaultBadgeSettings();
+        $placement = SponsoredPricingPlan::getDefaultPlacementSettings();
+        $promotion = SponsoredPricingPlan::getDefaultPromotionSettings();
+
         $plans = [
             [
-                'name' => 'Free',
-                'slug' => 'free',
-                'price' => 0.00,
-                'currency' => 'USD',
-                'duration_days' => 30,
-                'features' => json_encode([
-                    'Basic listing on sponsored page',
-                    'Standard visibility',
-                    'Up to 5 images',
-                ]),
-                'active' => true,
-                'recommended' => false,
-                'visibility_multiplier' => 1,
-            ],
-            [
-                'name' => 'Promoted',
-                'slug' => 'promoted',
+                'name' => 'Sponsored Basic',
+                'slug' => 'basic',
+                'tier' => 'basic',
                 'price' => 29.99,
                 'currency' => 'USD',
                 'duration_days' => 30,
-                'features' => json_encode([
-                    'Enhanced visibility',
-                    'Priority in search results',
-                    'Larger advert card',
-                    'Up to 10 images',
-                    'Basic analytics',
-                ]),
-                'active' => true,
-                'recommended' => false,
-                'visibility_multiplier' => 2,
+                'description' => 'Listed on Sponsored Adverts with a Sponsored badge and higher visibility.',
+                'features' => $defaults['basic'],
+                'visibility_settings' => $visibility['basic'],
+                'badge_settings' => $badges['basic'],
+                'placement_settings' => $placement['basic'],
+                'promotion_settings' => $promotion['basic'],
+                'is_active' => true,
+                'is_featured' => false,
+                'sort_order' => 1,
             ],
             [
-                'name' => 'Featured',
-                'slug' => 'featured',
-                'price' => 49.99,
+                'name' => 'Sponsored Plus',
+                'slug' => 'plus',
+                'tier' => 'plus',
+                'price' => 59.99,
                 'currency' => 'USD',
                 'duration_days' => 30,
-                'features' => json_encode([
-                    'Top placement in category',
-                    'Homepage carousel inclusion',
-                    'Featured badge',
-                    'Advanced analytics',
-                    'Up to 15 images',
-                ]),
-                'active' => true,
-                'recommended' => true,
-                'visibility_multiplier' => 3,
+                'description' => 'Category-top placement, larger card, and weekly highlights.',
+                'features' => $defaults['plus'],
+                'visibility_settings' => $visibility['plus'],
+                'badge_settings' => $badges['plus'],
+                'placement_settings' => $placement['plus'],
+                'promotion_settings' => $promotion['plus'],
+                'is_active' => true,
+                'is_featured' => true,
+                'sort_order' => 2,
             ],
             [
-                'name' => 'Sponsored',
-                'slug' => 'sponsored',
+                'name' => 'Sponsored Premium',
+                'slug' => 'premium',
+                'tier' => 'premium',
                 'price' => 99.99,
                 'currency' => 'USD',
                 'duration_days' => 30,
-                'features' => json_encode([
-                    'Homepage placement',
-                    'Maximum visibility across platform',
-                    'Social media promotion',
-                    'Premium sponsored badge',
-                    'Unlimited images',
-                    'Comprehensive analytics',
-                    'Dedicated support',
-                ]),
-                'active' => true,
-                'recommended' => false,
-                'visibility_multiplier' => 5,
+                'description' => 'Homepage placement and maximum visibility across the platform.',
+                'features' => $defaults['premium'],
+                'visibility_settings' => $visibility['premium'],
+                'badge_settings' => $badges['premium'],
+                'placement_settings' => $placement['premium'],
+                'promotion_settings' => $promotion['premium'],
+                'is_active' => true,
+                'is_featured' => false,
+                'sort_order' => 3,
             ],
         ];
 
         foreach ($plans as $plan) {
-            SponsoredPricingPlan::create($plan);
+            SponsoredPricingPlan::updateOrCreate(
+                ['slug' => $plan['slug']],
+                $plan
+            );
         }
     }
 }

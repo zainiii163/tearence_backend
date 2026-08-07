@@ -169,7 +169,6 @@ class ImagesAdvertController extends Controller
 
         $validated['user_id'] = Auth::id();
         $validated['verification_status'] = 'pending';
-        $validated['media_type'] = $validated['media_type'] ?? 'image';
         $validated['currency'] = $validated['currency'] ?? 'GBP';
         $validated['has_model_release'] = $validated['has_model_release'] ?? false;
         $validated['has_property_release'] = $validated['has_property_release'] ?? false;
@@ -181,6 +180,16 @@ class ImagesAdvertController extends Controller
         $validated['rating'] = 0;
         $validated['rating_count'] = 0;
         $validated['is_active'] = true;
+
+        // Form-only field — not a DB column
+        unset($validated['agreed_to_terms']);
+
+        // Video columns may be missing until migration is applied on older DBs
+        if (\Illuminate\Support\Facades\Schema::hasColumn('images_adverts', 'media_type')) {
+            $validated['media_type'] = $validated['media_type'] ?? 'image';
+        } else {
+            unset($validated['media_type'], $validated['video_url'], $validated['video_path']);
+        }
 
         // Super admin uploads go live immediately
         $authUser = Auth::user();
@@ -737,6 +746,47 @@ class ImagesAdvertController extends Controller
             'message' => 'Image saved to favorites',
             'data' => [
                 'saves_count' => $image->saves_count,
+            ],
+        ]);
+    }
+
+    /**
+     * Record a download and return a usable file URL.
+     * Accepts numeric id or slug.
+     */
+    public function download($id)
+    {
+        $image = ImagesAdvert::query()
+            ->active()
+            ->verified()
+            ->where(function ($q) use ($id) {
+                $q->where('id', $id)->orWhere('slug', $id);
+            })
+            ->firstOrFail();
+
+        if (method_exists($image, 'incrementDownloads')) {
+            $image->incrementDownloads();
+        } else {
+            $image->increment('downloads_count');
+        }
+
+        $path = $image->main_image;
+        $url = $path;
+        if ($path && ! str_starts_with($path, 'http') && ! str_starts_with($path, '/images/')) {
+            $url = asset('storage/' . ltrim($path, '/'));
+        } elseif ($path && str_starts_with($path, '/images/')) {
+            // Frontend public asset path — caller should use site origin
+            $url = $path;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Download ready',
+            'data' => [
+                'download_url' => $url,
+                'path' => $path,
+                'filename' => basename((string) $path) ?: ($image->slug . '.jpg'),
+                'downloads_count' => $image->downloads_count,
             ],
         ]);
     }

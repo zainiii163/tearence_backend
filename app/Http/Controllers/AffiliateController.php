@@ -321,7 +321,7 @@ class AffiliateController extends APIController
             'position' => 'required|string|max:10',
             'link' => 'required|string|max:200',
             'title' => 'required|string|max:200',
-            'image_url' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:512',
+            'image_url' => 'nullable|file|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'pricing_plan_id' => 'required|exists:ad_pricing_plans,id',
             'payment_transaction_id' => 'required|string'
         ]);
@@ -334,7 +334,10 @@ class AffiliateController extends APIController
         
         $imageName = "";
         if ($request->hasFile('image_url')) {
-            $imageName = $this->fileUpload->uploadFile($request->image_url, $this->folder);
+            $imageName = $this->fileUpload->uploadFile($request->file('image_url'), $this->folder);
+        } elseif (is_string($request->input('image_url')) && $request->input('image_url') !== '') {
+            // Allow pre-uploaded path / URL string
+            $imageName = $request->input('image_url');
         }
 
         try {

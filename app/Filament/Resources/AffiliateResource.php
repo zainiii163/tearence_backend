@@ -38,8 +38,19 @@ class AffiliateResource extends Resource
                     ->required()
                     ->maxLength(200),
                 Forms\Components\FileUpload::make('image_url')
+                    ->label('Image')
+                    ->disk('public')
+                    ->directory('affiliates')
+                    ->visibility('public')
+                    ->acceptedFileTypes([
+                        'image/jpeg',
+                        'image/png',
+                        'image/gif',
+                        'image/webp',
+                    ])
                     ->image()
-                    ->directory('affiliates'),
+                    ->maxSize(5120)
+                    ->nullable(),
                 Forms\Components\TextInput::make('price')
                     ->label('Price')
                     ->numeric()

@@ -26,7 +26,12 @@ class CreateImagesAdvert extends CreateRecord
         $data['rating_count'] = 0;
         $data['has_model_release'] = $data['has_model_release'] ?? false;
         $data['has_property_release'] = $data['has_property_release'] ?? false;
-        $data['media_type'] = $data['media_type'] ?? 'image';
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('images_adverts', 'media_type')) {
+            $data['media_type'] = $data['media_type'] ?? 'image';
+        } else {
+            unset($data['media_type'], $data['video_url'], $data['video_path']);
+        }
 
         return $data;
     }

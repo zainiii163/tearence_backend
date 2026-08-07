@@ -71,9 +71,7 @@ class AdminNotification extends Model
             ->where(function ($q) {
                 $q->where('can_manage_listings', true)
                     ->orWhere('is_super_admin', true)
-                    ->orWhere('is_business_admin', true)
-                    ->orWhere('role', 'admin')
-                    ->orWhere('is_admin', true);
+                    ->orWhere('is_business_admin', true);
             })
             ->get();
 

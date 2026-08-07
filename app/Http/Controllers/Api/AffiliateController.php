@@ -240,23 +240,33 @@ class AffiliateController extends Controller
             ], 422);
         }
 
-        // Auto-approve for now so Vikas/Shihab posts go live immediately (default live window: 30 days)
-        $post = UserAffiliatePost::create([
-            'user_id' => Auth::id(),
-            'status' => 'approved',
-            'is_active' => true,
-            'payment_status' => 'paid',
-            'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
-            'affiliate_category_id' => $request->affiliate_category_id,
-            'title' => $request->title,
-            'description' => $request->description,
-            'country' => $request->country,
-            'region' => $request->region,
-            'affiliate_link' => $request->affiliate_link,
-            'image' => $request->image,
-            'hashtags' => $request->hashtags,
-            'target_audience' => $request->target_audience,
-        ]);
+        try {
+            // Auto-approve for now so posts go live immediately (default live window: 30 days)
+            $post = UserAffiliatePost::create([
+                'user_id' => Auth::id(),
+                'status' => 'approved',
+                'is_active' => true,
+                'payment_status' => 'paid',
+                'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
+                'affiliate_category_id' => $request->affiliate_category_id,
+                'title' => $request->title,
+                'description' => $request->description,
+                'country' => $request->country,
+                'region' => $request->region,
+                'affiliate_link' => $request->affiliate_link,
+                'image' => $request->image ?: '',
+                'hashtags' => $request->hashtags,
+                'target_audience' => $request->target_audience,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create affiliate post',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,

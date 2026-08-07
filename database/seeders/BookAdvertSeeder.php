@@ -16,16 +16,18 @@ class BookAdvertSeeder extends Seeder
      */
     public function run()
     {
-        // Get a sample user (or create one)
-        $user = User::first() ?: User::factory()->create([
-            'name' => 'Sample Author',
+        // Get a sample user (or create one) — users PK is user_id
+        $user = User::first() ?: User::create([
+            'first_name' => 'Sample',
+            'last_name' => 'Author',
             'email' => 'author@example.com',
             'password' => bcrypt('password'),
         ]);
+        $userId = $user->user_id;
 
         $sampleBooks = [
             [
-                'user_id' => $user->id,
+                'user_id' => $userId,
                 'title' => 'The Great Adventure',
                 'subtitle' => 'An Epic Journey',
                 'slug' => 'the-great-adventure-' . Str::random(6),
@@ -80,7 +82,7 @@ class BookAdvertSeeder extends Seeder
                 'updated_at' => now()->subDays(10),
             ],
             [
-                'user_id' => $user->id,
+                'user_id' => $userId,
                 'title' => 'Mystery Tales',
                 'subtitle' => 'Stories That Keep You Guessing',
                 'slug' => 'mystery-tales-' . Str::random(6),
@@ -131,7 +133,7 @@ class BookAdvertSeeder extends Seeder
                 'updated_at' => now()->subDays(5),
             ],
             [
-                'user_id' => $user->id,
+                'user_id' => $userId,
                 'title' => 'Digital Marketing Guide',
                 'subtitle' => 'Strategies for Success',
                 'slug' => 'digital-marketing-guide-' . Str::random(6),

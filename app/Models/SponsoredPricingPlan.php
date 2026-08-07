@@ -26,13 +26,19 @@ class SponsoredPricingPlan extends Model
     protected $fillable = [
         'name',
         'slug',
+        'tier',
         'price',
         'currency',
         'duration_days',
+        'description',
         'features',
-        'active',
-        'recommended',
-        'visibility_multiplier',
+        'visibility_settings',
+        'is_active',
+        'is_featured',
+        'sort_order',
+        'badge_settings',
+        'placement_settings',
+        'promotion_settings',
     ];
 
     /**
@@ -43,9 +49,12 @@ class SponsoredPricingPlan extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'features' => 'array',
-        'active' => 'boolean',
-        'recommended' => 'boolean',
-        'visibility_multiplier' => 'integer',
+        'visibility_settings' => 'array',
+        'badge_settings' => 'array',
+        'placement_settings' => 'array',
+        'promotion_settings' => 'array',
+        'is_active' => 'boolean',
+        'is_featured' => 'boolean',
     ];
 
     /**
@@ -53,15 +62,15 @@ class SponsoredPricingPlan extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('active', true);
+        return $query->where('is_active', true);
     }
 
     /**
-     * Scope a query to only include recommended plans.
+     * Scope a query to only include recommended / featured plans.
      */
     public function scopeRecommended($query)
     {
-        return $query->where('recommended', true);
+        return $query->where('is_featured', true);
     }
 
     /**
@@ -182,17 +191,17 @@ class SponsoredPricingPlan extends Model
         return [
             'basic' => [
                 'text' => 'Sponsored',
-                'color' => '#F59E0B', // Yellow-500
+                'color' => '#F59E0B',
                 'style' => 'solid',
             ],
             'plus' => [
                 'text' => 'Sponsored Plus',
-                'color' => '#3B82F6', // Blue-500
+                'color' => '#3B82F6',
                 'style' => 'solid',
             ],
             'premium' => [
                 'text' => 'Premium Sponsored',
-                'color' => '#8B5CF6', // Purple-500
+                'color' => '#8B5CF6',
                 'style' => 'solid',
             ],
         ];

@@ -6,6 +6,7 @@ use App\Models\ImagesAdvert;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -142,7 +143,7 @@ class DocsWhatsAppImagesSeeder extends Seeder
                 }
             }
 
-            ImagesAdvert::create([
+            $payload = [
                 'user_id' => $user->user_id,
                 'title' => $sample['title'],
                 'slug' => $slug,
@@ -151,7 +152,6 @@ class DocsWhatsAppImagesSeeder extends Seeder
                 'main_image' => $storagePath,
                 'images' => [$storagePath],
                 'thumbnail' => $storagePath,
-                'media_type' => 'image',
                 'width' => $width,
                 'height' => $height,
                 'orientation' => $orientation,
@@ -178,7 +178,13 @@ class DocsWhatsAppImagesSeeder extends Seeder
                 'promotion_tier' => $sample['promotion_tier'],
                 'is_verified_creator' => true,
                 'is_active' => true,
-            ]);
+            ];
+
+            if (Schema::hasColumn('images_adverts', 'media_type')) {
+                $payload['media_type'] = 'image';
+            }
+
+            ImagesAdvert::create($payload);
 
             $this->command?->info("Imported: {$sample['title']}");
         }

@@ -2,30 +2,62 @@
 
 namespace App\Helpers;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\File\File;
 
 class FileUploadHelper
 {
+    /**
+     * Upload a file from base64 data URI or UploadedFile instance.
+     *
+     * @param  string|UploadedFile|null  $file
+     * @param  string  $folder  Storage disk name (or path prefix when using public disk)
+     * @return string Stored relative path / filename
+     */
     public function uploadFile($file, $folder)
     {
-        // upload file
-        $fileName = "";
-        if ($file) {
-            $file_64 = $file; //your base64 encoded data
-            $extension = explode('/', explode(':', substr($file_64, 0, strpos($file_64, ';')))[1])[1]; // .jpg .png .pdf
-            $replace = substr($file_64, 0, strpos($file_64, ',')+1);
-            // find substring fro replace here eg: data:image/png;base64,
-            $fileType = str_replace($replace, '', $file_64);
-            $fileType = str_replace(' ', '+', $fileType);
-            $fileName = Str::random(10).'.'.$extension;
-            Storage::disk($folder)->put($fileName, base64_decode($fileType));
+        if (!$file) {
+            return '';
         }
 
-        return $fileName;
+        $diskExists = array_key_exists($folder, config('filesystems.disks', []));
+
+        // Multipart / Filament / API UploadedFile
+        if ($file instanceof UploadedFile) {
+            $extension = $file->getClientOriginalExtension() ?: 'bin';
+            $fileName = Str::random(10) . '.' . $extension;
+
+            if ($diskExists) {
+                Storage::disk($folder)->putFileAs('', $file, $fileName);
+                return $fileName;
+            }
+
+            $path = trim($folder, '/') . '/' . $fileName;
+            Storage::disk('public')->putFileAs(trim($folder, '/'), $file, $fileName);
+            return $path;
+        }
+
+        // Legacy base64 data URI support
+        if (!is_string($file) || !str_contains($file, ';base64,')) {
+            return '';
+        }
+
+        $file_64 = $file;
+        $meta = substr($file_64, 0, strpos($file_64, ';'));
+        $extension = explode('/', $meta)[1] ?? 'bin';
+        $replace = substr($file_64, 0, strpos($file_64, ',') + 1);
+        $fileType = str_replace(' ', '+', str_replace($replace, '', $file_64));
+        $fileName = Str::random(10) . '.' . $extension;
+
+        if ($diskExists) {
+            Storage::disk($folder)->put($fileName, base64_decode($fileType));
+            return $fileName;
+        }
+
+        $path = trim($folder, '/') . '/' . $fileName;
+        Storage::disk('public')->put($path, base64_decode($fileType));
+        return $path;
     }
 
     public function getFile($filename, $folder)
