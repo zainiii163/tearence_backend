@@ -384,6 +384,19 @@ class BusinessTemplateSeeder extends Seeder
             $add('businesses-for-sale', $slug, $headline, $desc, $items);
         }
 
+        // —— Jobs (resume / CV / hiring — Clive) ——
+        $add('jobs', 'default', 'Jobs, resume & CV templates',
+            'Resume and CV layouts, cover letters, job descriptions and hiring packs — ready to customise.',
+            [
+                ['Professional resume template', 'Clean modern resume — experience, skills, education and summary', 'From $12', 'resume'],
+                ['Modern CV template', 'UK-style CV with photo-ready header, achievements and references', 'From $12', 'cv'],
+                ['Creative resume / CV', 'Design-forward layout for creative and digital roles', 'From $14', 'resume'],
+                ['Cover letter pack', 'Three cover letter styles — cold outreach, application and referral', 'From $9', 'letter'],
+                ['Job description template', 'Role summary, duties, requirements and benefits — hiring pack', 'From $15', 'hiring'],
+                ['Offer letter template', 'Employment offer with salary, start date and conditions', 'From $16', 'letter'],
+                ['Interview scorecard', 'Structured interview notes and scoring grid for recruiters', 'From $10', 'hiring'],
+            ]);
+
         return $rows;
     }
 
@@ -405,6 +418,27 @@ class BusinessTemplateSeeder extends Seeder
     {
         $t = strtolower($title);
 
+        if (str_contains($t, 'professional resume')) {
+            return '/templates/professional-resume.html';
+        }
+        if (str_contains($t, 'modern cv') || (str_contains($t, 'cv template') && ! str_contains($t, 'creative'))) {
+            return '/templates/modern-cv.html';
+        }
+        if (str_contains($t, 'creative resume') || str_contains($t, 'creative resume / cv')) {
+            return '/templates/creative-resume.html';
+        }
+        if (str_contains($t, 'cover letter')) {
+            return '/templates/cover-letter-pack.html';
+        }
+        if (str_contains($t, 'job description')) {
+            return '/templates/job-description.html';
+        }
+        if (str_contains($t, 'offer letter')) {
+            return '/templates/offer-letter.html';
+        }
+        if (str_contains($t, 'interview scorecard') || str_contains($t, 'scorecard')) {
+            return '/templates/interview-scorecard.html';
+        }
         if (str_contains($t, 'bill of sale')) {
             return '/templates/bill-of-sale.html';
         }

@@ -18,7 +18,7 @@ class JobViewResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-eye';
 
-    protected static ?string $navigationGroup = 'Jobs Management';
+    protected static ?string $navigationGroup = 'Jobs & Vacancies';
 
     protected static ?int $navigationSort = 6;
 

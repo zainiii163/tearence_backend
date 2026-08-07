@@ -293,6 +293,6 @@ class CommunitiesSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('Communities seeded successfully.');
+        $this->command->info('Social Hub groups seeded successfully.');
     }
 }

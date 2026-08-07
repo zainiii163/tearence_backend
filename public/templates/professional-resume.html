@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Professional Resume | Worldwide Adverts</title>
+  <style>
+    :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#1d4ed8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; color:var(--ink); background:#f8fafc; }
+    .page { max-width: 820px; margin: 1.5rem auto; background:#fff; padding: 2rem 2.25rem; box-shadow:0 8px 30px rgba(15,23,42,.08); }
+    h1 { margin:0; font-size:1.75rem; letter-spacing:-.02em; }
+    .role { color:var(--accent); font-weight:600; margin:.25rem 0 .75rem; }
+    .meta { color:var(--muted); font-size:.9rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem; }
+    h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.12em; color:var(--accent); border-bottom:2px solid var(--line); padding-bottom:.35rem; margin:1.5rem 0 .75rem; }
+    .item { margin-bottom:1rem; }
+    .item strong { display:block; }
+    .item span { color:var(--muted); font-size:.85rem; }
+    ul { margin:.35rem 0 0; padding-left:1.1rem; color:#334155; }
+    .editable { outline:1px dashed transparent; }
+    .editable:focus { outline:1px dashed var(--accent); background:#eff6ff; }
+    @media print { body { background:#fff; } .page { box-shadow:none; margin:0; max-width:none; } }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <h1 class="editable" contenteditable="true">Alex Morgan</h1>
+    <p class="role editable" contenteditable="true">Marketing Manager</p>
+    <p class="meta">
+      <span class="editable" contenteditable="true">alex@email.com</span>
+      <span class="editable" contenteditable="true">+44 7700 900123</span>
+      <span class="editable" contenteditable="true">London, UK</span>
+      <span class="editable" contenteditable="true">linkedin.com/in/alexmorgan</span>
+    </p>
+
+    <h2>Summary</h2>
+    <p class="editable" contenteditable="true">Results-driven marketer with 7+ years growing brands across digital, retail and B2B. Skilled in campaigns, analytics and team leadership.</p>
+
+    <h2>Experience</h2>
+    <div class="item">
+      <strong class="editable" contenteditable="true">Senior Marketing Manager — Worldwide Adverts</strong>
+      <span class="editable" contenteditable="true">2021 – Present · Remote</span>
+      <ul contenteditable="true">
+        <li>Led multi-channel campaigns that lifted qualified leads by 42%.</li>
+        <li>Managed a team of 5 and a £250k annual media budget.</li>
+      </ul>
+    </div>
+    <div class="item">
+      <strong class="editable" contenteditable="true">Marketing Executive — Acme Retail</strong>
+      <span class="editable" contenteditable="true">2017 – 2021 · Manchester</span>
+      <ul contenteditable="true">
+        <li>Launched email journeys increasing repeat purchase rate by 18%.</li>
+      </ul>
+    </div>
+
+    <h2>Education</h2>
+    <div class="item">
+      <strong class="editable" contenteditable="true">BSc Marketing — University of Leeds</strong>
+      <span class="editable" contenteditable="true">2014 – 2017</span>
+    </div>
+
+    <h2>Skills</h2>
+    <p class="editable" contenteditable="true">SEO · Paid social · Google Analytics · Copywriting · CRM · Team leadership</p>
+  </article>
+</body>
+</html>

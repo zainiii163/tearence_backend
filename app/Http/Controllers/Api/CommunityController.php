@@ -215,7 +215,7 @@ class CommunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => $community->load(['category', 'creator']),
-            'message' => 'Community created successfully'
+            'message' => 'Social Hub group created successfully'
         ], 201);
     }
 
@@ -237,7 +237,7 @@ class CommunityController extends Controller
             if (!$member) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to update this community'
+                    'message' => 'You do not have permission to update this Social Hub group'
                 ], 403);
             }
         }
@@ -283,7 +283,7 @@ class CommunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => $community->load(['category', 'creator']),
-            'message' => 'Community updated successfully'
+            'message' => 'Social Hub group updated successfully'
         ]);
     }
 
@@ -305,7 +305,7 @@ class CommunityController extends Controller
             if (!$member) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to delete this community'
+                    'message' => 'You do not have permission to delete this Social Hub group'
                 ], 403);
             }
         }
@@ -314,7 +314,7 @@ class CommunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Community deleted successfully'
+            'message' => 'Social Hub group deleted successfully'
         ]);
     }
 
@@ -334,7 +334,7 @@ class CommunityController extends Controller
         if ($existingMember) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are already a member of this community'
+                'message' => 'You are already a member of this Social Hub group'
             ], 400);
         }
 
@@ -353,7 +353,7 @@ class CommunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Successfully joined the community'
+            'message' => 'Successfully joined the Social Hub group'
         ]);
     }
 
@@ -373,14 +373,14 @@ class CommunityController extends Controller
         if (!$member) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are not a member of this community'
+                'message' => 'You are not a member of this Social Hub group'
             ], 400);
         }
 
         if ($member->role === 'admin') {
             return response()->json([
                 'success' => false,
-                'message' => 'Admins cannot leave their own community'
+                'message' => 'Admins cannot leave their own Social Hub group'
             ], 400);
         }
 
@@ -389,7 +389,7 @@ class CommunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Successfully left the community'
+            'message' => 'Successfully left the Social Hub group'
         ]);
     }
 
@@ -409,7 +409,7 @@ class CommunityController extends Controller
         if ($existingFollow) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are already following this community'
+                'message' => 'You are already following this Social Hub group'
             ], 400);
         }
 
@@ -421,7 +421,7 @@ class CommunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Successfully followed the community'
+            'message' => 'Successfully followed the Social Hub group'
         ]);
     }
 
@@ -441,7 +441,7 @@ class CommunityController extends Controller
         if (!$follow) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are not following this community'
+                'message' => 'You are not following this Social Hub group'
             ], 400);
         }
 
@@ -449,7 +449,7 @@ class CommunityController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Successfully unfollowed the community'
+            'message' => 'Successfully unfollowed the Social Hub group'
         ]);
     }
 

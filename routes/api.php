@@ -3393,7 +3393,7 @@ Route::group([
         });
     });
 
-    // Communities API Routes
+    // Social Hub API Routes (URL prefix remains /communities)
     Route::group(['prefix' => 'communities'], function () {
         // Public routes
         Route::get('/', [CommunityController::class, 'index']);

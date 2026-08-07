@@ -133,7 +133,7 @@ class ViewUser extends ViewRecord
                             ->label('Affiliate posts')
                             ->state($stats['affiliate_total'] . ' (' . $stats['affiliate_active'] . ' active)'),
                         Infolists\Components\TextEntry::make('dash_communities')
-                            ->label('Communities')
+                            ->label('Social Hub')
                             ->state($stats['communities']),
                         Infolists\Components\TextEntry::make('dash_saved')
                             ->label('Saved ads')

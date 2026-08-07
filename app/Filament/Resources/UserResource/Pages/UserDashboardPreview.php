@@ -99,7 +99,7 @@ class UserDashboardPreview extends ViewRecord
                             ->label('Affiliate active')
                             ->state($stats['affiliate_active']),
                         Infolists\Components\TextEntry::make('communities')
-                            ->label('Communities')
+                            ->label('Social Hub')
                             ->state($stats['communities']),
                         Infolists\Components\TextEntry::make('saved')
                             ->label('Saved ads')

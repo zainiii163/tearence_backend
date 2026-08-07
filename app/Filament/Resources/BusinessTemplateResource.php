@@ -55,6 +55,7 @@ class BusinessTemplateResource extends Resource
                                 'books' => 'Books',
                                 'property' => 'Property',
                                 'businesses-for-sale' => 'Businesses for Sale',
+                                'jobs' => 'Jobs',
                             ])
                             ->required()
                             ->searchable(),
@@ -69,6 +70,10 @@ class BusinessTemplateResource extends Resource
                                 'proposal' => 'Proposal',
                                 'business_doc' => 'Other document',
                                 'agreement' => 'Agreement',
+                                'resume' => 'Resume',
+                                'cv' => 'CV',
+                                'letter' => 'Letter',
+                                'hiring' => 'Hiring pack',
                             ])
                             ->searchable(),
                         Forms\Components\Select::make('status')
@@ -186,6 +191,7 @@ class BusinessTemplateResource extends Resource
                         'books' => 'Books',
                         'property' => 'Property',
                         'businesses-for-sale' => 'Businesses for Sale',
+                        'jobs' => 'Jobs',
                     ]),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([

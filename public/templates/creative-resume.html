@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Creative Resume | Worldwide Adverts</title>
+  <style>
+    body { margin:0; font-family: system-ui, sans-serif; background:linear-gradient(135deg,#ede9fe,#e0f2fe); color:#1e1b4b; }
+    .page { max-width:800px; margin:1.5rem auto; background:#fff; border-radius:1rem; overflow:hidden; box-shadow:0 20px 50px rgba(49,46,129,.15); }
+    .hero { background:linear-gradient(120deg,#4f46e5,#0ea5e9); color:#fff; padding:2rem; }
+    .hero h1 { margin:0; font-size:2rem; }
+    .hero p { margin:.4rem 0 0; opacity:.9; }
+    .body { padding:1.75rem 2rem 2.25rem; display:grid; gap:1.25rem; }
+    h2 { margin:0; font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; color:#6366f1; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .card { background:#f8fafc; border-radius:.75rem; padding:1rem; border:1px solid #e2e8f0; }
+    [contenteditable]:focus { outline:1px dashed #6366f1; }
+    @media (max-width:640px){ .grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <header class="hero">
+      <h1 contenteditable="true">Sam Rivera</h1>
+      <p contenteditable="true">Product Designer · Brand &amp; UI</p>
+      <p contenteditable="true" style="font-size:.9rem">sam@email.com · portfolio.example · London</p>
+    </header>
+    <div class="body">
+      <section>
+        <h2>About</h2>
+        <p contenteditable="true">Designer crafting clear product experiences and campaign visuals for marketplace brands.</p>
+      </section>
+      <div class="grid">
+        <div class="card">
+          <h2>Experience</h2>
+          <p contenteditable="true"><strong>Product Designer</strong> — WWA (2022–)<br>Led listing card redesigns and social hub UI.</p>
+          <p contenteditable="true"><strong>Junior Designer</strong> — Studio North (2019–2022)</p>
+        </div>
+        <div class="card">
+          <h2>Skills</h2>
+          <p contenteditable="true">Figma · Prototyping · Design systems · Motion · Brand</p>
+          <h2 style="margin-top:1rem">Education</h2>
+          <p contenteditable="true">BA Graphic Design — UAL</p>
+        </div>
+      </div>
+    </div>
+  </article>
+</body>
+</html>
