@@ -30,8 +30,6 @@ class GeneralSettings extends Page implements HasForms
 
     protected static ?string $slug = 'settings/general';
 
-    protected static ?int $navigationSort = 1;
-
     protected static string $view = 'filament.pages.settings.general-settings';
 
     public static function canView(): bool
