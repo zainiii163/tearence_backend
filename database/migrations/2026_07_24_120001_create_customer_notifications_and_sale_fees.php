@@ -21,17 +21,19 @@ return new class extends Migration
             });
         }
 
-        Schema::table('service_orders', function (Blueprint $table) {
-            if (!Schema::hasColumn('service_orders', 'fee_percent')) {
-                $table->decimal('fee_percent', 5, 2)->nullable()->after('total_price');
-            }
-            if (!Schema::hasColumn('service_orders', 'platform_fee')) {
-                $table->decimal('platform_fee', 12, 2)->nullable()->after('fee_percent');
-            }
-            if (!Schema::hasColumn('service_orders', 'seller_amount')) {
-                $table->decimal('seller_amount', 12, 2)->nullable()->after('platform_fee');
-            }
-        });
+        if (Schema::hasTable('service_orders')) {
+            Schema::table('service_orders', function (Blueprint $table) {
+                if (!Schema::hasColumn('service_orders', 'fee_percent')) {
+                    $table->decimal('fee_percent', 5, 2)->nullable()->after('total_price');
+                }
+                if (!Schema::hasColumn('service_orders', 'platform_fee')) {
+                    $table->decimal('platform_fee', 12, 2)->nullable()->after('fee_percent');
+                }
+                if (!Schema::hasColumn('service_orders', 'seller_amount')) {
+                    $table->decimal('seller_amount', 12, 2)->nullable()->after('platform_fee');
+                }
+            });
+        }
 
         if (Schema::hasTable('book_purchases')) {
             Schema::table('book_purchases', function (Blueprint $table) {
@@ -52,13 +54,15 @@ return new class extends Migration
     {
         Schema::dropIfExists('customer_notifications');
 
-        Schema::table('service_orders', function (Blueprint $table) {
-            foreach (['fee_percent', 'platform_fee', 'seller_amount'] as $col) {
-                if (Schema::hasColumn('service_orders', $col)) {
-                    $table->dropColumn($col);
+        if (Schema::hasTable('service_orders')) {
+            Schema::table('service_orders', function (Blueprint $table) {
+                foreach (['fee_percent', 'platform_fee', 'seller_amount'] as $col) {
+                    if (Schema::hasColumn('service_orders', $col)) {
+                        $table->dropColumn($col);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         if (Schema::hasTable('book_purchases')) {
             Schema::table('book_purchases', function (Blueprint $table) {
