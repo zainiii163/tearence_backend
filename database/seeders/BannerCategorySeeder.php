@@ -125,7 +125,10 @@ class BannerCategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            BannerCategory::create($category);
+            BannerCategory::updateOrCreate(
+                ['slug' => $category['slug']],
+                $category
+            );
         }
 
         $this->command->info('Banner categories seeded successfully!');
