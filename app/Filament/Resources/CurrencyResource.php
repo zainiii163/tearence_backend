@@ -12,13 +12,15 @@ use Filament\Tables\Table;
 
 class CurrencyResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Currencies';
     protected static ?string $model = Currency::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
-    protected static ?string $navigationGroup = 'Localization';
+    protected static ?string $navigationGroup = 'Settings';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form
     {

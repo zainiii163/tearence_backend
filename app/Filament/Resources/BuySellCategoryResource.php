@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class BuySellCategoryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Categories';
     protected static ?string $model = BuySellCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';

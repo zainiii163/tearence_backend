@@ -16,11 +16,15 @@ use Illuminate\Support\Facades\DB;
 
 class CandidateProfileResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Candidate Profiles (Legacy)';
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = CandidateProfile::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
 
-    protected static ?string $navigationGroup = 'Candidate Management';
+    protected static ?string $navigationGroup = 'Jobs & Vacancies';
 
     protected static ?int $navigationSort = 1;
 

@@ -16,6 +16,10 @@ use Illuminate\Support\Str;
 
 class ProjectResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Projects (Legacy)';
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = Project::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';

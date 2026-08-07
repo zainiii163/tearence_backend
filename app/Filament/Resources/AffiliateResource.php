@@ -16,13 +16,15 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class AffiliateResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Affiliate Link Ads';
     protected static ?string $model = Affiliate::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-link';
 
-    protected static ?string $navigationGroup = 'Content Management';
+    protected static ?string $navigationGroup = 'Affiliates Hub';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 0;
 
     public static function form(Form $form): Form
     {

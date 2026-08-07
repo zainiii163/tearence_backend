@@ -16,13 +16,15 @@ use Illuminate\Support\Facades\DB;
 
 class RevenueTrackingResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Revenue Tracking';
     protected static ?string $model = RevenueTracking::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
-    protected static ?string $navigationGroup = 'Monetization';
+    protected static ?string $navigationGroup = 'Commerce';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

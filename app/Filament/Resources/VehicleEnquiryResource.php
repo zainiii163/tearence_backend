@@ -13,13 +13,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 class VehicleEnquiryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Enquiries';
     protected static ?string $model = VehicleEnquiry::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
 
     protected static ?string $navigationGroup = 'Vehicle Management';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $modelLabel = 'Vehicle Enquiry';
 

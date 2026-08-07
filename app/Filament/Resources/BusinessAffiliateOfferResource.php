@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BusinessAffiliateOfferResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Business Offers';
     protected static ?string $model = BusinessAffiliateOffer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';

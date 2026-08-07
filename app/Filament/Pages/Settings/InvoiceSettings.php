@@ -23,6 +23,8 @@ class InvoiceSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Settings';
 
+    protected static ?string $navigationLabel = 'Invoice Settings';
+
     protected static ?string $title = 'Invoice Settings';
 
     protected static ?string $slug = 'settings/invoice';

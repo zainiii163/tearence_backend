@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class AffiliateUpsellPlanResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Upsell Plans';
     protected static ?string $model = AffiliateUpsellPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';

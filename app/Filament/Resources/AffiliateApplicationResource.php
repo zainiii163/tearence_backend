@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AffiliateApplicationResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Applications';
     protected static ?string $model = AffiliateApplication::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';

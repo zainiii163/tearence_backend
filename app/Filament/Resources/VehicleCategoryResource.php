@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class VehicleCategoryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Categories';
     protected static ?string $model = VehicleCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';

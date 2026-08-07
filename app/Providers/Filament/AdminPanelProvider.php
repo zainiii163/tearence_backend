@@ -109,15 +109,20 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 'User Management',
-                'Content Management',
-                'Templates',
-                'Banner Management',
+                'Moderation',
+                'Marketing & Ads',
+                'Affiliates Hub',
+                'Marketplace',
                 'Property Hub',
                 'Events & Venues',
                 'Services Management',
                 'Buy & Sell',
-                'Monetization',
-                'Affiliates Hub',
+                'Vehicle Management',
+                'Jobs & Vacancies',
+                'Fundraising',
+                'Templates',
+                'Commerce',
+                'Content',
                 'Settings',
             ])
             ->renderHook(

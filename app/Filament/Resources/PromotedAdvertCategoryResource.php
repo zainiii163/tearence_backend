@@ -14,13 +14,15 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PromotedAdvertCategoryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Promoted Categories';
     protected static ?string $model = PromotedAdvertCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
 
-    protected static ?string $navigationGroup = 'Promoted Adverts';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 6;
 
     public static function form(Form $form): Form
     {

@@ -12,13 +12,15 @@ use Filament\Tables\Table;
 
 class LanguageResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Languages';
     protected static ?string $model = Language::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-language';
 
-    protected static ?string $navigationGroup = 'Localization';
+    protected static ?string $navigationGroup = 'Settings';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 21;
 
     public static function form(Form $form): Form
     {

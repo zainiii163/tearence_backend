@@ -13,11 +13,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AdModerationResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Ad Moderation';
     protected static ?string $model = Listing::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shield-exclamation';
 
-    protected static ?string $navigationGroup = 'Content Management';
+    protected static ?string $navigationGroup = 'Moderation';
 
     protected static ?int $navigationSort = 1;
 

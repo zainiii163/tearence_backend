@@ -13,13 +13,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListingUpsellResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Listing Upsells';
     protected static ?string $model = ListingUpsell::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-star';
 
-    protected static ?string $navigationGroup = 'Monetization';
+    protected static ?string $navigationGroup = 'Commerce';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

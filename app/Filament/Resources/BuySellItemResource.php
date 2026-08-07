@@ -14,6 +14,10 @@ use Illuminate\Support\Str;
 
 class BuySellItemResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Buy & Sell Items (Legacy)';
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = BuySellItem::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';

@@ -22,9 +22,9 @@ class BannerAdResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-photo';
 
-    protected static ?string $navigationGroup = 'Banner Management';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $navigationLabel = 'Banner Ads';
 

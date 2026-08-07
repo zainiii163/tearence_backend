@@ -25,13 +25,15 @@ use Illuminate\Support\Facades\Storage;
 
 class ListingResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'All Listings';
     protected static ?string $model = Listing::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-identification';
 
-    protected static ?string $navigationGroup = 'Ads Management';
+    protected static ?string $navigationGroup = 'Moderation';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

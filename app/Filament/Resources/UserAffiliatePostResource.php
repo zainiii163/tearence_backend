@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class UserAffiliatePostResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'User Posts';
     protected static ?string $model = UserAffiliatePost::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';

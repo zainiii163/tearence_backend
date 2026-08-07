@@ -1483,6 +1483,7 @@ Route::group([
         Route::get('/business-offers/{id}', [ApiAffiliateController::class, 'businessOffer']);
         Route::get('/user-posts', [ApiAffiliateController::class, 'userPosts']);
         Route::get('/user-posts/{id}', [ApiAffiliateController::class, 'userPost']);
+        Route::get('/links', [ApiAffiliateController::class, 'affiliateLinks']);
         Route::get('/upsell-plans', [ApiAffiliateController::class, 'upsellPlans']);
         Route::get('/search', [ApiAffiliateController::class, 'search']);
         Route::post('/track-click', [ApiAffiliateController::class, 'trackClick']);

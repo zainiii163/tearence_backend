@@ -12,13 +12,15 @@ use Filament\Tables\Table;
 
 class BuySellPromotionResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Promotions';
     protected static ?string $model = BuySellPromotion::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
 
     protected static ?string $navigationGroup = 'Buy & Sell';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

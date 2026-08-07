@@ -14,6 +14,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class JobListingResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Job Listings (Legacy)';
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = JobListing::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';

@@ -17,9 +17,9 @@ class CandidateUpsellResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
 
-    protected static ?string $navigationGroup = 'Monetization';
+    protected static ?string $navigationGroup = 'Jobs & Vacancies';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 21;
 
     protected static ?string $navigationLabel = 'Candidate Upsells';
 

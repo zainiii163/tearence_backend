@@ -12,13 +12,15 @@ use Filament\Tables\Table;
 
 class CountryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Countries';
     protected static ?string $model = Country::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-flag';
 
-    protected static ?string $navigationGroup = 'Localization';
+    protected static ?string $navigationGroup = 'Settings';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 22;
 
     public static function form(Form $form): Form
     {

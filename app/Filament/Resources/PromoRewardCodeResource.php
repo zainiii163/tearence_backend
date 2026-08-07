@@ -16,11 +16,11 @@ class PromoRewardCodeResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-ticket';
 
-    protected static ?string $navigationGroup = 'Advertising';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
     protected static ?string $navigationLabel = 'Reward Codes';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 9;
 
     public static function form(Form $form): Form
     {

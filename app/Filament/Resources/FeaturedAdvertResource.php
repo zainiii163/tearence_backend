@@ -45,9 +45,9 @@ class FeaturedAdvertResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Featured Adverts';
 
-    protected static ?string $navigationGroup = 'Advert Management';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

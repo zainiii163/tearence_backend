@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class VehicleResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Vehicles';
     protected static ?string $model = Vehicle::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-truck';

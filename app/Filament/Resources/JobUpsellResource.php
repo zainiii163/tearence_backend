@@ -19,9 +19,9 @@ class JobUpsellResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-star';
 
-    protected static ?string $navigationGroup = 'Monetization';
+    protected static ?string $navigationGroup = 'Jobs & Vacancies';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $navigationLabel = 'Job Upsells';
 

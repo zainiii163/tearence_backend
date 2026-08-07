@@ -14,13 +14,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BannerCategoryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Banner Categories';
     protected static ?string $model = BannerCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';
 
-    protected static ?string $navigationGroup = 'Banner Management';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 11;
 
     protected static ?string $modelLabel = 'Banner Category';
 

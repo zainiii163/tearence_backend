@@ -13,13 +13,15 @@ use Filament\Tables\Table;
 
 class VehicleModelResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Models';
     protected static ?string $model = VehicleModel::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static ?string $navigationGroup = 'Vehicle Management';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $modelLabel = 'Vehicle Model';
 

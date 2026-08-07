@@ -13,13 +13,15 @@ use Filament\Tables\Table;
 
 class ZoneResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Zones';
     protected static ?string $model = Zone::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
 
-    protected static ?string $navigationGroup = 'Localization';
+    protected static ?string $navigationGroup = 'Settings';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 23;
 
     public static function form(Form $form): Form
     {

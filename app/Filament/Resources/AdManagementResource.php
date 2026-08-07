@@ -25,9 +25,9 @@ class AdManagementResource extends Resource
 
     protected static ?string $navigationLabel = 'Ad Management';
 
-    protected static ?string $navigationGroup = 'Advertisement Management';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {

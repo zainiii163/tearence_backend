@@ -15,6 +15,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PromotionPlanResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Promotion Plans (Legacy)';
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = PromotionPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rocket-launch';

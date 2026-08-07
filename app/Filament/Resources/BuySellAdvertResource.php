@@ -15,6 +15,8 @@ use Illuminate\Support\Str;
 
 class BuySellAdvertResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Adverts';
     protected static ?string $model = BuySellAdvert::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-cart';

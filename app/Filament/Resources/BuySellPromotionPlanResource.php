@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class BuySellPromotionPlanResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Promotion Plans';
     protected static ?string $model = BuySellPromotionPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-bolt';

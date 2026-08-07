@@ -17,13 +17,15 @@ use Illuminate\Support\Facades\DB;
 
 class CustomerBusinessResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Businesses';
     protected static ?string $model = CustomerBusiness::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
 
-    protected static ?string $navigationGroup = 'Business Management';
+    protected static ?string $navigationGroup = 'User Management';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 6;
 
     protected static ?string $label = 'Businesses';
 

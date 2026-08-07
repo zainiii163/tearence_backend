@@ -22,6 +22,8 @@ class SocialSettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Settings';
 
+    protected static ?string $navigationLabel = 'Social Media';
+
     protected static ?string $title = 'Social Media Settings';
 
     protected static ?string $slug = 'settings/social';

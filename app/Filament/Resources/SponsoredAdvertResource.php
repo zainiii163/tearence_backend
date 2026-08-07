@@ -13,9 +13,15 @@ use Illuminate\Support\Arr;
 
 class SponsoredAdvertResource extends Resource
 {
+
+    protected static ?int $navigationSort = 1;
+
+    protected static ?string $navigationLabel = 'Sponsored Adverts';
+
+    protected static ?string $navigationGroup = 'Marketing & Ads';
     protected static ?string $model = SponsoredAdvert::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-sparkles';
 
     public static function form(Form $form): Form
     {

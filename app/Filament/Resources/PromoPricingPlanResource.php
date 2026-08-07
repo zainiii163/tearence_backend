@@ -16,11 +16,11 @@ class PromoPricingPlanResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
-    protected static ?string $navigationGroup = 'Advertising';
+    protected static ?string $navigationGroup = 'Marketing & Ads';
 
     protected static ?string $navigationLabel = 'Promo Pricing Plans';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 8;
 
     public static function form(Form $form): Form
     {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AffiliateCategory;
+use App\Models\Affiliate;
 use App\Models\BusinessAffiliateOffer;
 use App\Models\UserAffiliatePost;
 use App\Models\AffiliateUpsellPlan;
@@ -110,6 +111,67 @@ class AffiliateController extends Controller
         return response()->json([
             'success' => true,
             'data' => $posts,
+        ]);
+    }
+
+    /**
+     * Active Filament / paid affiliate link ads (affiliate_links) for the public hub.
+     */
+    public function affiliateLinks(Request $request): JsonResponse
+    {
+        $query = Affiliate::query()
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', 'active');
+            })
+            ->where(function ($q) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            });
+
+        if ($request->filled('position')) {
+            $query->where('position', $request->position);
+        }
+
+        $sort = $request->sort ?? 'created_at';
+        $order = $request->order ?? 'desc';
+        if (in_array($sort, ['created_at', 'position', 'title', 'price'], true)) {
+            $query->orderBy($sort, $order);
+        } else {
+            $query->orderByDesc('created_at');
+        }
+
+        $links = $query->paginate($request->per_page ?? 50);
+
+        // Normalize to hub-friendly card fields (image_url accessor already resolves public URLs)
+        $links->getCollection()->transform(function (Affiliate $row) {
+            return [
+                'id' => $row->id,
+                'title' => $row->title,
+                'description' => $row->title,
+                'affiliate_link' => $row->link,
+                'tracking_link' => $row->link,
+                'image_url' => $row->image_url,
+                'image' => $row->image_url,
+                'position' => $row->position,
+                'price' => $row->price,
+                'commission_rate' => 0,
+                'country' => '',
+                'is_featured' => true,
+                'is_promoted' => false,
+                'is_sponsored' => false,
+                'is_verified' => true,
+                'views' => 0,
+                'clicks' => 0,
+                'content_source' => 'affiliate_links',
+                'created_at' => $row->created_at,
+                'updated_at' => $row->updated_at,
+                'expires_at' => $row->expires_at,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $links,
         ]);
     }
 

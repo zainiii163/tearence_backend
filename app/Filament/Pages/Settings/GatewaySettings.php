@@ -27,6 +27,8 @@ class GatewaySettings extends Page implements HasForms
 
     protected static ?string $navigationGroup = 'Settings';
 
+    protected static ?string $navigationLabel = 'Payment Gateways';
+
     protected static ?string $title = 'Payment Gateways';
 
     protected static ?string $slug = 'settings/gateways';

@@ -13,6 +13,8 @@ use Illuminate\Support\Str;
 
 class AffiliateCategoryResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Categories';
     protected static ?string $model = AffiliateCategory::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-tag';

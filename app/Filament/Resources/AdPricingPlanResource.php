@@ -16,13 +16,15 @@ use Illuminate\Support\Str;
 
 class AdPricingPlanResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Ad Pricing Plans';
     protected static ?string $model = AdPricingPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
-    protected static ?string $navigationGroup = 'Monetization';
+    protected static ?string $navigationGroup = 'Commerce';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

@@ -20,11 +20,13 @@ use Illuminate\Support\Facades\Storage;
 
 class BookResource extends Resource
 {
+
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $model = Listing::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
 
-    protected static ?string $navigationLabel = 'Books';
+    protected static ?string $navigationLabel = 'Books (Legacy)';
 
     protected static ?string $modelLabel = 'Book';
 

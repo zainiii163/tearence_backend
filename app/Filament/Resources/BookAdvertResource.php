@@ -24,7 +24,7 @@ class BookAdvertResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Books';
 
-    protected static ?string $navigationGroup = 'Books Marketplace';
+    protected static ?string $navigationGroup = 'Marketplace';
 
     protected static ?int $navigationSort = 1;
 

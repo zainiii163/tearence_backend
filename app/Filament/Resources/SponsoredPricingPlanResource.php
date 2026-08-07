@@ -15,6 +15,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SponsoredPricingPlanResource extends Resource
 {
+
+    protected static ?int $navigationSort = 3;
+
+    protected static ?string $navigationLabel = 'Sponsored Pricing';
+
+    protected static ?string $navigationGroup = 'Marketing & Ads';
     protected static ?string $model = SponsoredPricingPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

@@ -23,7 +23,7 @@ class JobAlertResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-bell';
 
-    protected static ?string $navigationGroup = 'Candidate Management';
+    protected static ?string $navigationGroup = 'Jobs & Vacancies';
 
     protected static ?int $navigationSort = 2;
 

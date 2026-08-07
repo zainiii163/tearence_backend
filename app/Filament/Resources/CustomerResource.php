@@ -20,13 +20,15 @@ use Illuminate\Support\Str;
 
 class CustomerResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Customers';
     protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationGroup = 'Customer Management';
+    protected static ?string $navigationGroup = 'User Management';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {

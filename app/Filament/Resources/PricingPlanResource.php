@@ -14,11 +14,13 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PricingPlanResource extends Resource
 {
+
+    protected static ?string $navigationLabel = 'Book Pricing Plans';
     protected static ?string $model = PricingPlan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-credit-card';
 
-    protected static ?string $navigationGroup = 'Books Marketplace';
+    protected static ?string $navigationGroup = 'Marketplace';
 
     protected static ?int $navigationSort = 2;
 
