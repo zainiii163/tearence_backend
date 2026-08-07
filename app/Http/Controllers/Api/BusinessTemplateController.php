@@ -244,10 +244,77 @@ class BusinessTemplateController extends Controller
             ->orderByDesc('created_at')
             ->paginate($request->per_page ?? 20);
 
+        if (Schema::hasTable('template_purchases') && $items->count() > 0) {
+            $ids = $items->getCollection()->pluck('id')->all();
+            $stats = TemplatePurchase::query()
+                ->whereIn('business_template_id', $ids)
+                ->where('payment_status', 'completed')
+                ->selectRaw('business_template_id, COUNT(*) as sales_count, COALESCE(SUM(seller_amount),0) as sales_revenue')
+                ->groupBy('business_template_id')
+                ->get()
+                ->keyBy('business_template_id');
+
+            $items->getCollection()->transform(function ($row) use ($stats) {
+                $s = $stats->get($row->id);
+                $row->setAttribute('sales_count', (int) ($s->sales_count ?? 0));
+                $row->setAttribute('sales_revenue', (float) ($s->sales_revenue ?? 0));
+                return $row;
+            });
+        }
+
         return response()->json([
             'success' => true,
             'data' => $items,
         ]);
+    }
+
+    /**
+     * Seller sales of their template products (Clive — dashboard).
+     */
+    public function mySales(Request $request): JsonResponse
+    {
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $userId = Auth::id();
+        $templateIds = BusinessTemplate::where('user_id', $userId)->pluck('id');
+
+        $items = TemplatePurchase::query()
+            ->whereIn('business_template_id', $templateIds)
+            ->where('payment_status', 'completed')
+            ->with(['template:id,title,slug,vertical,price'])
+            ->orderByDesc('created_at')
+            ->paginate($request->per_page ?? 20);
+
+        $summary = [
+            'orders' => TemplatePurchase::whereIn('business_template_id', $templateIds)
+                ->where('payment_status', 'completed')
+                ->count(),
+            'revenue' => (float) TemplatePurchase::whereIn('business_template_id', $templateIds)
+                ->where('payment_status', 'completed')
+                ->sum('seller_amount'),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'summary' => $summary,
+            'data' => $items,
+        ]);
+    }
+
+    public function myPurchases(Request $request): JsonResponse
+    {
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $items = TemplatePurchase::where('customer_id', Auth::id())
+            ->where('payment_status', 'completed')
+            ->orderByDesc('created_at')
+            ->paginate($request->per_page ?? 20);
+
+        return response()->json(['success' => true, 'data' => $items]);
     }
 
     public function store(Request $request): JsonResponse
@@ -546,20 +613,6 @@ class BusinessTemplateController extends Controller
                 'fee_percent' => $purchase->fee_percent,
             ],
         ], 201);
-    }
-
-    public function myPurchases(Request $request): JsonResponse
-    {
-        if (!Schema::hasTable('template_purchases')) {
-            return response()->json(['success' => true, 'data' => []]);
-        }
-
-        $items = TemplatePurchase::where('customer_id', Auth::id())
-            ->where('payment_status', 'completed')
-            ->orderByDesc('created_at')
-            ->paginate($request->per_page ?? 20);
-
-        return response()->json(['success' => true, 'data' => $items]);
     }
 
     public function download(string $token): BinaryFileResponse|JsonResponse|\Illuminate\Http\RedirectResponse

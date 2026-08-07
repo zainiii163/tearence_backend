@@ -2246,6 +2246,7 @@ Route::group([
         Route::get('/download/{token}', [BusinessTemplateController::class, 'download']);
         Route::get('/my-templates', [BusinessTemplateController::class, 'myTemplates'])->middleware('jwt.auth');
         Route::get('/my-purchases', [BusinessTemplateController::class, 'myPurchases'])->middleware('jwt.auth');
+        Route::get('/my-sales', [BusinessTemplateController::class, 'mySales'])->middleware('jwt.auth');
         Route::post('/purchase', [BusinessTemplateController::class, 'purchase'])->middleware('jwt.auth');
         Route::post('/quote-request', [BusinessTemplateController::class, 'requestQuote'])->middleware('jwt.auth');
         Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
