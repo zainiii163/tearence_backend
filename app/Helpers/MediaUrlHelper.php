@@ -64,7 +64,13 @@ class MediaUrlHelper
 
         $url = rtrim((string) config('app.url'), '/');
 
-        return $url !== '' ? $url : 'http://127.0.0.1:8000';
+        // Local APP_URL (localhost/127.0.0.1) is not reachable by public frontends —
+        // prefer the production media host unless MEDIA_PUBLIC_URL overrides above.
+        if ($url === '' || preg_match('#^https?://(?:127\.0\.0\.1|localhost)(?::\d+)?$#i', $url)) {
+            return 'https://api.worldwideadverts.info';
+        }
+
+        return $url;
     }
 
     public static function rewriteLocalStorageUrl(string $url): string
@@ -74,7 +80,11 @@ class MediaUrlHelper
             $url,
             $m
         )) {
-            return rtrim(self::publicBaseUrl(), '/') . '/storage/' . $m[1];
+            // Never leave localhost storage URLs in API responses — browsers
+            // calling the public API cannot reach the developer's machine.
+            $public = env('MEDIA_PUBLIC_URL') ?: 'https://api.worldwideadverts.info';
+
+            return rtrim($public, '/') . '/storage/' . $m[1];
         }
 
         return $url;

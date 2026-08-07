@@ -162,7 +162,7 @@ class UserAffiliatePost extends Model
         }
 
         if (str_starts_with($this->image, 'http://') || str_starts_with($this->image, 'https://')) {
-            return $this->image;
+            return MediaUrlHelper::rewriteLocalStorageUrl($this->image);
         }
 
         if (str_contains($this->image, '/')) {

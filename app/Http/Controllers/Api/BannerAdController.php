@@ -385,8 +385,17 @@ class BannerAdController extends Controller
      */
     public function trackClick(string $slug): JsonResponse
     {
-        $bannerAd = BannerAd::where('slug', $slug)->firstOrFail();
-        
+        $bannerAd = BannerAd::where('slug', $slug)->first();
+
+        if (!$bannerAd) {
+            // Catalog / preview packs may not exist in DB yet — don't 404 the client.
+            return response()->json([
+                'success' => true,
+                'message' => 'Banner not found; click ignored',
+                'skipped' => true,
+            ]);
+        }
+
         $bannerAd->incrementClicks();
 
         return response()->json([

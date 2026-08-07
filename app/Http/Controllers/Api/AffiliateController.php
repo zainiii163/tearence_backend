@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\MediaUrlHelper;
 use App\Models\AffiliateCategory;
 use App\Models\Affiliate;
 use App\Models\BusinessAffiliateOffer;
@@ -704,8 +705,8 @@ class AffiliateController extends Controller
             // Store file using Laravel Storage
             $path = $file->storeAs('affiliate_images', $fileName, 'public');
             
-            // Generate public URL
-            $url = asset('storage/' . $path);
+            // Public URL (rewrites localhost APP_URL to MEDIA_PUBLIC_URL / production host)
+            $url = MediaUrlHelper::resolve($path);
             
             return response()->json([
                 'success' => true,

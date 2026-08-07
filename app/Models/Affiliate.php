@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Helpers\FileUploadHelper;
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -48,13 +49,16 @@ class Affiliate extends Model
             return $raw;
         }
 
-        // Already an absolute / root-relative URL
+        // Absolute URL — rewrite localhost/127.0.0.1 storage hosts for public clients
         if (is_string($raw) && (
             str_starts_with($raw, 'http://')
             || str_starts_with($raw, 'https://')
-            || str_starts_with($raw, '/')
         )) {
-            return $raw;
+            return MediaUrlHelper::rewriteLocalStorageUrl($raw);
+        }
+
+        if (is_string($raw) && str_starts_with($raw, '/')) {
+            return MediaUrlHelper::resolve($raw);
         }
 
         // During Filament admin requests, return the stored path so FileUpload can bind.
