@@ -67,6 +67,7 @@ class DatabaseSeeder extends Seeder
             // Banner Adverts System
             BannerCategorySeeder::class,
             BannerAdSeeder::class,
+            CategoryPaidBannersSeeder::class,
             
             // Listing and job-related seeders
             SampleListingsSeeder::class,
