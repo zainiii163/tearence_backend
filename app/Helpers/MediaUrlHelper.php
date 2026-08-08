@@ -18,6 +18,11 @@ class MediaUrlHelper
 
         $value = trim($value);
 
+        // Never return known-broken placeholder hosts
+        if (preg_match('/example\.com|placehold\.co|via\.placeholder\.com|placeholder\.com/i', $value)) {
+            return null;
+        }
+
         if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
             return self::rewriteLocalStorageUrl($value);
         }
@@ -54,23 +59,12 @@ class MediaUrlHelper
 
     public static function publicBaseUrl(): string
     {
+        // Deployed marketplace always serves media from the live API host
         if ($custom = env('MEDIA_PUBLIC_URL')) {
             return rtrim($custom, '/');
         }
 
-        if (app()->environment('production')) {
-            return 'https://api.worldwideadverts.info';
-        }
-
-        $url = rtrim((string) config('app.url'), '/');
-
-        // Local APP_URL (localhost/127.0.0.1) is not reachable by public frontends —
-        // prefer the production media host unless MEDIA_PUBLIC_URL overrides above.
-        if ($url === '' || preg_match('#^https?://(?:127\.0\.0\.1|localhost)(?::\d+)?$#i', $url)) {
-            return 'https://api.worldwideadverts.info';
-        }
-
-        return $url;
+        return 'https://api.worldwideadverts.info';
     }
 
     public static function rewriteLocalStorageUrl(string $url): string

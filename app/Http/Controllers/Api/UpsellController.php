@@ -14,17 +14,17 @@ class UpsellController extends Controller
     public function getPromotionTiers()
     {
         $tiers = [
-            'standard' => [
-                'name' => 'Standard',
-                'price' => 0,
-                'duration' => '30 days',
+            'paid' => [
+                'name' => 'Paid',
+                'price' => 29.00,
+                'duration' => '60 days',
                 'features' => [
-                    'Basic listing',
-                    'Appears in search results',
-                    'Standard visibility',
+                    'Higher in search results',
+                    'Paid badge',
+                    'Priority support',
                 ],
-                'badge' => null,
-                'visibility_multiplier' => 1,
+                'badge' => 'Paid',
+                'visibility_multiplier' => 2,
             ],
             'promoted' => [
                 'name' => 'Promoted',

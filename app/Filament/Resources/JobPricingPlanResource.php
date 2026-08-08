@@ -47,6 +47,7 @@ class JobPricingPlanResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
+                            ->minValue(10)
                             ->prefix('$')
                             ->step(0.01),
                         

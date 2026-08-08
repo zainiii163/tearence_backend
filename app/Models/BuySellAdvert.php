@@ -218,15 +218,26 @@ class BuySellAdvert extends Model
             return [];
         }
 
+        $normalize = function ($url) {
+            if (! is_string($url) || trim($url) === '') {
+                return null;
+            }
+            // Absolute or root-relative already OK for FE resolver
+            if (str_starts_with($url, 'http') || str_starts_with($url, '/')) {
+                return \App\Helpers\MediaUrlHelper::resolve($url) ?: $url;
+            }
+            // Relative storage path e.g. buysell/xyz.jpg
+            return \App\Helpers\MediaUrlHelper::resolve($url);
+        };
+
         // If already an array, process it
         if (is_array($value)) {
             $validUrls = [];
             foreach ($value as $item) {
-                // Handle both string URLs and nested arrays
                 $url = is_array($item) ? ($item['url'] ?? null) : $item;
-                // Only include valid URLs (starts with http or /)
-                if (is_string($url) && (str_starts_with($url, 'http') || str_starts_with($url, '/'))) {
-                    $validUrls[] = $url;
+                $resolved = $normalize($url);
+                if ($resolved) {
+                    $validUrls[] = $resolved;
                 }
             }
             return $validUrls;
@@ -238,13 +249,20 @@ class BuySellAdvert extends Model
             if (is_array($decoded)) {
                 $validUrls = [];
                 foreach ($decoded as $key => $item) {
-                    // Skip non-numeric keys (malformed data)
-                    if (!is_numeric($key)) {
+                    if (! is_numeric($key) && ! is_int($key)) {
+                        // Allow string keys that hold URL values
+                        if (is_string($item)) {
+                            $resolved = $normalize($item);
+                            if ($resolved) {
+                                $validUrls[] = $resolved;
+                            }
+                        }
                         continue;
                     }
                     $url = is_array($item) ? ($item['url'] ?? null) : $item;
-                    if (is_string($url) && (str_starts_with($url, 'http') || str_starts_with($url, '/'))) {
-                        $validUrls[] = $url;
+                    $resolved = $normalize($url);
+                    if ($resolved) {
+                        $validUrls[] = $resolved;
                     }
                 }
                 return $validUrls;

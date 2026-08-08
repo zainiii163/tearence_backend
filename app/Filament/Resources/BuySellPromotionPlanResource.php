@@ -50,6 +50,7 @@ class BuySellPromotionPlanResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
+                            ->minValue(10)
                             ->step('0.01')
                             ->prefix('$')
                             ->label('Price'),

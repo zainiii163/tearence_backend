@@ -53,6 +53,7 @@ class AdPricingPlanResource extends Resource
                 Forms\Components\TextInput::make('price')
                     ->label('Price')
                     ->numeric()
+                    ->minValue(10)
                     ->prefix('$')
                     ->step(0.01)
                     ->required()

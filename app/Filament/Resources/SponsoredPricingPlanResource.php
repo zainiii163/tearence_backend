@@ -37,6 +37,7 @@ class SponsoredPricingPlanResource extends Resource
                 Forms\Components\TextInput::make('price')
                     ->required()
                     ->numeric()
+                    ->minValue(10)
                     ->prefix('$'),
                 Forms\Components\TextInput::make('currency')
                     ->required()

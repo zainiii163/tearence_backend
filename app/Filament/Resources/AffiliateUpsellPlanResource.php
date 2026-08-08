@@ -48,6 +48,7 @@ class AffiliateUpsellPlanResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->numeric()
                             ->required()
+                            ->minValue(10)
                             ->step(0.01)
                             ->prefix('$'),
 

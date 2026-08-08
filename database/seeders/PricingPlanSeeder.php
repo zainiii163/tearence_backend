@@ -16,15 +16,16 @@ class PricingPlanSeeder extends Seeder
     {
         $plans = [
             [
-                'name' => 'Basic Listing',
-                'price' => 0,
+                'name' => 'Paid Listing',
+                'price' => 29,
                 'features' => [
-                    'Standard visibility',
-                    '7 days listing',
-                    'Basic support'
+                    'Higher search visibility',
+                    '60 days listing',
+                    'Priority support',
+                    'Paid badge',
                 ],
                 'recommended' => false,
-                'duration_days' => 7,
+                'duration_days' => 60,
                 'is_active' => true,
                 'created_at' => now(),
                 'updated_at' => now(),

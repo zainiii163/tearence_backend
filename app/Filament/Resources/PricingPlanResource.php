@@ -36,8 +36,10 @@ class PricingPlanResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
+                            ->minValue(10)
                             ->prefix('$')
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->helperText('Minimum $10 — free plans are not allowed'),
                         Forms\Components\TextInput::make('duration_days')
                             ->required()
                             ->numeric()

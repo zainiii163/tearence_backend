@@ -50,6 +50,7 @@ class PromotionPlanResource extends Resource
 
                         Forms\Components\TextInput::make('price')
                             ->numeric()
+                            ->minValue(10)
                             ->prefix('$')
                             ->required()
                             ->step(0.01)

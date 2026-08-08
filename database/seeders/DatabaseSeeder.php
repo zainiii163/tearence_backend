@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             BuySellCategorySeeder::class,
             BuySellPromotionPlanSeeder::class,
             BuySellAdvertSeeder::class,
+            MarketplaceLiveListingsSeeder::class,
             
             // Books marketplace seeders
             PricingPlanSeeder::class,

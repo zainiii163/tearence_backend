@@ -15,18 +15,18 @@ class BuySellPromotionPlanSeeder extends Seeder
     {
         $plans = [
             [
-                'name' => 'Basic',
-                'slug' => 'basic',
-                'description' => 'Standard listing with basic visibility',
-                'price' => 0.00,
-                'duration_days' => 90,
+                'name' => 'Paid',
+                'slug' => 'paid',
+                'description' => 'Paid listing with search visibility',
+                'price' => 19.99,
+                'duration_days' => 60,
                 'features' => [
-                    'Standard listing',
-                    '90 days duration',
-                    'Basic search visibility',
-                    'Image uploads (up to 5)',
+                    'Paid listing',
+                    '60 days duration',
+                    'Search visibility',
+                    'Image uploads (up to 8)',
                 ],
-                'visibility_multiplier' => 1.0,
+                'visibility_multiplier' => 1.5,
                 'is_active' => true,
                 'sort_order' => 1,
             ],
@@ -131,7 +131,10 @@ class BuySellPromotionPlanSeeder extends Seeder
         ];
 
         foreach ($plans as $plan) {
-            BuySellPromotionPlan::create($plan);
+            BuySellPromotionPlan::updateOrCreate(
+                ['slug' => $plan['slug']],
+                $plan
+            );
         }
     }
 }

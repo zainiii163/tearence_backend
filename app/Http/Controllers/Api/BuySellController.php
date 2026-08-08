@@ -475,7 +475,7 @@ class BuySellController extends Controller
 
         $validator = Validator::make($request->all(), [
             'message' => 'required|string|min:10|max:1000',
-            'contact_method' => 'required|in:email,phone',
+            'contact_method' => 'required|in:email,phone,whatsapp',
             'buyer_name' => 'required|string|max:255',
             'buyer_email' => 'required|email|max:255',
             'buyer_phone' => 'nullable|string|max:50',
@@ -488,15 +488,70 @@ class BuySellController extends Controller
             ], 422);
         }
 
+        $sellerEmail = $advert->seller_email;
+        $sellerPhone = $advert->seller_phone;
+        $sellerName = $advert->seller_name;
+
+        if (! $sellerEmail && $advert->user_id) {
+            $owner = \App\Models\User::find($advert->user_id);
+            if ($owner) {
+                $sellerEmail = $owner->email;
+                $sellerPhone = $sellerPhone ?: ($owner->phone ?? null);
+                $sellerName = $sellerName ?: ($owner->name ?? 'Seller');
+            }
+        }
+
+        if (! $sellerEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Seller contact is not available for this listing.',
+            ], 422);
+        }
+
+        $contact = \App\Models\SellerContactMessage::create([
+            'hub' => 'buysell',
+            'listing_id' => $advert->id,
+            'seller_user_id' => $advert->user_id,
+            'buyer_user_id' => Auth::id(),
+            'buyer_name' => $request->buyer_name,
+            'buyer_email' => $request->buyer_email,
+            'buyer_phone' => $request->buyer_phone,
+            'contact_method' => $request->contact_method,
+            'message' => $request->message,
+            'status' => 'new',
+        ]);
+
         $advert->increment('contacts_count');
 
-        // TODO: Send email notification to seller
-        // TODO: Store contact message in database
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "New buyer enquiry on \"{$advert->title}\"\n\n".
+                "From: {$request->buyer_name} <{$request->buyer_email}>\n".
+                ($request->buyer_phone ? "Phone: {$request->buyer_phone}\n" : '').
+                "Preferred contact: {$request->contact_method}\n\n".
+                $request->message,
+                function ($message) use ($sellerEmail, $sellerName, $advert) {
+                    $message->to($sellerEmail, $sellerName ?: 'Seller')
+                        ->subject('Buyer enquiry: '.$advert->title);
+                }
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('Seller contact email failed', [
+                'advert_id' => $advert->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'message' => 'Message sent successfully'
+                'message' => 'Message sent to the seller',
+                'contact_id' => $contact->id,
+                'seller' => [
+                    'name' => $sellerName,
+                    'email' => $sellerEmail,
+                    'phone' => $sellerPhone,
+                ],
             ]
         ]);
     }
