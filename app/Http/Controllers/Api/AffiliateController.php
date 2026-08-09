@@ -121,9 +121,10 @@ class AffiliateController extends Controller
     public function affiliateLinks(Request $request): JsonResponse
     {
         $query = Affiliate::query()
-            ->where('is_active', true)
             ->where(function ($q) {
-                $q->whereNull('status')->orWhere('status', 'active');
+                $q->where('is_active', true)
+                    ->orWhere('status', 'active')
+                    ->orWhereNull('status');
             })
             ->where(function ($q) {
                 $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
@@ -143,20 +144,31 @@ class AffiliateController extends Controller
 
         $links = $query->paginate($request->per_page ?? 50);
 
-        // Normalize to hub-friendly card fields (image_url accessor already resolves public URLs)
+        // Normalize to hub-friendly card fields
         $links->getCollection()->transform(function (Affiliate $row) {
+            $rawImage = $row->getAttributes()['image_url'] ?? null;
+            $imageUrl = null;
+            if (is_string($rawImage) && $rawImage !== '') {
+                $imageUrl = MediaUrlHelper::resolve($rawImage)
+                    ?: MediaUrlHelper::rewriteLocalStorageUrl($rawImage)
+                    ?: $rawImage;
+            }
+
             return [
                 'id' => $row->id,
                 'title' => $row->title,
                 'description' => $row->title,
                 'affiliate_link' => $row->link,
                 'tracking_link' => $row->link,
-                'image_url' => $row->image_url,
-                'image' => $row->image_url,
+                'link' => $row->link,
+                'image_url' => $imageUrl,
+                'image' => $imageUrl,
                 'position' => $row->position,
                 'price' => $row->price,
                 'commission_rate' => 0,
                 'country' => '',
+                'is_active' => (bool) $row->is_active,
+                'status' => $row->status,
                 'is_featured' => true,
                 'is_promoted' => false,
                 'is_sponsored' => false,
@@ -164,6 +176,7 @@ class AffiliateController extends Controller
                 'views' => 0,
                 'clicks' => 0,
                 'content_source' => 'affiliate_links',
+                'contentType' => 'link',
                 'created_at' => $row->created_at,
                 'updated_at' => $row->updated_at,
                 'expires_at' => $row->expires_at,
