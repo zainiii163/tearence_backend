@@ -8,6 +8,7 @@ use App\Models\SponsoredAdvert;
 use App\Services\CrossPromotionFeedService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -25,13 +26,15 @@ class SponsoredAdvertController extends Controller
             'country' => 'nullable|string',
             'city' => 'nullable|string',
             'advert_type' => 'nullable|string|in:product,service,property,job,event,vehicle,business,other',
+            'business_sale_type' => 'nullable|string|in:online,physical',
+            'business_sale_category' => 'nullable|string|max:64',
             'sponsorship_tier' => 'nullable|string|in:basic,plus,premium',
             'min_price' => 'nullable|numeric|min:0',
             'max_price' => 'nullable|numeric|min:0',
             'verified_only' => 'nullable|boolean',
             'sort_by' => 'nullable|string|in:created_at,title,price,views_count,saves_count,rating',
             'sort_order' => 'nullable|string|in:asc,desc',
-            'per_page' => 'nullable|integer|min:1|max:50',
+            'per_page' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1'
         ]);
 
@@ -64,6 +67,14 @@ class SponsoredAdvertController extends Controller
 
         if ($request->advert_type) {
             $query->byAdvertType($request->advert_type);
+        }
+
+        if ($request->filled('business_sale_type') && Schema::hasColumn('sponsored_adverts', 'business_sale_type')) {
+            $query->where('business_sale_type', $request->business_sale_type);
+        }
+
+        if ($request->filled('business_sale_category') && Schema::hasColumn('sponsored_adverts', 'business_sale_category')) {
+            $query->where('business_sale_category', $request->business_sale_category);
         }
 
         if ($request->sponsorship_tier) {
@@ -113,6 +124,10 @@ class SponsoredAdvertController extends Controller
                 'image' => $mainImage,
                 'views' => $advert->views_count,
                 'views_count' => $advert->views_count,
+                'advert_type' => $advert->advert_type,
+                'business_sale_type' => $advert->business_sale_type,
+                'business_sale_category' => $advert->business_sale_category,
+                'business_name' => $advert->business_name,
                 'category' => $advert->category_id, // Frontend expects category name, but we return ID for now
                 'category_id' => $advert->category_id,
                 'condition' => $advert->condition ?? 'Available',
@@ -185,6 +200,8 @@ class SponsoredAdvertController extends Controller
             'tagline' => 'nullable|string|max:80',
             'description' => 'required|string',
             'category_id' => 'nullable|integer',
+            'business_sale_type' => 'nullable|string|in:online,physical',
+            'business_sale_category' => 'nullable|string|max:64',
             'condition' => 'nullable|string|in:new,used,not_applicable',
             'price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
@@ -342,6 +359,8 @@ class SponsoredAdvertController extends Controller
             'tagline' => 'nullable|string|max:80',
             'description' => 'nullable|string',
             'category_id' => 'nullable|integer',
+            'business_sale_type' => 'nullable|string|in:online,physical',
+            'business_sale_category' => 'nullable|string|max:64',
             'condition' => 'nullable|string|in:new,used,not_applicable',
             'price' => 'nullable|numeric|min:0',
             'currency' => 'nullable|string|size:3',
@@ -548,6 +567,10 @@ class SponsoredAdvertController extends Controller
             'price' => $advert->price,
             'currency' => $advert->currency,
             'category_id' => $advert->category_id,
+            'advert_type' => $advert->advert_type,
+            'business_sale_type' => $advert->business_sale_type,
+            'business_sale_category' => $advert->business_sale_category,
+            'business_name' => $advert->business_name,
             'category' => $advert->category ? [
                 'id' => $advert->category->id,
                 'name' => $advert->category->name,
