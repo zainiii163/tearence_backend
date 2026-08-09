@@ -65,6 +65,8 @@ class UserAffiliatePostResource extends Resource
                 Forms\Components\Section::make('Affiliate Content')
                     ->schema([
                         Forms\Components\TextInput::make('affiliate_link')
+                            ->label('External affiliate link')
+                            ->helperText('ClickBank / JVZoo / Amazon / etc. Not a WWA hop URL.')
                             ->url()
                             ->required()
                             ->maxLength(255),

@@ -250,6 +250,7 @@ class AffiliateController extends Controller
             'allowed_traffic_types' => 'nullable|array',
             'allowed_traffic_types.*' => 'in:social_media,email,ppc,blogging,influencer,other',
             'restrictions' => 'nullable|string',
+            'join_instructions' => 'nullable|string|max:5000',
             'tracking_link' => 'required|url',
             'promotional_assets' => 'nullable|array',
             'business_email' => 'required|email',
@@ -284,6 +285,7 @@ class AffiliateController extends Controller
             'cookie_duration' => $request->cookie_duration,
             'allowed_traffic_types' => $request->allowed_traffic_types,
             'restrictions' => $request->restrictions,
+            'join_instructions' => $request->join_instructions,
             'tracking_link' => $request->tracking_link,
             'promotional_assets' => $request->promotional_assets,
             'business_email' => $request->business_email,
@@ -726,6 +728,7 @@ class AffiliateController extends Controller
             'allowed_traffic_types' => 'nullable|array',
             'allowed_traffic_types.*' => 'in:social_media,email,ppc,blogging,influencer,other',
             'restrictions' => 'nullable|string',
+            'join_instructions' => 'nullable|string|max:5000',
             'tracking_link' => 'sometimes|required|url',
             'promotional_assets' => 'nullable|array',
             'business_email' => 'sometimes|required|email',
@@ -745,7 +748,7 @@ class AffiliateController extends Controller
             'business_name', 'product_service_title', 'tagline', 'description',
             'affiliate_category_id', 'country', 'region', 'commission_type',
             'commission_rate', 'cookie_duration', 'allowed_traffic_types',
-            'restrictions', 'tracking_link', 'promotional_assets',
+            'restrictions', 'join_instructions', 'tracking_link', 'promotional_assets',
             'business_email', 'website_url', 'verification_document'
         ]));
 

@@ -101,6 +101,13 @@ class BusinessAffiliateOfferResource extends Resource
 
                         Forms\Components\Textarea::make('restrictions')
                             ->maxLength(65535)
+                            ->helperText('Rules promoters must follow (e.g. no brand bidding).')
+                            ->columnSpanFull(),
+
+                        Forms\Components\Textarea::make('join_instructions')
+                            ->label('Join / payout instructions')
+                            ->maxLength(65535)
+                            ->helperText('Shown to affiliates after they join (payouts, codes, next steps).')
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
@@ -108,6 +115,8 @@ class BusinessAffiliateOfferResource extends Resource
                 Forms\Components\Section::make('Links & Assets')
                     ->schema([
                         Forms\Components\TextInput::make('tracking_link')
+                            ->label('Destination URL')
+                            ->helperText('Merchant sales/checkout page. Promoter hop links redirect here.')
                             ->url()
                             ->required()
                             ->maxLength(255),

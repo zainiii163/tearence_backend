@@ -6,6 +6,7 @@ use App\Filament\Resources\AffiliateApplicationResource\Pages;
 use App\Models\AffiliateApplication;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -80,6 +81,47 @@ class AffiliateApplicationResource extends Resource
                     ])
                     ->columns(2),
 
+                Forms\Components\Section::make('Tracking (hop link)')
+                    ->description('Minted when the application is approved. Promoters share this hop URL.')
+                    ->schema([
+                        Forms\Components\TextInput::make('tracking_code')
+                            ->label('Tracking code')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Generated on approve'),
+
+                        Forms\Components\TextInput::make('hop_url')
+                            ->label('Hop URL')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Generated on approve'),
+
+                        Forms\Components\TextInput::make('clicks_count')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(0),
+
+                        Forms\Components\TextInput::make('conversions_count')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(0),
+
+                        Forms\Components\TextInput::make('earnings_total')
+                            ->numeric()
+                            ->prefix('$')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(0),
+
+                        Forms\Components\DateTimePicker::make('joined_at')
+                            ->label('Joined At')
+                            ->disabled()
+                            ->dehydrated(false),
+                    ])
+                    ->columns(2),
+
                 Forms\Components\Section::make('Application Status')
                     ->schema([
                         Forms\Components\Select::make('status')
@@ -89,7 +131,8 @@ class AffiliateApplicationResource extends Resource
                                 'rejected' => 'Rejected',
                                 'withdrawn' => 'Withdrawn',
                             ])
-                            ->required(),
+                            ->required()
+                            ->helperText('Prefer table Approve/Reject actions so the hop code is minted correctly.'),
 
                         Forms\Components\Textarea::make('rejection_reason')
                             ->maxLength(65535)
@@ -138,8 +181,9 @@ class AffiliateApplicationResource extends Resource
                     ->sortable()
                     ->limit(50),
 
-                Tables\Columns\TextColumn::make('user.first_name')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Promoter')
+                    ->searchable(['first_name', 'last_name'])
                     ->sortable()
                     ->badge(),
 
@@ -156,29 +200,54 @@ class AffiliateApplicationResource extends Resource
                         'gray' => 'withdrawn',
                     ]),
 
+                Tables\Columns\TextColumn::make('tracking_code')
+                    ->label('Code')
+                    ->copyable()
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('hop_url')
+                    ->label('Hop URL')
+                    ->limit(40)
+                    ->copyable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('clicks_count')
+                    ->label('Clicks')
+                    ->numeric()
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('conversions_count')
+                    ->label('Conv.')
+                    ->numeric()
+                    ->sortable()
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('earnings_total')
+                    ->label('Earnings')
+                    ->money('USD')
+                    ->sortable()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('estimated_monthly_visitors')
                     ->numeric()
                     ->sortable()
                     ->formatStateUsing(fn ($state) => $state ? number_format($state) : 'N/A')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('reviewer.name')
                     ->searchable()
                     ->sortable()
                     ->placeholder('Not reviewed')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('reviewed_at')
                     ->dateTime()
                     ->sortable()
                     ->placeholder('Not reviewed')
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('business_responded_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->placeholder('No response')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -207,6 +276,39 @@ class AffiliateApplicationResource extends Resource
                     ->label('Reviewed By'),
             ])
             ->actions([
+                Tables\Actions\Action::make('approve')
+                    ->label('Approve')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->visible(fn (AffiliateApplication $record) => $record->status === 'pending')
+                    ->action(function (AffiliateApplication $record) {
+                        $record->approve(auth()->id());
+                        Notification::make()
+                            ->title('Application approved')
+                            ->body($record->hop_url ? 'Hop link: ' . $record->hop_url : 'Tracking code minted.')
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('reject')
+                    ->label('Reject')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->form([
+                        Forms\Components\Textarea::make('rejection_reason')
+                            ->label('Reason')
+                            ->required()
+                            ->maxLength(2000),
+                    ])
+                    ->visible(fn (AffiliateApplication $record) => $record->status === 'pending')
+                    ->action(function (AffiliateApplication $record, array $data) {
+                        $record->reject(auth()->id(), $data['rejection_reason'] ?? null);
+                        Notification::make()
+                            ->title('Application rejected')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
