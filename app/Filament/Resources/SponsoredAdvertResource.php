@@ -51,13 +51,38 @@ class SponsoredAdvertResource extends Resource
                                 'business' => 'Business',
                                 'other' => 'Other',
                             ])
-                            ->required(),
+                            ->required()
+                            ->live(),
+                        Forms\Components\Select::make('business_sale_type')
+                            ->label('Business sale type')
+                            ->options([
+                                'online' => 'Online Businesses',
+                                'physical' => 'Physical Businesses',
+                            ])
+                            ->visible(fn (callable $get) => $get('advert_type') === 'business')
+                            ->required(fn (callable $get) => $get('advert_type') === 'business'),
+                        Forms\Components\Select::make('business_sale_category')
+                            ->label('Business sale category')
+                            ->options([
+                                'websites' => 'Websites',
+                                'apps' => 'Apps & Software',
+                                'ebooks' => 'eBooks & Digital',
+                                'online-stores' => 'Online Stores',
+                                'shops' => 'Shops & Retail',
+                                'garages' => 'Garages & Automotive',
+                                'restaurants' => 'Restaurants & Cafes',
+                                'hotels' => 'Hotels & Hospitality',
+                                'salons' => 'Salons & Services',
+                                'warehouses' => 'Industrial & Warehouses',
+                            ])
+                            ->visible(fn (callable $get) => $get('advert_type') === 'business')
+                            ->required(fn (callable $get) => $get('advert_type') === 'business'),
                         Forms\Components\Select::make('category_id')
                             ->label('Category')
                             ->options(fn () => SponsoredCategory::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required(fn (callable $get) => $get('advert_type') !== 'business'),
                         Forms\Components\Select::make('condition')
                             ->options([
                                 'new' => 'New',
