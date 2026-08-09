@@ -36,9 +36,13 @@ class CustomerBusiness extends Model
         'business_description',
         'business_phone_number',
         'business_address',
+        'city',
+        'country',
         'business_email',
         'business_logo',
+        'cover_image',
         'business_website',
+        'booking_url',
         'business_owner',
         'status',
         'business_company_no',
@@ -49,6 +53,15 @@ class CustomerBusiness extends Model
         'category_id',
         'vat_number',
         'business_category_slug',
+        'category_profile',
+    ];
+
+    protected $casts = [
+        'category_profile' => 'array',
+    ];
+
+    protected $appends = [
+        'profile',
     ];
 
     public function customer()
@@ -59,6 +72,15 @@ class CustomerBusiness extends Model
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id', 'category_id');
+    }
+
+    /**
+     * Frontend-friendly alias for category_profile JSON.
+     */
+    public function getProfileAttribute()
+    {
+        $profile = $this->category_profile;
+        return is_array($profile) ? $profile : [];
     }
 
     public function getBusinessLogoAttribute($value)

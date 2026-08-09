@@ -17,4 +17,18 @@ class EditCustomerBusiness extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['menu_samples_kv'] = CustomerBusinessResource::extractMenuSamplesKv(
+            $data['category_profile'] ?? null
+        );
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return CustomerBusinessResource::normalizeCategoryProfileData($data);
+    }
 }

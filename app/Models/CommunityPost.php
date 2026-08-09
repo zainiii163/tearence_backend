@@ -45,11 +45,18 @@ class CommunityPost extends Model
         'country',
         'city',
         'discussion_type',
+        'is_poll',
+        'poll_options',
+        'poll_ends_at',
+        'poll_votes_count',
     ];
 
     protected $casts = [
         'media' => 'array',
         'tags' => 'array',
+        'poll_options' => 'array',
+        'poll_ends_at' => 'datetime',
+        'is_poll' => 'boolean',
         'is_pinned' => 'boolean',
         'is_featured' => 'boolean',
         'is_sponsored' => 'boolean',
@@ -93,6 +100,56 @@ class CommunityPost extends Model
     public function savedBy()
     {
         return $this->hasMany(SavedPost::class, 'post_id', 'post_id');
+    }
+
+    public function pollVotes()
+    {
+        return $this->hasMany(CommunityPollVote::class, 'post_id', 'post_id');
+    }
+
+    public function isPollOpen(): bool
+    {
+        if (!$this->is_poll) {
+            return false;
+        }
+        if (!$this->poll_ends_at) {
+            return true;
+        }
+        return $this->poll_ends_at->isFuture();
+    }
+
+    /**
+     * Attach vote tallies + current user vote for API responses.
+     */
+    public function withPollState(?int $userId = null): self
+    {
+        if (!$this->is_poll || !is_array($this->poll_options)) {
+            return $this;
+        }
+
+        $options = collect($this->poll_options)->values()->map(function ($opt, $index) {
+            $id = $opt['id'] ?? ('opt_'.($index + 1));
+            return [
+                'id' => (string) $id,
+                'text' => (string) ($opt['text'] ?? ''),
+                'votes' => (int) ($opt['votes'] ?? 0),
+            ];
+        })->all();
+
+        $total = (int) ($this->poll_votes_count ?: collect($options)->sum('votes'));
+        $this->poll_options = $options;
+        $this->poll_votes_count = $total;
+        $this->poll_is_open = $this->isPollOpen();
+        $this->user_voted_option_id = null;
+
+        if ($userId) {
+            $vote = CommunityPollVote::where('post_id', $this->post_id)
+                ->where('user_id', $userId)
+                ->value('option_id');
+            $this->user_voted_option_id = $vote;
+        }
+
+        return $this;
     }
 
     public function scopeAdThreads($query)

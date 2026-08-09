@@ -108,6 +108,49 @@ class EventController extends Controller
 
     public function store(Request $request)
     {
+        // Normalize Social Hub composer aliases → Event schema
+        if (!$request->filled('category') && $request->filled('category_id')) {
+            $request->merge(['category' => $request->input('category_id')]);
+        }
+        if (!$request->filled('date_time') && $request->filled('start_date')) {
+            $request->merge(['date_time' => $request->input('start_date')]);
+        }
+        if (!$request->filled('venue_name') && $request->filled('location')) {
+            $request->merge(['venue_name' => $request->input('location')]);
+        }
+        if (!$request->filled('expected_attendance') && $request->filled('max_attendees')) {
+            $request->merge(['expected_attendance' => $request->input('max_attendees')]);
+        }
+        if (!$request->filled('video_link') && $request->filled('meeting_link')) {
+            $request->merge(['video_link' => $request->input('meeting_link')]);
+        }
+        if (!$request->filled('price_type')) {
+            $request->merge(['price_type' => 'free']);
+        }
+        if (!$request->filled('country')) {
+            $user = Auth::user();
+            $request->merge(['country' => $user->country ?? 'Worldwide']);
+        }
+        if (!$request->filled('city')) {
+            $user = Auth::user();
+            $city = $user->city ?? null;
+            if (!$city && $request->filled('location')) {
+                $city = $request->input('location');
+            }
+            $request->merge(['city' => $city ?: 'Online']);
+        }
+        if (!$request->filled('contact_email')) {
+            $user = Auth::user();
+            $request->merge([
+                'contact_email' => $user->email
+                    ?? $user->user_email
+                    ?? 'events@worldwideadverts.info',
+            ]);
+        }
+        if ($request->boolean('is_virtual') && !$request->filled('venue_name')) {
+            $request->merge(['venue_name' => 'Virtual event']);
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'category' => 'required|in:concert,workshop,party,festival,conference,sports,cultural,food_drink,charity,other',
@@ -128,17 +171,40 @@ class EventController extends Controller
             'social_links.*' => 'url',
             'images' => 'nullable|array',
             'images.*' => 'string',
+            'cover_image' => 'nullable',
             'video_link' => 'nullable|url',
             'promotion_tier' => 'nullable|in:standard,promoted,featured,sponsored,spotlight',
             'venue_id' => 'nullable|exists:venues,id',
             'venue_services' => 'nullable|array',
             'venue_services.*' => 'exists:venue_services,id',
+            'tags' => 'nullable',
+            'end_date' => 'nullable|date|after_or_equal:date_time',
+            'is_virtual' => 'nullable|boolean',
+            'meeting_link' => 'nullable|url',
         ]);
 
         $validated['user_id'] = Auth::id();
         $validated['promotion_tier'] = $validated['promotion_tier'] ?? 'standard';
 
-        $event = Event::create($validated);
+        $images = $validated['images'] ?? [];
+        if ($request->hasFile('cover_image')) {
+            $path = $request->file('cover_image')->store('events', 'public');
+            $images[] = Storage::url($path);
+        } elseif (is_string($request->input('cover_image')) && $request->input('cover_image') !== '') {
+            $images[] = $request->input('cover_image');
+        }
+        $validated['images'] = $images ?: null;
+
+        // Persist only Event fillable fields
+        $payload = collect($validated)->only([
+            'title', 'category', 'date_time', 'country', 'city', 'venue_name',
+            'ticket_price', 'price_type', 'description', 'schedule',
+            'age_restrictions', 'dress_code', 'expected_attendance',
+            'ticket_link', 'contact_email', 'social_links', 'images',
+            'video_link', 'promotion_tier', 'user_id', 'venue_id',
+        ])->all();
+
+        $event = Event::create($payload);
 
         // Attach venue services if provided
         if (!empty($validated['venue_services'])) {
@@ -253,9 +319,20 @@ class EventController extends Controller
             'other' => 'Other',
         ];
 
+        // Array shape for Social Hub CreateEventForm + map for legacy clients
+        $list = collect($categories)->map(function ($label, $key) {
+            return [
+                'id' => $key,
+                'category_id' => $key,
+                'name' => $label,
+                'label' => $label,
+            ];
+        })->values();
+
         return response()->json([
             'success' => true,
-            'data' => $categories,
+            'data' => $list,
+            'map' => $categories,
         ]);
     }
 

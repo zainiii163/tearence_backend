@@ -8,6 +8,7 @@ use App\Models\CommunityMember;
 use App\Models\CommunityFollow;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -159,17 +160,27 @@ class CommunityController extends Controller
      */
     public function store(Request $request)
     {
+        // Social Hub modal may send location / omit scope
+        if (!$request->filled('scope')) {
+            $request->merge(['scope' => 'global']);
+        }
+        if (!$request->filled('city') && $request->filled('location')) {
+            $request->merge(['city' => $request->input('location')]);
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'category_id' => 'nullable|uuid|exists:category,category_id',
-            'cover_image' => 'nullable|string',
-            'scope' => 'required|in:global,region,city',
+            'category_id' => 'nullable|integer|exists:category,category_id',
+            'cover_image' => 'nullable',
+            'scope' => 'nullable|in:global,region,city',
             'region' => 'nullable|string|required_if:scope,region',
             'city' => 'nullable|string|required_if:scope,city',
+            'location' => 'nullable|string|max:255',
             'strict_moderation' => 'boolean',
             'beginner_friendly' => 'boolean',
-            'rules' => 'nullable|array',
+            'rules' => 'nullable',
+            'is_private' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -188,35 +199,91 @@ class CommunityController extends Controller
             $counter++;
         }
 
+        $coverPath = null;
+        if ($request->hasFile('cover_image')) {
+            $coverPath = $this->storeCommunityCover($request->file('cover_image'));
+        } elseif (is_string($request->cover_image) && $request->cover_image !== '') {
+            $coverPath = $request->cover_image;
+        }
+
+        $rules = $request->input('rules');
+        if (is_string($rules) && trim($rules) !== '') {
+            $rules = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $rules))));
+        } elseif (!is_array($rules)) {
+            $rules = null;
+        }
+
+        $userId = auth()->id();
+        $scope = $request->input('scope', 'global') ?: 'global';
+
         $community = Community::create([
-            'community_id' => Str::uuid(),
+            'community_id' => (string) Str::uuid(),
             'name' => $request->name,
             'slug' => $slug,
             'description' => $request->description,
-            'category_id' => $request->category_id,
-            'cover_image' => $request->cover_image,
-            'scope' => $request->scope,
+            'category_id' => $request->category_id ?: null,
+            'cover_image' => $coverPath,
+            'scope' => $scope,
             'region' => $request->region,
             'city' => $request->city,
             'strict_moderation' => $request->boolean('strict_moderation', false),
             'beginner_friendly' => $request->boolean('beginner_friendly', false),
-            'rules' => $request->rules,
-            'created_by' => auth()->id(),
+            'rules' => $rules,
+            'created_by' => $userId,
+            'members_count' => 1,
         ]);
 
-        // Add creator as admin member
+        // Add creator as admin member + auto-follow for Following feed
         CommunityMember::create([
-            'id' => Str::uuid(),
+            'id' => (string) Str::uuid(),
             'community_id' => $community->community_id,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'role' => 'admin',
         ]);
+
+        CommunityFollow::firstOrCreate(
+            [
+                'community_id' => $community->community_id,
+                'user_id' => $userId,
+            ],
+            [
+                'id' => (string) Str::uuid(),
+            ]
+        );
 
         return response()->json([
             'success' => true,
             'data' => $community->load(['category', 'creator']),
             'message' => 'Social Hub group created successfully'
         ], 201);
+    }
+
+    /**
+     * Store community cover image file; returns storage path.
+     */
+    protected function storeCommunityCover($file): string
+    {
+        $folder = 'communities/covers';
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+
+        if ($disk === 'public' && ! Storage::disk('public')->exists($folder)) {
+            Storage::disk('public')->makeDirectory($folder);
+        }
+
+        try {
+            $path = $folder.'/'.Str::uuid().'.webp';
+            $image = \Intervention\Image\Facades\Image::make($file->getRealPath())
+                ->orientate()
+                ->resize(1600, 1600, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                })
+                ->encode('webp', 82);
+            Storage::disk($disk)->put($path, (string) $image);
+            return $path;
+        } catch (\Throwable $e) {
+            return $file->store($folder, $disk);
+        }
     }
 
     /**
@@ -245,14 +312,14 @@ class CommunityController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
-            'category_id' => 'nullable|uuid|exists:category,category_id',
-            'cover_image' => 'nullable|string',
+            'category_id' => 'nullable|integer|exists:category,category_id',
+            'cover_image' => 'nullable',
             'scope' => 'sometimes|in:global,region,city',
             'region' => 'nullable|string',
             'city' => 'nullable|string',
             'strict_moderation' => 'boolean',
             'beginner_friendly' => 'boolean',
-            'rules' => 'nullable|array',
+            'rules' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -260,6 +327,13 @@ class CommunityController extends Controller
                 'success' => false,
                 'errors' => $validator->errors()
             ], 422);
+        }
+
+        $coverPath = null;
+        if ($request->hasFile('cover_image')) {
+            $coverPath = $this->storeCommunityCover($request->file('cover_image'));
+        } elseif (is_string($request->input('cover_image')) && $request->input('cover_image') !== '') {
+            $coverPath = $request->input('cover_image');
         }
 
         if ($request->has('name')) {
@@ -274,11 +348,16 @@ class CommunityController extends Controller
             $community->slug = $slug;
         }
 
-        $community->update($request->only([
-            'name', 'description', 'category_id', 'cover_image',
+        $payload = $request->only([
+            'name', 'description', 'category_id',
             'scope', 'region', 'city', 'strict_moderation',
             'beginner_friendly', 'rules'
-        ]));
+        ]);
+        if ($coverPath !== null) {
+            $payload['cover_image'] = $coverPath;
+        }
+
+        $community->update($payload);
 
         return response()->json([
             'success' => true,
@@ -338,14 +417,27 @@ class CommunityController extends Controller
             ], 400);
         }
 
+        $userId = auth()->id();
+
         CommunityMember::create([
-            'id' => Str::uuid(),
+            'id' => (string) Str::uuid(),
             'community_id' => $community->community_id,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'role' => 'member',
         ]);
 
         $community->incrementMembersCount();
+
+        // Auto-follow so Following feed includes joined groups
+        CommunityFollow::firstOrCreate(
+            [
+                'community_id' => $community->community_id,
+                'user_id' => $userId,
+            ],
+            [
+                'id' => (string) Str::uuid(),
+            ]
+        );
 
         // Update user reputation
         $reputation = auth()->user()->getReputation();
@@ -492,6 +584,19 @@ class CommunityController extends Controller
      */
     public function byCategory($categoryId)
     {
+        // Social Hub forms sometimes request "all" categories (legacy)
+        if ($categoryId === 'all' || $categoryId === '0' || $categoryId === '') {
+            $categories = Category::query()
+                ->orderBy('name')
+                ->get(['category_id', 'name', 'slug', 'parent_id']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $categories,
+                'type' => 'categories',
+            ]);
+        }
+
         $communities = Community::byCategory($categoryId)
                                 ->with(['category', 'creator'])
                                 ->get();

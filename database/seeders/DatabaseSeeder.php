@@ -80,6 +80,10 @@ class DatabaseSeeder extends Seeder
             JobUpsellSeeder::class,
             CandidateUpsellSeeder::class,
             
+            // Business directory categories + live restaurant/automotive demos
+            BusinessCategorySeeder::class,
+            BusinessDirectoryDemoSeeder::class,
+
             // Revenue tracking (must be last)
             RevenueTrackingSeeder::class,
         ]);

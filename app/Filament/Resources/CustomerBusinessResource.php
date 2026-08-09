@@ -138,12 +138,102 @@ class CustomerBusinessResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        Forms\Components\TextInput::make('city')
+                            ->label('City')
+                            ->maxLength(120),
+                        Forms\Components\TextInput::make('country')
+                            ->label('Country')
+                            ->maxLength(120),
                         Forms\Components\TextInput::make('business_website')
                             ->label('Website')
                             ->url()
-                            ->maxLength(255)
-                            ->columnSpanFull(),
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('booking_url')
+                            ->label('Booking URL')
+                            ->url()
+                            ->maxLength(500)
+                            ->helperText('Reservations, MOT booking, appointments, etc.'),
                     ]),
+                Forms\Components\Section::make('Category profile (hours, booking, extras)')
+                    ->description('Category-specific fields shown on the public business page — opening times, booking slots, menu/services, etc.')
+                    ->columns(2)
+                    ->schema([
+                        Forms\Components\TextInput::make('category_profile.opening_hours.monday')
+                            ->label('Monday')
+                            ->placeholder('09:00 – 18:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.tuesday')
+                            ->label('Tuesday')
+                            ->placeholder('09:00 – 18:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.wednesday')
+                            ->label('Wednesday')
+                            ->placeholder('09:00 – 18:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.thursday')
+                            ->label('Thursday')
+                            ->placeholder('09:00 – 18:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.friday')
+                            ->label('Friday')
+                            ->placeholder('09:00 – 18:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.saturday')
+                            ->label('Saturday')
+                            ->placeholder('10:00 – 16:00'),
+                        Forms\Components\TextInput::make('category_profile.opening_hours.sunday')
+                            ->label('Sunday')
+                            ->placeholder('Closed'),
+                        Forms\Components\TagsInput::make('category_profile.booking_slots')
+                            ->label('Booking slots')
+                            ->placeholder('Add a slot and press Enter')
+                            ->helperText('e.g. Lunch 12:00–14:30, Morning MOT, Consultation call')
+                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('category_profile.booking_phone')
+                            ->label('Booking phone')
+                            ->tel(),
+                        Forms\Components\TagsInput::make('category_profile.highlights')
+                            ->label('Highlights')
+                            ->placeholder('Add highlight')
+                            ->columnSpanFull(),
+                        Forms\Components\TagsInput::make('category_profile.services')
+                            ->label('Services offered')
+                            ->helperText('Automotive, beauty, pets, etc.')
+                            ->columnSpanFull(),
+                        Forms\Components\TagsInput::make('category_profile.cuisine')
+                            ->label('Cuisine (restaurants)')
+                            ->columnSpanFull(),
+                        Forms\Components\TagsInput::make('category_profile.dietary')
+                            ->label('Dietary options (restaurants)')
+                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('category_profile.price_range')
+                            ->label('Price range')
+                            ->placeholder('££ / £££'),
+                        Forms\Components\TextInput::make('category_profile.seating_capacity')
+                            ->label('Seating capacity')
+                            ->numeric(),
+                        Forms\Components\Toggle::make('category_profile.outdoor_seating')
+                            ->label('Outdoor seating'),
+                        Forms\Components\Toggle::make('category_profile.delivery')
+                            ->label('Delivery'),
+                        Forms\Components\Toggle::make('category_profile.takeaway')
+                            ->label('Takeaway'),
+                        Forms\Components\Toggle::make('category_profile.emergency_tow')
+                            ->label('Emergency / tow available'),
+                        Forms\Components\TextInput::make('category_profile.tow_phone')
+                            ->label('Tow phone')
+                            ->tel(),
+                        Forms\Components\TagsInput::make('category_profile.makes_serviced')
+                            ->label('Makes serviced (automotive)')
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('category_profile.warranties')
+                            ->label('Warranties / guarantees')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                        Forms\Components\KeyValue::make('menu_samples_kv')
+                            ->label('Menu samples (name → price)')
+                            ->keyLabel('Dish')
+                            ->valueLabel('Price')
+                            ->helperText('Optional quick menu for restaurants — saved into category profile')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(false),
                 Forms\Components\Section::make('Company Details')
                     ->columns(2)
                     ->schema([
@@ -159,7 +249,7 @@ class CustomerBusinessResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),
-                Forms\Components\Section::make('Logo')
+                Forms\Components\Section::make('Logo & cover')
                     ->schema([
                         Forms\Components\FileUpload::make('business_logo')
                             ->label('Business Logo')
@@ -167,6 +257,11 @@ class CustomerBusinessResource extends Resource
                             ->directory('business')
                             ->maxSize(2048)
                             ->helperText('Upload business logo (max 2MB)'),
+                        Forms\Components\TextInput::make('cover_image')
+                            ->label('Cover image URL')
+                            ->url()
+                            ->maxLength(500)
+                            ->helperText('Optional full URL for cover photo'),
                     ]),
             ]);
     }
@@ -198,6 +293,15 @@ class CustomerBusinessResource extends Resource
                     ->label('Owner')
                     ->searchable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('business_category_slug')
+                    ->label('Directory')
+                    ->badge()
+                    ->toggleable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('city')
+                    ->label('City')
+                    ->toggleable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('business_email')
                     ->label('Email')
                     ->searchable()
@@ -206,6 +310,11 @@ class CustomerBusinessResource extends Resource
                 Tables\Columns\TextColumn::make('business_phone_number')
                     ->label('Phone')
                     ->searchable()
+                    ->toggleable(),
+                Tables\Columns\IconColumn::make('booking_url')
+                    ->label('Booking')
+                    ->boolean()
+                    ->getStateUsing(fn ($record) => filled($record->booking_url))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -264,5 +373,62 @@ class CustomerBusinessResource extends Resource
             'view' => Pages\ViewCustomerBusiness::route('/{record}'),
             'edit' => Pages\EditCustomerBusiness::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Convert Filament KeyValue menu rows into category_profile.menu_samples.
+     */
+    public static function normalizeCategoryProfileData(array $data): array
+    {
+        $kv = $data['menu_samples_kv'] ?? null;
+        unset($data['menu_samples_kv']);
+
+        if (! isset($data['category_profile']) || ! is_array($data['category_profile'])) {
+            $data['category_profile'] = [];
+        }
+
+        if (is_array($kv)) {
+            $samples = [];
+            foreach ($kv as $name => $price) {
+                if ($name === null || $name === '') {
+                    continue;
+                }
+                $samples[] = [
+                    'name' => (string) $name,
+                    'price' => is_scalar($price) ? (string) $price : '',
+                ];
+            }
+            $data['category_profile']['menu_samples'] = $samples;
+        }
+
+        if (! empty($data['category_profile']['opening_hours']) && is_array($data['category_profile']['opening_hours'])) {
+            $data['category_profile']['opening_hours'] = array_filter(
+                $data['category_profile']['opening_hours'],
+                static fn ($value) => $value !== null && $value !== ''
+            );
+        }
+
+        return $data;
+    }
+
+    /**
+     * Hydrate Filament KeyValue from stored menu_samples array.
+     */
+    public static function extractMenuSamplesKv(?array $profile): array
+    {
+        $samples = $profile['menu_samples'] ?? [];
+        if (! is_array($samples)) {
+            return [];
+        }
+
+        $kv = [];
+        foreach ($samples as $row) {
+            if (! is_array($row) || empty($row['name'])) {
+                continue;
+            }
+            $kv[$row['name']] = $row['price'] ?? ($row['note'] ?? '');
+        }
+
+        return $kv;
     }
 }

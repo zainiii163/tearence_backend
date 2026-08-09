@@ -275,6 +275,17 @@ class BusinessController extends APIController
             $query->business_company_no = $request->business_company_no;
             $query->category_id = $request->category_id;
             $query->business_category_slug = $request->business_category_slug;
+            $query->city = $request->city;
+            $query->country = $request->country;
+            $query->booking_url = $request->booking_url;
+            if ($request->has('category_profile') || $request->has('profile')) {
+                $profile = $request->input('category_profile', $request->input('profile'));
+                if (is_string($profile)) {
+                    $decoded = json_decode($profile, true);
+                    $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+                }
+                $query->category_profile = is_array($profile) ? $profile : null;
+            }
             $query->status = 'active';
             
             $query->save();
@@ -467,6 +478,23 @@ class BusinessController extends APIController
             $query->category_id = $request->category_id ?? null;
             if ($request->filled('business_category_slug')) {
                 $query->business_category_slug = $request->business_category_slug;
+            }
+            if ($request->has('city')) {
+                $query->city = $request->city;
+            }
+            if ($request->has('country')) {
+                $query->country = $request->country;
+            }
+            if ($request->has('booking_url')) {
+                $query->booking_url = $request->booking_url;
+            }
+            if ($request->has('category_profile') || $request->has('profile')) {
+                $profile = $request->input('category_profile', $request->input('profile'));
+                if (is_string($profile)) {
+                    $decoded = json_decode($profile, true);
+                    $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+                }
+                $query->category_profile = is_array($profile) ? $profile : null;
             }
             $query->status = $request->input('status', 'active');
             $query->save();

@@ -3536,6 +3536,7 @@ Route::group([
             Route::put('/{id}', [CommunityPostController::class, 'update']);
             Route::delete('/{id}', [CommunityPostController::class, 'destroy']);
             Route::post('/{id}/react', [CommunityPostController::class, 'react']);
+            Route::post('/{id}/vote', [CommunityPostController::class, 'vote']);
             Route::post('/{id}/save', [CommunityPostController::class, 'save']);
             Route::delete('/{id}/save', [CommunityPostController::class, 'save']);
             Route::post('/{id}/pin', [CommunityPostController::class, 'pin']);

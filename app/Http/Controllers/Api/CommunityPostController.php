@@ -7,6 +7,7 @@ use App\Helpers\MediaUrlHelper;
 use App\Models\CommunityPost;
 use App\Models\Community;
 use App\Models\CommunityPostCommunity;
+use App\Models\CommunityPollVote;
 use App\Models\PostReaction;
 use App\Models\SavedPost;
 use App\Models\UserReputation;
@@ -102,6 +103,8 @@ class CommunityPostController extends Controller
         $posts = $query->with(['user', 'category', 'communities', 'primaryCommunity'])
                       ->paginate($request->get('per_page', 20));
 
+        $this->attachPollState($posts);
+
         return response()->json([
             'success' => true,
             'data' => $posts
@@ -147,6 +150,7 @@ class CommunityPostController extends Controller
 
             $posts = $query->with(['user', 'category', 'communities'])
                 ->paginate($request->get('per_page', 20));
+            $this->attachPollState($posts);
 
             return response()->json([
                 'success' => true,
@@ -160,6 +164,7 @@ class CommunityPostController extends Controller
                 ->trending()
                 ->with(['user', 'category', 'communities'])
                 ->paginate($request->get('per_page', 20));
+            $this->attachPollState($posts);
 
             return response()->json([
                 'success' => true,
@@ -178,28 +183,60 @@ class CommunityPostController extends Controller
             $user = auth()->user();
             $query = CommunityPost::query()->notFlagged();
 
+            $communityIds = [];
             if ($user) {
                 try {
-                    $followedCommunityIds = $user->followedCommunities()
+                    $followedIds = $user->followedCommunities()
                         ->pluck('communities.community_id')
-                        ->toArray();
-                    if (empty($followedCommunityIds)) {
-                        $followedCommunityIds = $user->followedCommunities()->pluck('community_id')->toArray();
+                        ->filter()
+                        ->values()
+                        ->all();
+                    if (empty($followedIds)) {
+                        $followedIds = $user->followedCommunities()->pluck('community_id')->filter()->values()->all();
                     }
-                    if (!empty($followedCommunityIds)) {
-                        $query->whereHas('communities', function ($q) use ($followedCommunityIds) {
-                            $q->whereIn('communities.community_id', $followedCommunityIds);
-                        });
+
+                    $joinedIds = [];
+                    try {
+                        $joinedIds = $user->communities()
+                            ->pluck('communities.community_id')
+                            ->filter()
+                            ->values()
+                            ->all();
+                        if (empty($joinedIds)) {
+                            $joinedIds = $user->communities()->pluck('community_id')->filter()->values()->all();
+                        }
+                    } catch (\Throwable $e) {
+                        $joinedIds = [];
                     }
+
+                    $communityIds = array_values(array_unique(array_merge($followedIds, $joinedIds)));
                 } catch (\Throwable $e) {
-                    // ignore follow table issues
+                    $communityIds = [];
                 }
             }
+
+            // No follows/memberships → empty feed (not global dump)
+            if (empty($communityIds)) {
+                $empty = CommunityPost::query()
+                    ->whereRaw('1 = 0')
+                    ->paginate($request->get('per_page', 20));
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $empty,
+                    'message' => 'Follow or join communities to see posts here.',
+                ]);
+            }
+
+            $query->whereHas('communities', function ($q) use ($communityIds) {
+                $q->whereIn('communities.community_id', $communityIds);
+            });
 
             $query->newest();
 
             $posts = $query->with(['user', 'category', 'communities'])
                 ->paginate($request->get('per_page', 20));
+            $this->attachPollState($posts);
 
             return response()->json([
                 'success' => true,
@@ -208,17 +245,11 @@ class CommunityPostController extends Controller
         } catch (\Throwable $e) {
             \Log::error('Community following failed: '.$e->getMessage());
 
-            $posts = CommunityPost::query()
-                ->notFlagged()
-                ->newest()
-                ->with(['user', 'category', 'communities'])
-                ->paginate($request->get('per_page', 20));
-
             return response()->json([
-                'success' => true,
-                'data' => $posts,
-                'warning' => 'Fell back to newest feed',
-            ]);
+                'success' => false,
+                'message' => 'Could not load following feed',
+                'data' => [],
+            ], 500);
         }
     }
 
@@ -244,6 +275,7 @@ class CommunityPostController extends Controller
 
             $posts = $query->with(['user', 'category', 'communities'])
                 ->paginate($request->get('per_page', 20));
+            $this->attachPollState($posts);
 
             return response()->json([
                 'success' => true,
@@ -257,6 +289,7 @@ class CommunityPostController extends Controller
                 ->newest()
                 ->with(['user', 'category', 'communities'])
                 ->paginate($request->get('per_page', 20));
+            $this->attachPollState($posts);
 
             return response()->json([
                 'success' => true,
@@ -277,6 +310,7 @@ class CommunityPostController extends Controller
 
         // Increment view count
         $post->incrementViews();
+        $this->attachPollState($post);
 
         return response()->json([
             'success' => true,
@@ -375,14 +409,21 @@ class CommunityPostController extends Controller
             'content' => 'nullable|string',
             'cover_image' => 'nullable|string',
             'media' => 'nullable|array',
-            'category_id' => 'nullable|uuid|exists:category,category_id',
+            'category_id' => 'nullable|integer|exists:category,category_id',
             'location' => 'nullable|string',
             'country' => 'nullable|string',
             'city' => 'nullable|string',
-            'discussion_type' => 'nullable|in:general,question,review,advice,report',
+            'discussion_type' => 'nullable|in:general,question,review,advice,report,poll',
+            'is_poll' => 'nullable|boolean',
+            'poll_options' => 'nullable|array|min:2|max:6',
+            'poll_options.*' => 'required|string|max:120',
+            'poll_ends_at' => 'nullable|date|after:now',
             'tags' => 'nullable|array',
             'community_ids' => 'required|array|min:1',
             'community_ids.*' => 'uuid|exists:communities,community_id',
+            'cover_image_file' => 'nullable|file|image|max:10240',
+            'media_files' => 'nullable|array',
+            'media_files.*' => 'file|max:51200',
         ]);
 
         if ($validator->fails()) {
@@ -392,21 +433,74 @@ class CommunityPostController extends Controller
             ], 422);
         }
 
+        $isPoll = $request->boolean('is_poll')
+            || $request->discussion_type === 'poll'
+            || $request->filled('poll_options');
+
+        if ($isPoll) {
+            $options = array_values(array_filter(array_map('trim', (array) $request->input('poll_options', []))));
+            if (count($options) < 2) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['poll_options' => ['Polls need at least 2 options.']],
+                ], 422);
+            }
+        }
+
+        $coverImage = $request->cover_image;
+        if ($request->hasFile('cover_image_file')) {
+            $upload = $this->storeUploadedMedia($request->file('cover_image_file'), 'cover');
+            $coverImage = $upload['path'];
+        } elseif ($request->hasFile('cover_image')) {
+            $upload = $this->storeUploadedMedia($request->file('cover_image'), 'cover');
+            $coverImage = $upload['path'];
+        }
+
+        $media = is_array($request->media) ? $request->media : [];
+        if ($request->hasFile('media_files')) {
+            foreach ((array) $request->file('media_files') as $file) {
+                if (!$file) {
+                    continue;
+                }
+                $upload = $this->storeUploadedMedia($file, 'media');
+                $media[] = [
+                    'path' => $upload['path'],
+                    'url' => $upload['url'],
+                    'media_type' => $upload['media_type'],
+                ];
+            }
+        }
+
+        $pollOptions = null;
+        if ($isPoll) {
+            $pollOptions = collect($options)->values()->map(function ($text, $i) {
+                return [
+                    'id' => 'opt_'.($i + 1),
+                    'text' => $text,
+                    'votes' => 0,
+                ];
+            })->all();
+        }
+
         $post = CommunityPost::create([
-            'post_id' => Str::uuid(),
+            'post_id' => (string) Str::uuid(),
             'user_id' => auth()->id(),
             'post_type' => $request->post_type,
             'advert_type' => $request->advert_type,
             'advert_id' => $request->advert_id,
             'title' => $request->title,
             'content' => $request->content,
-            'cover_image' => $request->cover_image,
-            'media' => $request->media,
+            'cover_image' => $coverImage,
+            'media' => $media ?: null,
             'category_id' => $request->category_id,
             'location' => $request->location,
             'country' => $request->country,
             'city' => $request->city,
-            'discussion_type' => $request->discussion_type,
+            'discussion_type' => $isPoll ? 'poll' : $request->discussion_type,
+            'is_poll' => $isPoll,
+            'poll_options' => $pollOptions,
+            'poll_ends_at' => $isPoll ? $request->input('poll_ends_at') : null,
+            'poll_votes_count' => 0,
             'tags' => $request->tags,
         ]);
 
@@ -438,10 +532,13 @@ class CommunityPostController extends Controller
         $reputation->incrementPostsCount();
         $reputation->incrementReputationScore(5);
 
+        $post = $post->load(['user', 'category', 'communities', 'primaryCommunity']);
+        $post->withPollState(auth()->id());
+
         $payload = [
             'success' => true,
-            'data' => $post->load(['user', 'category', 'communities', 'primaryCommunity']),
-            'message' => 'Post created successfully',
+            'data' => $post,
+            'message' => $isPoll ? 'Poll created successfully' : 'Post created successfully',
         ];
         if ($request->attributes->get('kyc_prompt')) {
             $payload['kyc_prompt'] = true;
@@ -449,6 +546,131 @@ class CommunityPostController extends Controller
         }
 
         return response()->json($payload, 201);
+    }
+
+    /**
+     * Vote on a poll post (one vote per user; can change option while open).
+     */
+    public function vote(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'option_id' => 'required|string|max:64',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $post = CommunityPost::where('post_id', $id)->firstOrFail();
+
+        if (!$post->is_poll || !is_array($post->poll_options)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This post is not a poll',
+            ], 400);
+        }
+
+        if (!$post->isPollOpen()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This poll has ended',
+            ], 400);
+        }
+
+        $optionId = (string) $request->input('option_id');
+        $options = collect($post->poll_options)->values()->map(function ($opt, $i) {
+            return [
+                'id' => (string) ($opt['id'] ?? ('opt_'.($i + 1))),
+                'text' => (string) ($opt['text'] ?? ''),
+                'votes' => (int) ($opt['votes'] ?? 0),
+            ];
+        });
+
+        if (!$options->firstWhere('id', $optionId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid poll option',
+            ], 422);
+        }
+
+        $userId = auth()->id();
+        $existing = CommunityPollVote::where('post_id', $post->post_id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($existing && $existing->option_id === $optionId) {
+            $post->withPollState($userId);
+            return response()->json([
+                'success' => true,
+                'message' => 'Already voted for this option',
+                'data' => $post,
+            ]);
+        }
+
+        if ($existing) {
+            $options = $options->map(function ($opt) use ($existing) {
+                if ($opt['id'] === $existing->option_id) {
+                    $opt['votes'] = max(0, $opt['votes'] - 1);
+                }
+                return $opt;
+            });
+            $existing->update(['option_id' => $optionId]);
+        } else {
+            CommunityPollVote::create([
+                'id' => (string) Str::uuid(),
+                'post_id' => $post->post_id,
+                'user_id' => $userId,
+                'option_id' => $optionId,
+            ]);
+            $post->increment('poll_votes_count');
+        }
+
+        $options = $options->map(function ($opt) use ($optionId) {
+            if ($opt['id'] === $optionId) {
+                $opt['votes'] += 1;
+            }
+            return $opt;
+        })->values()->all();
+
+        $post->update([
+            'poll_options' => $options,
+            'poll_votes_count' => max(
+                (int) $post->poll_votes_count,
+                collect($options)->sum('votes')
+            ),
+        ]);
+
+        $post->refresh()->withPollState($userId);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Vote recorded',
+            'data' => $post,
+        ]);
+    }
+
+    /**
+     * Attach poll state for authenticated viewer on a paginator/collection.
+     */
+    protected function attachPollState($posts): void
+    {
+        $userId = auth('api')->id() ?: auth()->id();
+        if (method_exists($posts, 'getCollection')) {
+            $posts->getCollection()->transform(function ($post) use ($userId) {
+                if ($post instanceof CommunityPost) {
+                    $post->withPollState($userId ? (int) $userId : null);
+                }
+                return $post;
+            });
+            return;
+        }
+
+        if ($posts instanceof CommunityPost) {
+            $posts->withPollState($userId ? (int) $userId : null);
+        }
     }
 
     /**
@@ -645,13 +867,70 @@ class CommunityPostController extends Controller
     public function saved(Request $request)
     {
         $savedPosts = auth()->user()->savedPosts()
-                                     ->with('post.user', 'post.category', 'post.communities')
-                                     ->paginate($request->get('per_page', 20));
+            ->with('post.user', 'post.category', 'post.communities')
+            ->latest()
+            ->paginate($request->get('per_page', 20));
+
+        // Flatten to CommunityPost shape expected by Social Hub FE
+        $savedPosts->getCollection()->transform(function ($saved) {
+            $post = $saved->post;
+            if (!$post) {
+                return null;
+            }
+            $post->saved_at = $saved->created_at ?? $saved->saved_at ?? null;
+            return $post;
+        });
+        $savedPosts->setCollection(
+            $savedPosts->getCollection()->filter()->values()
+        );
+        $this->attachPollState($savedPosts);
 
         return response()->json([
             'success' => true,
             'data' => $savedPosts
         ]);
+    }
+
+    /**
+     * Persist uploaded image/video for community posts.
+     */
+    protected function storeUploadedMedia($file, string $type = 'media'): array
+    {
+        $folder = $type === 'cover' ? 'community-posts/covers' : 'community-posts/media';
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+
+        if ($disk === 'public' && ! Storage::disk('public')->exists($folder)) {
+            Storage::disk('public')->makeDirectory($folder);
+        }
+
+        $mime = $file->getMimeType();
+        $isVideo = str_starts_with((string) $mime, 'video/');
+        $ext = $isVideo ? ($file->getClientOriginalExtension() ?: 'mp4') : 'webp';
+        $fileName = Str::uuid().'.'.$ext;
+        $path = $folder.'/'.$fileName;
+
+        if ($isVideo) {
+            $path = $file->storeAs($folder, $fileName, $disk);
+        } else {
+            try {
+                $image = \Intervention\Image\Facades\Image::make($file->getRealPath())
+                    ->orientate()
+                    ->resize(1600, 1600, function ($constraint) {
+                        $constraint->aspectRatio();
+                        $constraint->upsize();
+                    })
+                    ->encode('webp', 82);
+                Storage::disk($disk)->put($path, (string) $image);
+            } catch (\Throwable $e) {
+                $path = $file->storeAs($folder, $file->hashName(), $disk);
+            }
+        }
+
+        return [
+            'path' => $path,
+            'url' => MediaUrlHelper::resolve($path),
+            'media_type' => $isVideo ? 'video' : 'image',
+        ];
     }
 
     /**
