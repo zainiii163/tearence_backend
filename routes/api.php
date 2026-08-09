@@ -1601,6 +1601,8 @@ Route::group([
 
         Route::get('/categories', [StoreController::class, 'categories']);
 
+        Route::get('/example/catalogue', [\App\Http\Controllers\Api\StoreOrderController::class, 'exampleCatalogue']);
+
         Route::get('/slug/{slug}', [StoreController::class, 'showBySlug']);
 
         Route::get('/{id}', [StoreController::class, 'show'])->whereNumber('id');
@@ -1609,8 +1611,12 @@ Route::group([
 
         Route::get('/{customer_id}/my-ads', [StoreController::class, 'myAds']);
 
-    });
+        Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::post('/orders', [\App\Http\Controllers\Api\StoreOrderController::class, 'createOrder']);
+            Route::post('/orders/{orderId}/confirm', [\App\Http\Controllers\Api\StoreOrderController::class, 'confirmPayment']);
+        });
 
+    });
 
 
     // Admin category post management
