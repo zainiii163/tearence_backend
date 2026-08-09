@@ -11,9 +11,9 @@ class DashboardCluster extends Cluster
 {
     protected static ?string $navigationIcon = 'heroicon-o-home';
 
-    protected static ?string $navigationLabel = 'Dashboard';
+    protected static ?string $navigationLabel = 'Dashboards';
 
-    protected static ?string $clusterBreadcrumb = 'Dashboard';
+    protected static ?string $clusterBreadcrumb = 'Dashboards';
 
     protected static ?int $navigationSort = -10;
 }

@@ -64,6 +64,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->authGuard('admin-web')
+            ->brandName('WWA Admin')
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -77,6 +78,11 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Pages\TemplatePricingSettings::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\AnalyticsOverview::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\RevenueOverview::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\SalesDashboard::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\MarketingDashboard::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\FinancialDashboard::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\SocialDashboard::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\HrDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\AffiliatePayouts::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\MarketplaceSnapshot::class,
                 \App\Filament\Clusters\AdvertAnalyticsCluster\Pages\FeaturedAdvertsAnalytics::class,
