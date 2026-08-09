@@ -200,9 +200,17 @@ class AffiliateController extends Controller
         // Increment views
         $offer->incrementViews();
 
+        $payload = $offer->toArray();
+        $payload['my_application'] = null;
+        if (Auth::check()) {
+            $payload['my_application'] = AffiliateApplication::where('business_affiliate_offer_id', $offer->id)
+                ->where('user_id', Auth::id())
+                ->first();
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $offer,
+            'data' => $payload,
         ]);
     }
 
@@ -382,10 +390,18 @@ class AffiliateController extends Controller
             ->first();
 
         if ($existingApplication) {
+            if ($existingApplication->status === 'approved') {
+                $existingApplication->ensureTrackingCode();
+                $existingApplication->refresh();
+            }
+
             return response()->json([
-                'success' => false,
-                'message' => 'You have already applied to this offer',
-            ], 422);
+                'success' => true,
+                'message' => $existingApplication->status === 'approved'
+                    ? 'You already promote this offer — here is your tracking link'
+                    : 'You have already applied to this offer',
+                'data' => $existingApplication->load('businessAffiliateOffer.affiliateCategory'),
+            ]);
         }
 
         $application = AffiliateApplication::create([
@@ -397,15 +413,23 @@ class AffiliateController extends Controller
             'website_url' => $request->website_url,
             'social_media_links' => $request->social_media_links,
             'estimated_monthly_visitors' => $request->estimated_monthly_visitors,
+            // ClickBank-style open marketplace: join instantly and get a unique hop link
+            'status' => 'approved',
+            'joined_at' => now(),
+            'reviewed_at' => now(),
+            'approval_notes' => 'Auto-approved — open affiliate marketplace join',
         ]);
+
+        $application->ensureTrackingCode();
+        $application->refresh();
 
         // Increment applications count
         $offer->increment('applications');
 
         return response()->json([
             'success' => true,
-            'message' => 'Application submitted successfully',
-            'data' => $application,
+            'message' => 'You are approved to promote this offer. Copy your unique tracking link.',
+            'data' => $application->load('businessAffiliateOffer.affiliateCategory'),
         ], 201);
     }
 
@@ -459,14 +483,14 @@ class AffiliateController extends Controller
     }
 
     /**
-     * Get user's affiliate applications.
+     * Get user's affiliate applications (promotions).
      */
-    public function myApplications(): JsonResponse
+    public function myApplications(Request $request): JsonResponse
     {
         $applications = AffiliateApplication::where('user_id', Auth::id())
             ->with(['businessAffiliateOffer.affiliateCategory'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 10);
+            ->paginate((int) $request->input('per_page', 20));
 
         return response()->json([
             'success' => true,
@@ -477,12 +501,12 @@ class AffiliateController extends Controller
     /**
      * Get user's business offers.
      */
-    public function myBusinessOffers(): JsonResponse
+    public function myBusinessOffers(Request $request): JsonResponse
     {
         $offers = BusinessAffiliateOffer::where('user_id', Auth::id())
             ->with(['affiliateCategory', 'applications'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 10);
+            ->paginate((int) $request->input('per_page', 20));
 
         return response()->json([
             'success' => true,
@@ -493,16 +517,135 @@ class AffiliateController extends Controller
     /**
      * Get user's affiliate posts.
      */
-    public function myUserPosts(): JsonResponse
+    public function myUserPosts(Request $request): JsonResponse
     {
         $posts = UserAffiliatePost::where('user_id', Auth::id())
             ->with(['affiliateCategory'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 10);
+            ->paginate((int) $request->input('per_page', 20));
 
         return response()->json([
             'success' => true,
             'data' => $posts,
+        ]);
+    }
+
+    /**
+     * Business owner: list applicants for one of their offers.
+     */
+    public function offerApplications(Request $request, string $offerId): JsonResponse
+    {
+        $offer = BusinessAffiliateOffer::where('user_id', Auth::id())->findOrFail($offerId);
+
+        $apps = AffiliateApplication::where('business_affiliate_offer_id', $offer->id)
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->paginate((int) $request->input('per_page', 30));
+
+        return response()->json([
+            'success' => true,
+            'data' => $apps,
+        ]);
+    }
+
+    /**
+     * Business owner: approve an applicant → mint hop link.
+     */
+    public function approveApplication(Request $request, string $applicationId): JsonResponse
+    {
+        $application = AffiliateApplication::with('businessAffiliateOffer')->findOrFail($applicationId);
+        $offer = $application->businessAffiliateOffer;
+
+        if (!$offer || (int) $offer->user_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $application->approve(Auth::id(), $request->input('notes'));
+        $application->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Promoter approved — tracking link issued',
+            'data' => $application,
+        ]);
+    }
+
+    /**
+     * Business owner: reject an applicant.
+     */
+    public function rejectApplication(Request $request, string $applicationId): JsonResponse
+    {
+        $application = AffiliateApplication::with('businessAffiliateOffer')->findOrFail($applicationId);
+        $offer = $application->businessAffiliateOffer;
+
+        if (!$offer || (int) $offer->user_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $application->reject(Auth::id(), $request->input('reason'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Application rejected',
+            'data' => $application,
+        ]);
+    }
+
+    /**
+     * Record a conversion/sale attributed via hop cookie or tracking code (merchant callback).
+     */
+    public function recordConversion(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'tracking_code' => 'nullable|string',
+            'amount' => 'nullable|numeric|min:0',
+            'order_id' => 'nullable|string|max:120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $code = $request->input('tracking_code') ?: $request->cookie('wwa_aff');
+        if (!$code) {
+            return response()->json(['success' => false, 'message' => 'No affiliate attribution found'], 422);
+        }
+
+        $application = AffiliateApplication::where('tracking_code', $code)
+            ->where('status', 'approved')
+            ->with('businessAffiliateOffer')
+            ->first();
+
+        if (!$application) {
+            return response()->json(['success' => false, 'message' => 'Invalid tracking code'], 404);
+        }
+
+        $offer = $application->businessAffiliateOffer;
+        $saleAmount = (float) ($request->input('amount') ?: 0);
+        $commission = 0.0;
+        if ($offer) {
+            if ($offer->commission_type === 'percentage') {
+                $commission = round($saleAmount * ((float) $offer->commission_rate / 100), 2);
+            } else {
+                $commission = (float) $offer->commission_rate;
+            }
+        }
+
+        $application->increment('conversions_count');
+        $application->increment('earnings_total', $commission);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Conversion recorded',
+            'data' => [
+                'tracking_code' => $code,
+                'commission' => $commission,
+                'application' => $application->fresh(),
+            ],
         ]);
     }
 

@@ -1546,6 +1546,10 @@ Route::group([
             // User's own content
             Route::get('/my-business-offers', [ApiAffiliateController::class, 'myBusinessOffers']);
             Route::get('/my-user-posts', [ApiAffiliateController::class, 'myUserPosts']);
+            Route::get('/business-offers/{offerId}/applications', [ApiAffiliateController::class, 'offerApplications']);
+            Route::post('/applications/{applicationId}/approve', [ApiAffiliateController::class, 'approveApplication']);
+            Route::post('/applications/{applicationId}/reject', [ApiAffiliateController::class, 'rejectApplication']);
+            Route::post('/conversions', [ApiAffiliateController::class, 'recordConversion']);
         });
 
         Route::get('/plans', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getPlans']);

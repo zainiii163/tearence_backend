@@ -26,6 +26,10 @@ use App\Http\Controllers\Api\SponsoredCategoryController;
 |
 */
 
+Route::get('/go/aff/{code}', [\App\Http\Controllers\AffiliateHopController::class, 'go'])
+    ->where('code', '[A-Za-z0-9]+')
+    ->name('affiliate.hop');
+
 // Ignore favicon requests to prevent 422 errors
 Route::get('/favicon.ico', function () {
     return response('', 204);

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class AffiliateApplication extends Model
 {
@@ -12,73 +14,95 @@ class AffiliateApplication extends Model
 
     protected $guarded = [];
 
+    protected $appends = ['hop_url', 'promoter_link'];
+
     protected $casts = [
         'promotion_methods' => 'array',
         'audience_details' => 'array',
         'social_media_links' => 'array',
         'reviewed_at' => 'datetime',
         'business_responded_at' => 'datetime',
+        'joined_at' => 'datetime',
+        'earnings_total' => 'decimal:2',
     ];
 
-    /**
-     * Get the business affiliate offer for this application.
-     */
     public function businessAffiliateOffer(): BelongsTo
     {
         return $this->belongsTo(BusinessAffiliateOffer::class);
     }
 
-    /**
-     * Get the user who made the application.
-     */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
-    /**
-     * Get the admin who reviewed the application.
-     */
     public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'reviewed_by', 'user_id');
     }
 
-    /**
-     * Scope a query to only include pending applications.
-     */
+    public function hopClicks(): HasMany
+    {
+        return $this->hasMany(AffiliateHopClick::class);
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
     }
 
-    /**
-     * Scope a query to only include approved applications.
-     */
     public function scopeApproved($query)
     {
         return $query->where('status', 'approved');
     }
 
-    /**
-     * Scope a query to only include rejected applications.
-     */
     public function scopeRejected($query)
     {
         return $query->where('status', 'rejected');
     }
 
-    /**
-     * Scope a query to only include withdrawn applications.
-     */
     public function scopeWithdrawn($query)
     {
         return $query->where('status', 'withdrawn');
     }
 
     /**
-     * Approve the application.
+     * Mint a unique ClickBank-style hop code for this promoter + offer.
      */
+    public function ensureTrackingCode(): string
+    {
+        if ($this->tracking_code) {
+            return $this->tracking_code;
+        }
+
+        do {
+            $code = strtolower(Str::random(10));
+        } while (static::where('tracking_code', $code)->exists());
+
+        $this->forceFill([
+            'tracking_code' => $code,
+            'joined_at' => $this->joined_at ?: now(),
+        ])->save();
+
+        return $code;
+    }
+
+    public function getHopUrlAttribute(): ?string
+    {
+        if (!$this->tracking_code) {
+            return null;
+        }
+
+        $base = rtrim(config('app.url') ?: 'https://api.worldwideadverts.info', '/');
+
+        return $base . '/go/aff/' . $this->tracking_code;
+    }
+
+    public function getPromoterLinkAttribute(): ?string
+    {
+        return $this->hop_url;
+    }
+
     public function approve(?int $reviewerId = null, ?string $notes = null): void
     {
         $this->update([
@@ -86,12 +110,11 @@ class AffiliateApplication extends Model
             'reviewed_by' => $reviewerId,
             'reviewed_at' => now(),
             'approval_notes' => $notes,
+            'joined_at' => $this->joined_at ?: now(),
         ]);
+        $this->ensureTrackingCode();
     }
 
-    /**
-     * Reject the application.
-     */
     public function reject(?int $reviewerId = null, ?string $reason = null): void
     {
         $this->update([
@@ -102,9 +125,6 @@ class AffiliateApplication extends Model
         ]);
     }
 
-    /**
-     * Withdraw the application.
-     */
     public function withdraw(): void
     {
         $this->update([
@@ -112,9 +132,6 @@ class AffiliateApplication extends Model
         ]);
     }
 
-    /**
-     * Add business response.
-     */
     public function addBusinessResponse(string $response): void
     {
         $this->update([
@@ -123,63 +140,18 @@ class AffiliateApplication extends Model
         ]);
     }
 
-    /**
-     * Check if the application is pending.
-     */
     public function isPending(): bool
     {
         return $this->status === 'pending';
     }
 
-    /**
-     * Check if the application is approved.
-     */
     public function isApproved(): bool
     {
         return $this->status === 'approved';
     }
 
-    /**
-     * Check if the application is rejected.
-     */
     public function isRejected(): bool
     {
         return $this->status === 'rejected';
-    }
-
-    /**
-     * Get social media links as array.
-     */
-    public function getSocialMediaLinksArrayAttribute(): array
-    {
-        return $this->social_media_links ?? [];
-    }
-
-    /**
-     * Get promotion methods as array.
-     */
-    public function getPromotionMethodsArrayAttribute(): array
-    {
-        return $this->promotion_methods ?? [];
-    }
-
-    /**
-     * Get audience details as array.
-     */
-    public function getAudienceDetailsArrayAttribute(): array
-    {
-        return $this->audience_details ?? [];
-    }
-
-    /**
-     * Get formatted estimated monthly visitors.
-     */
-    public function getFormattedEstimatedMonthlyVisitorsAttribute(): string
-    {
-        if (!$this->estimated_monthly_visitors) {
-            return 'Not specified';
-        }
-
-        return number_format($this->estimated_monthly_visitors) . ' visitors/month';
     }
 }
