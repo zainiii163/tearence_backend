@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\MediaUrlHelper;
 use App\Models\SponsoredAdvert;
 use App\Services\CrossPromotionFeedService;
 use Illuminate\Http\Request;
@@ -94,14 +95,8 @@ class SponsoredAdvertController extends Controller
         $adverts = $query->orderBy('sponsored_advert_id', 'desc')->paginate($perPage, ['*'], 'page', $request->page ?? 1);
 
         // Transform data to match frontend expectations
-        $baseUrl = env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000');
-        
-        $transformedAdverts = collect($adverts->items())->map(function ($advert) use ($baseUrl) {
-            // Replace localhost URLs with production URLs
-            $mainImage = $advert->main_image;
-            if ($mainImage && str_contains($mainImage, '127.0.0.1:8000')) {
-                $mainImage = str_replace('http://127.0.0.1:8000', $baseUrl, $mainImage);
-            }
+        $transformedAdverts = collect($adverts->items())->map(function ($advert) {
+            $mainImage = MediaUrlHelper::resolve($advert->main_image) ?: $advert->main_image;
             
             return [
                 'id' => $advert->sponsored_advert_id,
@@ -114,6 +109,7 @@ class SponsoredAdvertController extends Controller
                 'country' => $advert->country,
                 'city' => $advert->city,
                 'main_image' => $mainImage,
+                'main_image_url' => $mainImage,
                 'image' => $mainImage,
                 'views' => $advert->views_count,
                 'views_count' => $advert->views_count,
@@ -164,22 +160,12 @@ class SponsoredAdvertController extends Controller
         // Increment view count
         $advert->incrementViews();
 
-        // Replace localhost URLs with production URLs
-        $baseUrl = env('APP_ENV') === 'production' ? 'https://api.worldwideadverts.info' : env('APP_URL', 'http://127.0.0.1:8000');
         $advertData = $advert->toArray();
-        
-        if (isset($advertData['main_image']) && str_contains($advertData['main_image'], '127.0.0.1:8000')) {
-            $advertData['main_image'] = str_replace('http://127.0.0.1:8000', $baseUrl, $advertData['main_image']);
-        }
-        
-        if (isset($advertData['logo']) && str_contains($advertData['logo'], '127.0.0.1:8000')) {
-            $advertData['logo'] = str_replace('http://127.0.0.1:8000', $baseUrl, $advertData['logo']);
-        }
-        
+        $advertData['main_image'] = MediaUrlHelper::resolve($advertData['main_image'] ?? null);
+        $advertData['main_image_url'] = $advertData['main_image'];
+        $advertData['logo'] = MediaUrlHelper::resolve($advertData['logo'] ?? null);
         if (isset($advertData['additional_images']) && is_array($advertData['additional_images'])) {
-            $advertData['additional_images'] = array_map(function($img) use ($baseUrl) {
-                return str_contains($img, '127.0.0.1:8000') ? str_replace('http://127.0.0.1:8000', $baseUrl, $img) : $img;
-            }, $advertData['additional_images']);
+            $advertData['additional_images'] = MediaUrlHelper::resolveMany($advertData['additional_images']);
         }
 
         return response()->json([

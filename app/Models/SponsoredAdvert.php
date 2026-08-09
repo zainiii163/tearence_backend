@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\MediaUrlHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -283,12 +284,14 @@ class SponsoredAdvert extends Model
     {
         if (isset($this->attributes['main_image']) && $this->attributes['main_image']) {
             $image = $this->attributes['main_image'];
-            // If it's not already a full URL, prepend the storage URL
-            if (!str_starts_with($image, 'http')) {
-                return asset('storage/' . $image);
+            if (! str_starts_with($image, 'http') && ! str_starts_with($image, '/')) {
+                return MediaUrlHelper::resolve('storage/' . ltrim($image, '/'))
+                    ?: asset('storage/' . $image);
             }
-            return $image;
+
+            return MediaUrlHelper::resolve($image) ?: $image;
         }
+
         return asset('img/NoImage.png');
     }
 
@@ -306,8 +309,9 @@ class SponsoredAdvert extends Model
     public function getLogoUrlAttribute()
     {
         if (isset($this->attributes['logo']) && $this->attributes['logo']) {
-            return $this->attributes['logo'];
+            return MediaUrlHelper::resolve($this->attributes['logo']) ?: $this->attributes['logo'];
         }
+
         return asset('placeholder.png');
     }
 

@@ -27,6 +27,14 @@ class MediaUrlHelper
             return self::rewriteLocalStorageUrl($value);
         }
 
+        // Public web paths outside the storage disk (sponsored uploads, etc.)
+        if (str_starts_with($value, '/images/') || str_starts_with($value, '/img/')) {
+            return rtrim(self::publicBaseUrl(), '/') . $value;
+        }
+        if (str_starts_with($value, 'images/') || str_starts_with($value, 'img/')) {
+            return rtrim(self::publicBaseUrl(), '/') . '/' . ltrim($value, '/');
+        }
+
         if (str_starts_with($value, '/storage/')) {
             return rtrim(self::publicBaseUrl(), '/') . $value;
         }
@@ -73,20 +81,22 @@ class MediaUrlHelper
 
     public static function rewriteLocalStorageUrl(string $url): string
     {
+        // Rewrite any localhost/127.0.0.1 absolute URL (storage, /images/sponsored, etc.)
         if (preg_match(
-            '#^https?://(?:127\.0\.0\.1|localhost)(?::\d+)?/storage/(.+)$#i',
+            '#^https?://(?:127\.0\.0\.1|localhost)(?::\d+)?(/.*)?$#i',
             $url,
             $m
         )) {
+            $path = $m[1] ?? '/';
+
             // Keep localhost URLs when developing against a local API
             if (app()->environment('local', 'development', 'testing') && ! env('MEDIA_PUBLIC_URL')) {
-                return rtrim((string) config('app.url'), '/') . '/storage/' . $m[1];
+                return rtrim((string) config('app.url'), '/') . $path;
             }
 
-            // Deployed API: never leave localhost storage URLs in responses
             $public = env('MEDIA_PUBLIC_URL') ?: 'https://api.worldwideadverts.info';
 
-            return rtrim($public, '/') . '/storage/' . $m[1];
+            return rtrim($public, '/') . $path;
         }
 
         return $url;
