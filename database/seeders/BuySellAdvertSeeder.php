@@ -44,9 +44,9 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => true,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/iphone14pro-1.jpg',
-                    'https://example.com/iphone14pro-2.jpg',
-                    'https://example.com/iphone14pro-3.jpg'
+                    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1580910051074-3eb694886505?auto=format&fit=crop&w=800&q=80'
                 ],
                 'featured' => true,
                 'is_promoted' => true,
@@ -73,10 +73,10 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => false,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/camry-1.jpg',
-                    'https://example.com/camry-2.jpg',
-                    'https://example.com/camry-3.jpg',
-                    'https://example.com/camry-4.jpg'
+                    'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=800&q=80'
                 ],
                 'video_url' => 'https://youtube.com/watch?v=example',
                 'featured' => false,
@@ -104,9 +104,9 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => true,
                 'preferred_contact' => 'phone',
                 'images' => [
-                    'https://example.com/sofa-1.jpg',
-                    'https://example.com/sofa-2.jpg',
-                    'https://example.com/sofa-3.jpg'
+                    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1567016432779-094069958ea5?auto=format&fit=crop&w=800&q=80'
                 ],
                 'views_count' => 156,
                 'saves_count' => 31,
@@ -131,8 +131,8 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => false,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/jordan1-1.jpg',
-                    'https://example.com/jordan1-2.jpg'
+                    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=800&q=80'
                 ],
                 'is_sponsored' => true,
                 'views_count' => 412,
@@ -157,9 +157,9 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => true,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/peloton-1.jpg',
-                    'https://example.com/peloton-2.jpg',
-                    'https://example.com/peloton-3.jpg'
+                    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1576678927484-cc899799fb56?auto=format&fit=crop&w=800&q=80'
                 ],
                 'verified_seller' => true,
                 'views_count' => 278,
@@ -185,10 +185,10 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => false,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/macbook-1.jpg',
-                    'https://example.com/macbook-2.jpg',
-                    'https://example.com/macbook-3.jpg',
-                    'https://example.com/macbook-4.jpg'
+                    'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=800&q=80'
                 ],
                 'is_urgent' => true,
                 'verified_seller' => true,
@@ -214,9 +214,9 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => true,
                 'preferred_contact' => 'phone',
                 'images' => [
-                    'https://example.com/rolex-1.jpg',
-                    'https://example.com/rolex-2.jpg',
-                    'https://example.com/rolex-3.jpg'
+                    'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?auto=format&fit=crop&w=800&q=80'
                 ],
                 'featured' => true,
                 'is_sponsored' => true,
@@ -243,9 +243,9 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => false,
                 'preferred_contact' => 'email',
                 'images' => [
-                    'https://example.com/canon-1.jpg',
-                    'https://example.com/canon-2.jpg',
-                    'https://example.com/canon-3.jpg'
+                    'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?auto=format&fit=crop&w=800&q=80'
                 ],
                 'verified_seller' => true,
                 'views_count' => 367,
@@ -270,8 +270,8 @@ class BuySellAdvertSeeder extends Seeder
                 'show_phone' => true,
                 'preferred_contact' => 'phone',
                 'images' => [
-                    'https://example.com/dining-1.jpg',
-                    'https://example.com/dining-2.jpg'
+                    'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=800&q=80',
+                    'https://images.unsplash.com/photo-1615066390971-03e4e1c36ddf?auto=format&fit=crop&w=800&q=80'
                 ],
                 'views_count' => 134,
                 'saves_count' => 28,
