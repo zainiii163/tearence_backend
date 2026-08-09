@@ -9,10 +9,13 @@ use App\Models\BuySellSavedAdvert;
 use App\Models\BuySellAdvertView;
 use App\Models\BuySellAdvertReport;
 use App\Models\BuySellPromotionPlan;
+use App\Models\BuySellPurchase;
+use App\Helpers\PlatformFeeHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -471,89 +474,155 @@ class BuySellController extends Controller
 
     public function contactSeller(Request $request, $id): JsonResponse
     {
-        $advert = BuySellAdvert::active()->findOrFail($id);
-
-        $validator = Validator::make($request->all(), [
-            'message' => 'required|string|min:10|max:1000',
-            'contact_method' => 'required|in:email,phone,whatsapp',
-            'buyer_name' => 'required|string|max:255',
-            'buyer_email' => 'required|email|max:255',
-            'buyer_phone' => 'nullable|string|max:50',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $sellerEmail = $advert->seller_email;
-        $sellerPhone = $advert->seller_phone;
-        $sellerName = $advert->seller_name;
-
-        if (! $sellerEmail && $advert->user_id) {
-            $owner = \App\Models\User::find($advert->user_id);
-            if ($owner) {
-                $sellerEmail = $owner->email;
-                $sellerPhone = $sellerPhone ?: ($owner->phone ?? null);
-                $sellerName = $sellerName ?: ($owner->name ?? 'Seller');
-            }
-        }
-
-        if (! $sellerEmail) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Seller contact is not available for this listing.',
-            ], 422);
-        }
-
-        $contact = \App\Models\SellerContactMessage::create([
-            'hub' => 'buysell',
-            'listing_id' => $advert->id,
-            'seller_user_id' => $advert->user_id,
-            'buyer_user_id' => Auth::id(),
-            'buyer_name' => $request->buyer_name,
-            'buyer_email' => $request->buyer_email,
-            'buyer_phone' => $request->buyer_phone,
-            'contact_method' => $request->contact_method,
-            'message' => $request->message,
-            'status' => 'new',
-        ]);
-
-        $advert->increment('contacts_count');
-
         try {
-            \Illuminate\Support\Facades\Mail::raw(
-                "New buyer enquiry on \"{$advert->title}\"\n\n".
-                "From: {$request->buyer_name} <{$request->buyer_email}>\n".
-                ($request->buyer_phone ? "Phone: {$request->buyer_phone}\n" : '').
-                "Preferred contact: {$request->contact_method}\n\n".
-                $request->message,
-                function ($message) use ($sellerEmail, $sellerName, $advert) {
-                    $message->to($sellerEmail, $sellerName ?: 'Seller')
-                        ->subject('Buyer enquiry: '.$advert->title);
-                }
+            $advert = BuySellAdvert::active()->findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'message' => 'required|string|min:10|max:1000',
+                'contact_method' => 'required|in:email,phone,whatsapp',
+                'buyer_name' => 'required|string|max:255',
+                'buyer_email' => 'required|email|max:255',
+                'buyer_phone' => 'nullable|string|max:50',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Resolve seller account (JWT users are Customer records; user_id = customer_id)
+            $sellerCustomer = null;
+            if ($advert->user_id) {
+                $sellerCustomer = \App\Models\Customer::find($advert->user_id);
+            }
+            if (! $sellerCustomer && $advert->seller_email) {
+                $sellerCustomer = \App\Models\Customer::where('email', $advert->seller_email)->first();
+            }
+
+            $sellerEmail = $advert->seller_email ?: ($sellerCustomer->email ?? null);
+            $sellerPhone = $advert->seller_phone ?: ($sellerCustomer->phone_number ?? null);
+            $sellerName = $advert->seller_name;
+            if (! $sellerName && $sellerCustomer) {
+                $sellerName = trim(($sellerCustomer->first_name ?? '').' '.($sellerCustomer->last_name ?? '')) ?: 'Seller';
+            }
+            $sellerName = $sellerName ?: 'Seller';
+            $sellerCustomerId = $sellerCustomer
+                ? (int) $sellerCustomer->customer_id
+                : ($advert->user_id ? (int) $advert->user_id : null);
+
+            if (! $sellerEmail) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seller contact is not available for this listing.',
+                ], 422);
+            }
+
+            $buyerId = Auth::guard('api')->id() ?: Auth::id();
+
+            $contact = \App\Models\SellerContactMessage::create([
+                'hub' => 'buysell',
+                'listing_id' => (string) $advert->id,
+                'seller_user_id' => $sellerCustomerId,
+                'buyer_user_id' => $buyerId,
+                'buyer_name' => $request->buyer_name,
+                'buyer_email' => $request->buyer_email,
+                'buyer_phone' => $request->buyer_phone,
+                'contact_method' => $request->contact_method,
+                'message' => $request->message,
+                'status' => 'new',
+            ]);
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn($advert->getTable(), 'contacts_count')) {
+                $advert->increment('contacts_count');
+            }
+
+            $frontendBase = rtrim(
+                env('FRONTEND_URL', env('APP_FRONTEND_URL', 'https://worldwideadverts.info')),
+                '/'
             );
+            $listingUrl = $frontendBase.'/item/'.$advert->id;
+
+            $emailSent = false;
+            try {
+                \Illuminate\Support\Facades\Mail::to($sellerEmail, $sellerName)
+                    ->send(new \App\Mail\SellerContactEnquiryMail(
+                        sellerName: $sellerName,
+                        listingTitle: (string) $advert->title,
+                        buyerName: (string) $request->buyer_name,
+                        buyerEmail: (string) $request->buyer_email,
+                        buyerPhone: $request->buyer_phone,
+                        contactMethod: (string) $request->contact_method,
+                        enquiryMessage: (string) $request->message,
+                        listingUrl: $listingUrl,
+                    ));
+                $emailSent = true;
+            } catch (\Throwable $e) {
+                \Log::warning('Seller contact email failed', [
+                    'advert_id' => $advert->id,
+                    'seller_email' => $sellerEmail,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $notificationCreated = false;
+            if ($sellerCustomerId) {
+                try {
+                    \App\Models\CustomerNotification::notify(
+                        $sellerCustomerId,
+                        \App\Models\CustomerNotification::TYPE_SELLER_ENQUIRY,
+                        "{$request->buyer_name} sent an enquiry about \"{$advert->title}\": "
+                            .mb_strimwidth((string) $request->message, 0, 140, '…'),
+                        'New buyer enquiry',
+                        [
+                            'hub' => 'buysell',
+                            'listing_id' => (string) $advert->id,
+                            'listing_title' => $advert->title,
+                            'contact_id' => $contact->id,
+                            'buyer_name' => $request->buyer_name,
+                            'buyer_email' => $request->buyer_email,
+                            'buyer_phone' => $request->buyer_phone,
+                            'contact_method' => $request->contact_method,
+                            'url' => '/item/'.$advert->id,
+                        ]
+                    );
+                    $notificationCreated = true;
+                } catch (\Throwable $e) {
+                    \Log::warning('Seller contact dashboard notification failed', [
+                        'advert_id' => $advert->id,
+                        'seller_customer_id' => $sellerCustomerId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'message' => 'Message sent to the seller',
+                    'contact_id' => $contact->id,
+                    'email_sent' => $emailSent,
+                    'notification_created' => $notificationCreated,
+                ],
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Listing not found',
+            ], 404);
         } catch (\Throwable $e) {
-            \Log::warning('Seller contact email failed', [
-                'advert_id' => $advert->id,
+            \Log::error('BuySell contactSeller failed', [
+                'id' => $id,
                 'error' => $e->getMessage(),
             ]);
-        }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'message' => 'Message sent to the seller',
-                'contact_id' => $contact->id,
-                'seller' => [
-                    'name' => $sellerName,
-                    'email' => $sellerEmail,
-                    'phone' => $sellerPhone,
-                ],
-            ]
-        ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send message. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     public function reportAdvert(Request $request, $id): JsonResponse
@@ -833,6 +902,215 @@ class BuySellController extends Controller
         return response()->json([
             'success' => true,
             'data' => $activities,
+        ]);
+    }
+
+    /**
+     * Buyer: list my Buy & Sell purchases.
+     */
+    public function myPurchases(Request $request): JsonResponse
+    {
+        if (! Schema::hasTable('buy_sell_purchases')) {
+            return response()->json(['success' => true, 'data' => ['items' => []]]);
+        }
+
+        $buyerId = Auth::guard('api')->id() ?: Auth::id();
+        $query = BuySellPurchase::with(['advert'])
+            ->where('buyer_id', $buyerId)
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('payment_status', $request->status);
+        }
+
+        $items = $query->paginate(min((int) $request->get('per_page', 20), 50));
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * Seller: list purchases of my Buy & Sell listings.
+     */
+    public function mySales(Request $request): JsonResponse
+    {
+        if (! Schema::hasTable('buy_sell_purchases')) {
+            return response()->json(['success' => true, 'data' => ['items' => []]]);
+        }
+
+        $sellerId = Auth::guard('api')->id() ?: Auth::id();
+        $query = BuySellPurchase::with(['advert', 'buyer'])
+            ->where('seller_id', $sellerId)
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('payment_status', $request->status);
+        }
+
+        $items = $query->paginate(min((int) $request->get('per_page', 20), 50));
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * Create a pending Buy & Sell purchase — PayPal confirm unlocks paid status.
+     */
+    public function purchase(Request $request, $id): JsonResponse
+    {
+        if (! Schema::hasTable('buy_sell_purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: buy_sell_purchases table missing.',
+            ], 503);
+        }
+
+        $advert = BuySellAdvert::active()->find($id);
+        if (! $advert) {
+            return response()->json(['success' => false, 'message' => 'Listing not found.'], 404);
+        }
+
+        $buyerId = Auth::guard('api')->id() ?: Auth::id();
+        if ((int) $advert->user_id === (int) $buyerId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot buy your own listing',
+            ], 400);
+        }
+
+        $price = (float) ($advert->price ?? 0);
+        if ($price <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This listing is free or has no price — contact the seller instead.',
+            ], 400);
+        }
+
+        $request->validate([
+            'buyer_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $existingPaid = BuySellPurchase::where('buysell_advert_id', $advert->id)
+            ->where('buyer_id', $buyerId)
+            ->where('payment_status', 'paid')
+            ->latest('id')
+            ->first();
+
+        if ($existingPaid) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already purchased.',
+                'data' => [
+                    'purchase_id' => $existingPaid->id,
+                    'payment_status' => 'paid',
+                    'amount' => (float) $existingPaid->price,
+                    'title' => $existingPaid->title,
+                ],
+            ]);
+        }
+
+        $pending = BuySellPurchase::where('buysell_advert_id', $advert->id)
+            ->where('buyer_id', $buyerId)
+            ->where('payment_status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if ($pending) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Complete PayPal payment to finish your purchase.',
+                'data' => [
+                    'purchase_id' => $pending->id,
+                    'payment_status' => 'pending',
+                    'amount' => (float) $pending->price,
+                    'currency' => $pending->currency ?: 'USD',
+                    'title' => $pending->title,
+                ],
+            ]);
+        }
+
+        $fee = PlatformFeeHelper::split($price);
+
+        $purchase = BuySellPurchase::create([
+            'buysell_advert_id' => $advert->id,
+            'buyer_id' => $buyerId,
+            'seller_id' => $advert->user_id,
+            'title' => $advert->title,
+            'price' => $price,
+            'currency' => $advert->currency ?: 'USD',
+            'fee_percent' => $fee['fee_percent'],
+            'platform_fee' => $fee['platform_fee'],
+            'seller_amount' => $fee['seller_amount'],
+            'payment_status' => 'pending',
+            'buyer_notes' => $request->input('buyer_notes'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order created. Complete PayPal payment to buy this item.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'pending',
+                'amount' => (float) $purchase->price,
+                'currency' => $purchase->currency,
+                'title' => $purchase->title,
+                'platform_fee' => $purchase->platform_fee,
+                'fee_percent' => $purchase->fee_percent,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Confirm PayPal/Stripe capture for a Buy & Sell purchase.
+     */
+    public function confirmPayment(Request $request, $purchaseId): JsonResponse
+    {
+        if (! Schema::hasTable('buy_sell_purchases')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $purchase = BuySellPurchase::find($purchaseId);
+        $buyerId = Auth::guard('api')->id() ?: Auth::id();
+
+        if (! $purchase || (int) $purchase->buyer_id !== (int) $buyerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($purchase->payment_status === 'paid') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'paid',
+                    'amount' => (float) $purchase->price,
+                    'title' => $purchase->title,
+                ],
+            ]);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:191',
+            'payment_method' => 'required|in:paypal,stripe',
+        ]);
+
+        $purchase->markPaid($request->payment_method, $request->payment_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. The seller has been notified of your purchase.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'paid',
+                'amount' => (float) $purchase->price,
+                'title' => $purchase->title,
+                'seller_amount' => $purchase->seller_amount,
+                'platform_fee' => $purchase->platform_fee,
+            ],
         ]);
     }
 }

@@ -5,14 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BannerAd;
 use App\Models\BannerCategory;
+use App\Models\BannerPurchase;
 use App\Http\Resources\BannerAdResource;
 use App\Http\Resources\BannerAdCollection;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BannerAdController extends Controller
 {
@@ -509,5 +512,239 @@ class BannerAdController extends Controller
             'success' => true,
             'data' => $options
         ]);
+    }
+
+    /**
+     * Public preview — watermarked when GD is available. Not a free download.
+     */
+    public function preview(int $id)
+    {
+        $banner = BannerAd::active()->findOrFail($id);
+        $path = $this->resolveBannerFilePath($banner);
+        if (!$path) {
+            abort(404, 'Banner image not found');
+        }
+
+        if (extension_loaded('gd') && function_exists('imagecreatefromstring')) {
+            $bytes = @file_get_contents($path);
+            if ($bytes !== false) {
+                $src = @imagecreatefromstring($bytes);
+                if ($src) {
+                    $w = imagesx($src);
+                    $h = imagesy($src);
+                    imagealphablending($src, true);
+                    imagesavealpha($src, true);
+                    $overlay = imagecolorallocatealpha($src, 0, 0, 0, 70);
+                    imagefilledrectangle($src, 0, (int) ($h * 0.42), $w, (int) ($h * 0.58), $overlay);
+                    $white = imagecolorallocate($src, 255, 255, 255);
+                    $label = 'PREVIEW — BUY TO DOWNLOAD';
+                    $font = 5;
+                    $tw = imagefontwidth($font) * strlen($label);
+                    $th = imagefontheight($font);
+                    imagestring($src, $font, (int) (($w - $tw) / 2), (int) (($h - $th) / 2), $label, $white);
+
+                    ob_start();
+                    imagejpeg($src, null, 72);
+                    $out = ob_get_clean();
+                    imagedestroy($src);
+
+                    return response($out, 200, [
+                        'Content-Type' => 'image/jpeg',
+                        'Content-Disposition' => 'inline; filename="preview.jpg"',
+                        'Cache-Control' => 'private, no-store, max-age=0',
+                        'X-Content-Type-Options' => 'nosniff',
+                    ]);
+                }
+            }
+        }
+
+        return response()->file($path, [
+            'Content-Type' => mime_content_type($path) ?: 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="preview"',
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /**
+     * Start paid purchase (auth). Download unlocks only after confirmPayment.
+     */
+    public function purchase(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::hasTable('banner_purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: banner_purchases table missing.',
+            ], 503);
+        }
+
+        $banner = BannerAd::active()->findOrFail($id);
+        $customerId = Auth::id();
+        $price = (float) ($banner->promotion_price ?: 29);
+        if ($price < 10) {
+            $price = 29;
+        }
+
+        $existing = BannerPurchase::where('customer_id', $customerId)
+            ->where('banner_ad_id', $banner->id)
+            ->where('payment_status', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('download_token_expires_at')
+                    ->orWhere('download_token_expires_at', '>', now());
+            })
+            ->latest('id')
+            ->first();
+
+        if ($existing && $existing->isDownloadValid()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already purchased.',
+                'data' => [
+                    'purchase_id' => $existing->id,
+                    'payment_status' => 'completed',
+                    'download_token' => $existing->download_token,
+                    'download_url' => url('/api/v1/banner-ads/download/'.$existing->download_token),
+                    'expires_at' => $existing->download_token_expires_at,
+                    'amount' => (float) $existing->price_paid,
+                ],
+            ]);
+        }
+
+        $pending = BannerPurchase::where('customer_id', $customerId)
+            ->where('banner_ad_id', $banner->id)
+            ->where('payment_status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if (!$pending) {
+            $pending = BannerPurchase::create([
+                'customer_id' => $customerId,
+                'banner_ad_id' => $banner->id,
+                'banner_slug' => $banner->slug,
+                'title' => $banner->title,
+                'price_paid' => $price,
+                'payment_status' => 'pending',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order created. Complete PayPal payment to unlock your download.',
+            'data' => [
+                'purchase_id' => $pending->id,
+                'payment_status' => 'pending',
+                'amount' => (float) $pending->price_paid,
+                'title' => $pending->title,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Confirm PayPal capture — unlocks forced file download (not browser open).
+     */
+    public function confirmPayment(Request $request, int $purchaseId): JsonResponse
+    {
+        if (!Schema::hasTable('banner_purchases')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $purchase = BannerPurchase::find($purchaseId);
+        if (!$purchase || (int) $purchase->customer_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($purchase->payment_status === 'completed' && $purchase->isDownloadValid()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'completed',
+                    'download_token' => $purchase->download_token,
+                    'download_url' => url('/api/v1/banner-ads/download/'.$purchase->download_token),
+                    'expires_at' => $purchase->download_token_expires_at,
+                ],
+            ]);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:191',
+            'payment_method' => 'required|in:paypal,stripe',
+        ]);
+
+        $purchase->payment_id = $request->payment_id;
+        $purchase->markCompleted($request->payment_method);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Your download is ready.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'completed',
+                'download_token' => $purchase->download_token,
+                'download_url' => url('/api/v1/banner-ads/download/'.$purchase->download_token),
+                'expires_at' => $purchase->download_token_expires_at,
+            ],
+        ]);
+    }
+
+    /**
+     * Paid download only — Content-Disposition: attachment so browsers save, not display.
+     */
+    public function download(string $token): BinaryFileResponse|JsonResponse
+    {
+        if (!Schema::hasTable('banner_purchases')) {
+            return response()->json(['message' => 'Not available'], 404);
+        }
+
+        $purchase = BannerPurchase::where('download_token', $token)->first();
+        if (!$purchase || !$purchase->isDownloadValid()) {
+            return response()->json(['message' => 'Invalid or expired download token. Payment required.'], 401);
+        }
+
+        $banner = $purchase->banner ?: BannerAd::find($purchase->banner_ad_id);
+        if (!$banner) {
+            return response()->json(['message' => 'Banner not found'], 404);
+        }
+
+        $path = $this->resolveBannerFilePath($banner);
+        if (!$path) {
+            return response()->json(['message' => 'File not found'], 404);
+        }
+
+        $ext = pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = ($banner->slug ?: 'banner-'.$banner->id).'.'.$ext;
+
+        return response()->download($path, $filename, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    protected function resolveBannerFilePath(BannerAd $banner): ?string
+    {
+        $raw = (string) $banner->getRawOriginal('banner_image');
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            $raw = basename(parse_url($raw, PHP_URL_PATH) ?: $raw);
+        }
+
+        $name = basename($raw);
+        $candidates = [
+            storage_path('app/public/banner-images/'.$name),
+            storage_path('app/public/'.$name),
+            public_path('storage/banner-images/'.$name),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

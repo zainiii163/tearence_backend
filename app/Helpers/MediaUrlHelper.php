@@ -59,9 +59,13 @@ class MediaUrlHelper
 
     public static function publicBaseUrl(): string
     {
-        // Deployed marketplace always serves media from the live API host
         if ($custom = env('MEDIA_PUBLIC_URL')) {
             return rtrim($custom, '/');
+        }
+
+        // Local uploads live on this machine — point media at APP_URL
+        if (app()->environment('local', 'development', 'testing')) {
+            return rtrim((string) config('app.url'), '/');
         }
 
         return 'https://api.worldwideadverts.info';
@@ -74,8 +78,12 @@ class MediaUrlHelper
             $url,
             $m
         )) {
-            // Never leave localhost storage URLs in API responses — browsers
-            // calling the public API cannot reach the developer's machine.
+            // Keep localhost URLs when developing against a local API
+            if (app()->environment('local', 'development', 'testing') && ! env('MEDIA_PUBLIC_URL')) {
+                return rtrim((string) config('app.url'), '/') . '/storage/' . $m[1];
+            }
+
+            // Deployed API: never leave localhost storage URLs in responses
             $public = env('MEDIA_PUBLIC_URL') ?: 'https://api.worldwideadverts.info';
 
             return rtrim($public, '/') . '/storage/' . $m[1];

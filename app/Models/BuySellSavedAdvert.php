@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class BuySellSavedAdvert extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     protected $table = 'buysell_saved_adverts';
 
@@ -25,7 +24,7 @@ class BuySellSavedAdvert extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function advert(): BelongsTo

@@ -28,10 +28,8 @@ class BannerCategoryController extends Controller
         // Order by sort order
         $query->ordered();
 
-        // Filter with banner count
-        if ($request->has('with_banner_count')) {
-            $query->withCount('activeBannerAds');
-        }
+        // Always include active banner counts for marketplace browse
+        $query->withCount(['activeBannerAds as active_banners_count']);
 
         // Get most popular categories
         if ($request->has('most_popular')) {

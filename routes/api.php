@@ -34,7 +34,7 @@ use App\Http\Controllers\Api\VenueServiceController;
 
 use App\Http\Controllers\Api\UpsellController;
 
-use App\Http\Controllers\ServiceOrderController;
+use App\Http\Controllers\Api\ServiceOrderController;
 
 use App\Http\Controllers\StaffManagementController;
 
@@ -171,6 +171,8 @@ use App\Http\Controllers\Api\BuySellController;
 use App\Http\Controllers\Api\BuySellUploadController;
 
 use App\Http\Controllers\Api\BusinessTemplateController;
+use App\Http\Controllers\Api\PayPalOrderController;
+use App\Http\Controllers\Api\CustomerKycController;
 
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
 
@@ -309,15 +311,37 @@ Route::group([
         Route::post('/company/check', [VerificationController::class, 'checkCompany']);
     });
 
-    // Health check endpoint
+    // Health check for load balancers / uptime monitors
     Route::get('/health', function () {
+        $checks = [
+            'app' => true,
+            'cache' => false,
+            'queue' => config('queue.default'),
+            'filesystem' => config('filesystems.default'),
+        ];
+        try {
+            \Illuminate\Support\Facades\Cache::put('health_ping', 1, 10);
+            $checks['cache'] = \Illuminate\Support\Facades\Cache::get('health_ping') === 1;
+        } catch (\Throwable $e) {
+            $checks['cache_error'] = $e->getMessage();
+        }
+        try {
+            \Illuminate\Support\Facades\DB::connection()->getPdo();
+            $checks['database'] = true;
+        } catch (\Throwable $e) {
+            $checks['database'] = false;
+            $checks['database_error'] = $e->getMessage();
+        }
+
+        $ok = ($checks['database'] ?? false) && ($checks['cache'] ?? false);
+
         return response()->json([
-            'status' => 'OK',
-            'message' => 'API is working',
-            'timestamp' => now(),
-            'app_url' => config('app.url'),
-            'environment' => config('app.env')
-        ]);
+            'status' => $ok ? 'OK' : 'DEGRADED',
+            'message' => 'API health',
+            'timestamp' => now()->toISOString(),
+            'environment' => config('app.env'),
+            'checks' => $checks,
+        ], $ok ? 200 : 503);
     });
 
 
@@ -443,7 +467,7 @@ Route::group([
 
         Route::get('/{slug}', [ListingController::class, 'show']);
 
-        Route::post('/', [ListingController::class, 'store']);
+        Route::post('/', [ListingController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [ListingController::class, 'update']);
 
@@ -485,22 +509,26 @@ Route::group([
 
 
 
-    // KYC verification
-
+    // KYC verification (admin/staff User model)
     Route::group(['prefix' => 'kyc', 'middleware' => 'jwt.auth'], function () {
-
         Route::get('/status', [KycController::class, 'status']);
-
         Route::post('/submit', [KycController::class, 'submit']);
-
         Route::get('/pending', [KycController::class, 'pending']);
-
         Route::post('/{userId}/approve', [KycController::class, 'approve']);
-
         Route::post('/{userId}/reject', [KycController::class, 'reject']);
-
         Route::get('/statistics', [KycController::class, 'statistics']);
+    });
 
+    // Customer KYC + post-count (marketplace users — Clive: after signup / first post)
+    Route::group(['prefix' => 'user', 'middleware' => 'jwt.auth'], function () {
+        Route::get('/post-count', [CustomerKycController::class, 'postCount']);
+        Route::get('/kyc-status', [CustomerKycController::class, 'status']);
+        Route::post('/kyc-verify', [CustomerKycController::class, 'submit']);
+    });
+    // Aliases matching FE /kyc/* for customers
+    Route::group(['prefix' => 'kyc', 'middleware' => 'jwt.auth'], function () {
+        Route::get('/customer-status', [CustomerKycController::class, 'status']);
+        Route::post('/customer-submit', [CustomerKycController::class, 'submit']);
     });
 
 
@@ -552,6 +580,9 @@ Route::group([
         Route::delete('/{id}', [CategoryController::class, 'destroy']);
 
     });
+
+    // Homepage marketplace hub tiles (real listing images + counts)
+    Route::get('/marketplace-hubs', [\App\Http\Controllers\Api\MarketplaceHubController::class, 'index']);
 
 
 
@@ -647,7 +678,7 @@ Route::group([
 
     Route::group(['prefix' => 'business', 'middleware' => 'jwt.auth'], function () {
 
-        Route::post('/', [BusinessController::class, 'store']);
+        Route::post('/', [BusinessController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [BusinessController::class, 'update']);
 
@@ -691,7 +722,7 @@ Route::group([
 
         Route::get('/{slug}', [CampaignController::class, 'show']);
 
-        Route::post('/', [CampaignController::class, 'store']);
+        Route::post('/', [CampaignController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [CampaignController::class, 'update']);
 
@@ -751,7 +782,7 @@ Route::group([
 
         Route::get('/{id}', [AffiliateController::class, 'show']);
 
-        Route::post('/', [AffiliateController::class, 'store']);
+        Route::post('/', [AffiliateController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [AffiliateController::class, 'update']);
 
@@ -810,7 +841,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [VehiclesAdvertController::class, 'store']);
+            Route::post('/', [VehiclesAdvertController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [VehiclesAdvertController::class, 'update']);
 
@@ -852,11 +883,15 @@ Route::group([
         Route::group(['middleware' => 'jwt.auth'], function () {
             Route::get('/admin/all', [ImagesAdvertController::class, 'adminIndex']);
             Route::get('/my-images', [ImagesAdvertController::class, 'myImages']);
-            Route::post('/', [ImagesAdvertController::class, 'store']);
+            Route::post('/', [ImagesAdvertController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [ImagesAdvertController::class, 'update']);
             Route::delete('/{id}', [ImagesAdvertController::class, 'destroy']);
             Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
             Route::post('/{id}/reject', [ImagesAdvertController::class, 'reject']);
+            Route::post('/{id}/purchase', [ImagesAdvertController::class, 'purchase'])->whereNumber('id');
+            Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment'])->whereNumber('id');
+            Route::post('/purchases/{purchaseId}/confirm-payment', [ImagesAdvertController::class, 'confirmPurchasePayment'])
+                ->whereNumber('purchaseId');
         });
 
         Route::get('/{slug}', [ImagesAdvertController::class, 'show']);
@@ -871,7 +906,6 @@ Route::group([
 
         Route::post('/{id}/download', [ImagesAdvertController::class, 'download']);
 
-        Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment']);
     });
 
 
@@ -884,7 +918,7 @@ Route::group([
 
         Route::get('/{id}', [BookController::class, 'show']);
 
-        Route::post('/', [BookController::class, 'store'])->middleware('auth:api');
+        Route::post('/', [BookController::class, 'store'])->middleware('auth:api')->middleware('verified.to.post');
 
         Route::post('/{id}/purchase', [BookController::class, 'purchase'])->middleware('auth:api');
 
@@ -920,7 +954,7 @@ Route::group([
 
         Route::get('/{id}', [BannerController::class, 'show']);
 
-        Route::post('/', [BannerController::class, 'store']);
+        Route::post('/', [BannerController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [BannerController::class, 'update']);
 
@@ -954,7 +988,7 @@ Route::group([
 
         Route::get('/my-profile', [CandidateProfileController::class, 'myProfile']);
 
-        Route::post('/', [CandidateProfileController::class, 'store']);
+        Route::post('/', [CandidateProfileController::class, 'store'])->middleware('verified.to.post');
 
         Route::put('/{id}', [CandidateProfileController::class, 'update']);
 
@@ -1089,13 +1123,13 @@ Route::group([
 
 
     // chat
-
     Route::group(['prefix' => 'chat', 'middleware' => 'jwt.auth'], function () {
-
         Route::get('/conversations', [ChatController::class, 'getConversations']);
-
+        Route::post('/conversations', [ChatController::class, 'startConversation']);
+        Route::get('/conversations/{id}/messages', [ChatController::class, 'getMessages']);
+        Route::post('/conversations/{id}/messages', [ChatController::class, 'sendMessage']);
+        Route::put('/conversations/{id}/close', [ChatController::class, 'closeConversation']);
         Route::get('/unread-count', [ChatController::class, 'getUnreadCount']);
-
     });
 
 
@@ -1190,7 +1224,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [ServiceController::class, 'store']);
+            Route::post('/', [ServiceController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{service}', [ServiceController::class, 'update']);
 
@@ -1258,6 +1292,8 @@ Route::group([
         Route::get('/stats', [ServiceOrderController::class, 'getOrderStats']);
 
         Route::post('/', [ServiceOrderController::class, 'store']);
+
+        Route::post('/{order}/confirm-payment', [ServiceOrderController::class, 'confirmPayment']);
 
         Route::get('/{order}', [ServiceOrderController::class, 'show']);
 
@@ -1411,7 +1447,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [AffiliateProgramController::class, 'store']);
+            Route::post('/', [AffiliateProgramController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{program}', [AffiliateProgramController::class, 'update']);
 
@@ -1453,7 +1489,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'store']);
+            Route::post('/', [App\Http\Controllers\Api\AffiliatePostController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [App\Http\Controllers\Api\AffiliatePostController::class, 'update']);
 
@@ -1549,7 +1585,7 @@ Route::group([
 
             Route::get('/my-store', [StoreController::class, 'myStore']);
 
-            Route::post('/', [StoreController::class, 'store']);
+            Route::post('/', [StoreController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [StoreController::class, 'update']);
 
@@ -1563,7 +1599,11 @@ Route::group([
 
         Route::get('/', [StoreController::class, 'index']);
 
-        Route::get('/{id}', [StoreController::class, 'show']);
+        Route::get('/categories', [StoreController::class, 'categories']);
+
+        Route::get('/slug/{slug}', [StoreController::class, 'showBySlug']);
+
+        Route::get('/{id}', [StoreController::class, 'show'])->whereNumber('id');
 
         Route::get('/{customer_id}/detail', [StoreController::class, 'detail']);
 
@@ -1757,7 +1797,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [EventController::class, 'store']);
+            Route::post('/', [EventController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [EventController::class, 'update']);
 
@@ -1793,7 +1833,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [VenueController::class, 'store']);
+            Route::post('/', [VenueController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [VenueController::class, 'update']);
 
@@ -1932,7 +1972,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [ResortsTravelController::class, 'store']);
+            Route::post('/', [ResortsTravelController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [ResortsTravelController::class, 'update']);
 
@@ -2007,7 +2047,16 @@ Route::group([
         // Authenticated static routes before /{slug}
         Route::middleware('jwt.auth')->group(function () {
             Route::get('/my-banners', [BannerAdController::class, 'myBanners']);
+            Route::post('/{id}/purchase', [BannerAdController::class, 'purchase'])->whereNumber('id');
+            Route::post('/purchases/{purchaseId}/confirm-payment', [BannerAdController::class, 'confirmPayment'])
+                ->whereNumber('purchaseId');
         });
+
+        // Paid file download (token) — forces attachment, not browser display
+        Route::get('/download/{token}', [BannerAdController::class, 'download']);
+
+        // Watermarked public preview (not a free clean download)
+        Route::get('/{id}/preview', [BannerAdController::class, 'preview'])->whereNumber('id');
 
         Route::get('/{slug}', [BannerAdController::class, 'show']);
 
@@ -2019,7 +2068,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [BannerAdController::class, 'store']);
+            Route::post('/', [BannerAdController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [BannerAdController::class, 'update']);
 
@@ -2141,7 +2190,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [PromotedAdvertController::class, 'store']);
+            Route::post('/', [PromotedAdvertController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [PromotedAdvertController::class, 'update'])->where('id', '^[0-9]+$');
 
@@ -2215,6 +2264,8 @@ Route::group([
 
         Route::get('/my-books', [BookAdvertController::class, 'myBooks'])->middleware('jwt.auth');
 
+        Route::get('/purchases/download/{token}', [BookAdvertController::class, 'downloadPurchase']);
+
         Route::get('/{slug}', [BookAdvertController::class, 'show']);
 
 
@@ -2223,13 +2274,18 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [BookAdvertController::class, 'store']);
+            Route::post('/', [BookAdvertController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{book}', [BookAdvertController::class, 'update']);
 
             Route::delete('/{book}', [BookAdvertController::class, 'destroy']);
 
             Route::post('/{book}/save', [BookAdvertController::class, 'saveBook']);
+
+            Route::post('/{id}/purchase', [BookAdvertController::class, 'purchase'])->whereNumber('id');
+
+            Route::post('/purchases/{purchaseId}/confirm-payment', [BookAdvertController::class, 'confirmPurchasePayment'])
+                ->whereNumber('purchaseId');
 
             Route::post('/{book}/payment', [BookAdvertController::class, 'processPayment']);
 
@@ -2238,6 +2294,15 @@ Route::group([
     });
 
 
+
+    // PayPal Orders v2 (server-side create/capture — client-side actions.order is deprecated)
+    Route::group(['prefix' => 'paypal'], function () {
+        Route::get('/config', [PayPalOrderController::class, 'clientConfig']);
+        Route::post('/orders', [PayPalOrderController::class, 'create'])->middleware('jwt.auth');
+        Route::post('/orders/{orderId}/capture', [PayPalOrderController::class, 'capture'])
+            ->middleware('jwt.auth')
+            ->where('orderId', '[A-Z0-9-]+');
+    });
 
     // Business templates for sale (pitch decks, grants, plans)
     Route::group(['prefix' => 'business-templates'], function () {
@@ -2249,11 +2314,14 @@ Route::group([
         Route::get('/my-purchases', [BusinessTemplateController::class, 'myPurchases'])->middleware('jwt.auth');
         Route::get('/my-sales', [BusinessTemplateController::class, 'mySales'])->middleware('jwt.auth');
         Route::post('/purchase', [BusinessTemplateController::class, 'purchase'])->middleware('jwt.auth');
+        Route::post('/purchases/{id}/confirm-payment', [BusinessTemplateController::class, 'confirmPayment'])
+            ->middleware('jwt.auth')
+            ->whereNumber('id');
         Route::post('/quote-request', [BusinessTemplateController::class, 'requestQuote'])->middleware('jwt.auth');
         Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
 
         Route::middleware('jwt.auth')->group(function () {
-            Route::post('/', [BusinessTemplateController::class, 'store']);
+            Route::post('/', [BusinessTemplateController::class, 'store'])->middleware('verified.to.post');
             Route::post('/{id}/promote', [BusinessTemplateController::class, 'promote'])->whereNumber('id');
             Route::put('/{id}', [BusinessTemplateController::class, 'update'])->whereNumber('id');
             Route::delete('/{id}', [BusinessTemplateController::class, 'destroy'])->whereNumber('id');
@@ -2299,10 +2367,18 @@ Route::group([
 
         Route::get('/activities', [BuySellController::class, 'activities']);
 
+        // Public view tracking (no auth) — used by item detail pages
+        Route::post('/{id}/view', [BuySellController::class, 'view']);
+        Route::post('/adverts/{id}/view', [BuySellController::class, 'view']);
+
         // Authenticated static routes before /{slug}
         Route::middleware('jwt.auth')->group(function () {
             Route::get('/my-adverts', [BuySellController::class, 'myAdverts']);
             Route::get('/saved-adverts', [BuySellController::class, 'savedAdverts']);
+            Route::get('/my-purchases', [BuySellController::class, 'myPurchases']);
+            Route::get('/my-sales', [BuySellController::class, 'mySales']);
+            Route::post('/purchases/{purchaseId}/confirm-payment', [BuySellController::class, 'confirmPayment'])
+                ->whereNumber('purchaseId');
         });
 
         Route::get('/{slug}', [BuySellController::class, 'show']);
@@ -2313,7 +2389,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [BuySellController::class, 'store']);
+            Route::post('/', [BuySellController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [BuySellController::class, 'update']);
 
@@ -2324,6 +2400,8 @@ Route::group([
             Route::delete('/{id}/unsave', [BuySellController::class, 'unsaveAdvert']);
 
             Route::post('/{id}/contact', [BuySellController::class, 'contactSeller']);
+
+            Route::post('/{id}/purchase', [BuySellController::class, 'purchase']);
 
             Route::get('/{id}/analytics', [BuySellController::class, 'analytics']);
 
@@ -2393,7 +2471,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [BuySellItemController::class, 'store']);
+            Route::post('/', [BuySellItemController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [BuySellItemController::class, 'update']);
 
@@ -2475,7 +2553,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [AuthorController::class, 'store']);
+            Route::post('/', [AuthorController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [AuthorController::class, 'update']);
 
@@ -2552,7 +2630,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [VehicleController::class, 'store']);
+            Route::post('/', [VehicleController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [VehicleController::class, 'update']);
 
@@ -2659,7 +2737,7 @@ Route::group([
 
             Route::get('/statistics', [JobSeekerController::class, 'statistics']);
 
-            Route::post('/', [JobSeekerController::class, 'store']);
+            Route::post('/', [JobSeekerController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [JobSeekerController::class, 'update'])->where('id', '[0-9]+');
 
@@ -2710,7 +2788,7 @@ Route::group([
 
         // Authenticated dynamic routes
         Route::group(['middleware' => 'jwt.auth'], function () {
-            Route::post('/', [SponsoredAdvertController::class, 'store']);
+            Route::post('/', [SponsoredAdvertController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [SponsoredAdvertController::class, 'update']);
             Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
             Route::post('/{id}/save', [SponsoredAdvertController::class, 'saveAdvert']);
@@ -2779,9 +2857,13 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [PropertyController::class, 'store']);
+            Route::post('/', [PropertyController::class, 'store'])->middleware('verified.to.post');
 
             Route::get('/my-properties', [PropertyController::class, 'myProperties']);
+
+            Route::get('/my-enquiries', [PropertyController::class, 'myEnquiries']);
+
+            Route::post('/enquiries/{id}/read', [PropertyController::class, 'markEnquiryRead']);
 
             Route::get('/saved-properties', [PropertyController::class, 'savedProperties']);
 
@@ -2796,6 +2878,8 @@ Route::group([
         // Public show + interaction (catch-all last)
 
         Route::get('/{property}', [PropertyController::class, 'show']);
+
+        Route::post('/{property}/contact', [PropertyController::class, 'contactSeller']);
 
         Route::post('/{property}/contact-agent', [PropertyController::class, 'contactAgent']);
 
@@ -2888,7 +2972,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [FeaturedAdvertController::class, 'store']);
+            Route::post('/', [FeaturedAdvertController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [FeaturedAdvertController::class, 'update']);
 
@@ -2955,13 +3039,13 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
 
-            Route::post('/', [FundingProjectController::class, 'store']);
+            Route::post('/', [FundingProjectController::class, 'store'])->middleware('verified.to.post');
 
             // Upload routes
             Route::post('/upload-cover', [FundingProjectController::class, 'uploadCoverImage']);
             Route::post('/upload-additional', [FundingProjectController::class, 'uploadAdditionalImages']);
 
-            Route::put('/{id}', [FundingProjectController::class, 'update']);
+            Route::match(['put', 'post'], '/{id}', [FundingProjectController::class, 'update']);
 
             Route::delete('/{id}', [FundingProjectController::class, 'destroy']);
 
@@ -2981,17 +3065,19 @@ Route::group([
 
     Route::group(['prefix' => 'funding-pledges', 'middleware' => 'jwt.auth'], function () {
 
+        Route::get('/my/pledges', [FundingPledgeController::class, 'myPledges']);
+
+        Route::get('/project/{projectId}/backers', [FundingPledgeController::class, 'projectPledges']);
+
         Route::post('/{projectId}', [FundingPledgeController::class, 'store']);
 
-        Route::get('/{pledgeId}', [FundingPledgeController::class, 'show']);
+        Route::post('/{pledgeId}/confirm-payment', [FundingPledgeController::class, 'confirmPayment']);
 
-        Route::get('/my/pledges', [FundingPledgeController::class, 'myPledges']);
+        Route::get('/{pledgeId}', [FundingPledgeController::class, 'show']);
 
         Route::put('/{pledgeId}/status', [FundingPledgeController::class, 'updateStatus']);
 
         Route::delete('/{pledgeId}', [FundingPledgeController::class, 'destroy']);
-
-        Route::get('/project/{projectId}/backers', [FundingPledgeController::class, 'projectPledges']);
 
     });
 
@@ -3039,11 +3125,16 @@ Route::group([
 
             Route::get('/my-donations', [DonationController::class, 'myDonations']);
 
-            Route::post('/', [DonationController::class, 'store']);
+            Route::post('/', [DonationController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/{id}', [DonationController::class, 'update']);
 
             Route::delete('/{id}', [DonationController::class, 'destroy']);
+
+            Route::post('/{id}/donate', [DonationController::class, 'startDonate'])->whereNumber('id');
+
+            Route::post('/contributions/{contributionId}/confirm-payment', [DonationController::class, 'confirmDonate'])
+                ->whereNumber('contributionId');
 
         });
 
@@ -3285,7 +3376,7 @@ Route::group([
 
             // Advert management
 
-            Route::post('/adverts', [BuySellController::class, 'store']);
+            Route::post('/adverts', [BuySellController::class, 'store'])->middleware('verified.to.post');
 
             Route::put('/adverts/{id}', [BuySellController::class, 'update']);
 
@@ -3304,8 +3395,6 @@ Route::group([
             Route::post('/adverts/{id}/contact', [BuySellController::class, 'contactSeller']);
 
             Route::post('/adverts/{id}/report', [BuySellController::class, 'reportAdvert']);
-
-            Route::post('/adverts/{id}/view', [BuySellController::class, 'view']);
 
             Route::get('/recently-viewed', [BuySellController::class, 'recentlyViewed']);
 
@@ -3349,7 +3438,7 @@ Route::group([
             Route::post('/upload', [\App\Http\Controllers\Api\V1\JobController::class, 'uploadFile']);
 
             // Job Management
-            Route::post('/', [\App\Http\Controllers\Api\V1\JobController::class, 'store']);
+            Route::post('/', [\App\Http\Controllers\Api\V1\JobController::class, 'store'])->middleware('verified.to.post');
             Route::get('/my-jobs', [\App\Http\Controllers\Api\V1\JobController::class, 'myJobs']);
             Route::get('/saved', [\App\Http\Controllers\Api\V1\JobController::class, 'savedJobs']);
             Route::put('/{id}', [\App\Http\Controllers\Api\V1\JobController::class, 'update']);
@@ -3369,7 +3458,7 @@ Route::group([
             Route::get('/seekers/my-profile', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myProfile']);
             Route::get('/seekers/my-applications', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myApplications']);
             Route::get('/seekers/my-statistics', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'myStatistics']);
-            Route::post('/seekers', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'store']);
+            Route::post('/seekers', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'store'])->middleware('verified.to.post');
             Route::put('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'update'])->where('id', '[0-9]+');
             Route::delete('/seekers/{id}', [\App\Http\Controllers\Api\V1\JobSeekerController::class, 'destroy'])->where('id', '[0-9]+');
             
@@ -3406,7 +3495,7 @@ Route::group([
         // Authenticated routes (static paths before /{id})
         Route::group(['middleware' => 'jwt.auth'], function () {
             Route::get('/my-communities', [CommunityController::class, 'myCommunities']);
-            Route::post('/', [CommunityController::class, 'store']);
+            Route::post('/', [CommunityController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [CommunityController::class, 'update']);
             Route::delete('/{id}', [CommunityController::class, 'destroy']);
             Route::post('/{id}/join', [CommunityController::class, 'join']);
@@ -3432,8 +3521,8 @@ Route::group([
             Route::get('/local', [CommunityPostController::class, 'local']);
             Route::get('/saved', [CommunityPostController::class, 'saved']);
             Route::get('/my-posts', [CommunityPostController::class, 'myPosts']);
-            Route::post('/upload-media', [CommunityPostController::class, 'uploadMedia']);
-            Route::post('/', [CommunityPostController::class, 'store']);
+            Route::post('/upload-media', [CommunityPostController::class, 'uploadMedia'])->middleware('verified.to.post');
+            Route::post('/', [CommunityPostController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [CommunityPostController::class, 'update']);
             Route::delete('/{id}', [CommunityPostController::class, 'destroy']);
             Route::post('/{id}/react', [CommunityPostController::class, 'react']);
@@ -3455,7 +3544,7 @@ Route::group([
 
         // Authenticated routes
         Route::group(['middleware' => 'jwt.auth'], function () {
-            Route::post('/', [CommentController::class, 'store']);
+            Route::post('/', [CommentController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [CommentController::class, 'update']);
             Route::delete('/{id}', [CommentController::class, 'destroy']);
             Route::post('/{id}/react', [CommentController::class, 'react']);
@@ -3468,7 +3557,7 @@ Route::group([
     Route::group(['prefix' => 'events-venues'], function () {
         // Authenticated routes (must come first to avoid being caught by {slug})
         Route::group(['middleware' => 'jwt.auth'], function () {
-            Route::post('/', [EventsVenuesController::class, 'store']);
+            Route::post('/', [EventsVenuesController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [EventsVenuesController::class, 'update']);
             Route::delete('/{id}', [EventsVenuesController::class, 'destroy']);
             Route::get('/my-adverts', [EventsVenuesController::class, 'myAdverts']);
@@ -3492,7 +3581,7 @@ Route::group([
 
 // Legacy/Compatibility Vehicle Routes (without v1 prefix)
 Route::get('/vehicles', [VehicleController::class, 'index']);
-Route::post('/vehicles', [VehicleController::class, 'store'])->middleware('auth:api');
+Route::post('/vehicles', [VehicleController::class, 'store'])->middleware('auth:api')->middleware('verified.to.post');
 Route::get('/vehicles/stats', [VehicleController::class, 'getStats']);
 Route::get('/vehicles/featured', [VehicleController::class, 'getFeaturedVehicles']);
 Route::get('/vehicles/recent', [VehicleController::class, 'getRecentVehicles']);

@@ -60,7 +60,24 @@ class Customer extends Authenticatable implements JWTSubject
         'two_factor_confirmed_at' => 'datetime',
         'two_factor_recovery_codes' => 'array',
         'notification_prefs' => 'array',
+        'kyc_documents' => 'array',
+        'kyc_verified_at' => 'datetime',
     ];
+
+    public function isKycVerified(): bool
+    {
+        $status = $this->kyc_status ?? 'not_verified';
+        if ($status === 'disabled') {
+            return true;
+        }
+
+        return $status === 'verified' && ! empty($this->kyc_verified_at);
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return ! empty($this->email_verified_at);
+    }
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.

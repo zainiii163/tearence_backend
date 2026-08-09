@@ -40,7 +40,8 @@ class JobApplication extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        // Marketplace auth uses Customer (customer_id), stored as user_id on applications
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function jobSeeker(): BelongsTo

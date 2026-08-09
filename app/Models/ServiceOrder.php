@@ -22,6 +22,10 @@ class ServiceOrder extends Model
         'seller_amount',
         'delivery_time',
         'status',
+        'payment_status',
+        'payment_method',
+        'payment_id',
+        'paid_at',
         'buyer_notes',
         'seller_notes',
         'completed_at',
@@ -38,6 +42,7 @@ class ServiceOrder extends Model
         'requirements' => 'array',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     protected $dates = [
@@ -52,12 +57,12 @@ class ServiceOrder extends Model
 
     public function buyer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'buyer_id');
+        return $this->belongsTo(Customer::class, 'buyer_id', 'customer_id');
     }
 
     public function seller(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'seller_id');
+        return $this->belongsTo(Customer::class, 'seller_id', 'customer_id');
     }
 
     public function package(): BelongsTo

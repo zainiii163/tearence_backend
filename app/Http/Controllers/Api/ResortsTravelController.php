@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ResortsTravel;
 use App\Models\ResortsTravelCategory;
+use App\Models\TravelBooking;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -770,27 +772,42 @@ class ResortsTravelController extends Controller
             'guests' => 'required|integer|min:1',
             'guest_name' => 'required|string|max:255',
             'guest_email' => 'required|email',
-            'guest_phone' => 'required|string|max:20',
+            'guest_phone' => 'required|string|max:40',
             'special_requests' => 'nullable|string',
         ]);
 
         $advert = ResortsTravel::findOrFail($id);
 
-        // For now, just return a success response
-        // In a full implementation, you would save to a bookings table
-        $booking = [
+        $start = Carbon::parse($request->input('start_date'))->startOfDay();
+        $end = Carbon::parse($request->input('end_date'))->startOfDay();
+        $nights = max(1, $start->diffInDays($end));
+
+        $pricePerUnit = $advert->price_per_night
+            ?? $advert->price_per_trip
+            ?? $advert->price_per_service
+            ?? 0;
+
+        $totalPrice = $advert->price_per_night
+            ? ((float) $pricePerUnit * $nights)
+            : (float) $pricePerUnit;
+
+        $booking = TravelBooking::create([
             'advert_id' => $advert->id,
             'user_id' => Auth::id(),
-            'start_date' => $request->input('start_date'),
-            'end_date' => $request->input('end_date'),
-            'guests' => $request->input('guests'),
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'guests' => (int) $request->input('guests'),
             'guest_name' => $request->input('guest_name'),
             'guest_email' => $request->input('guest_email'),
             'guest_phone' => $request->input('guest_phone'),
             'special_requests' => $request->input('special_requests'),
+            'price_per_unit' => $pricePerUnit,
+            'total_price' => $totalPrice,
+            'currency' => $advert->currency ?: 'USD',
             'status' => 'pending',
-            'created_at' => now(),
-        ];
+        ]);
+
+        $booking->load('advert:id,title,slug,city,country,main_image');
 
         return response()->json([
             'success' => true,
@@ -804,13 +821,26 @@ class ResortsTravelController extends Controller
      */
     public function getMyBookings(Request $request)
     {
-        // For now, return empty array as bookings table doesn't exist yet
-        // In a full implementation, you would query a bookings table
-        $bookings = [];
+        $query = TravelBooking::with('advert:id,title,slug,city,country,main_image,advert_type')
+            ->where('user_id', Auth::id())
+            ->latest();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        $perPage = (int) $request->input('per_page', 20);
+        $bookings = $query->paginate(max(1, min($perPage, 50)));
 
         return response()->json([
             'success' => true,
-            'data' => $bookings,
+            'data' => $bookings->items(),
+            'meta' => [
+                'current_page' => $bookings->currentPage(),
+                'last_page' => $bookings->lastPage(),
+                'per_page' => $bookings->perPage(),
+                'total' => $bookings->total(),
+            ],
         ]);
     }
 

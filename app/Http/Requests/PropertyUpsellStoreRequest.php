@@ -14,9 +14,11 @@ class PropertyUpsellStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'property_id' => 'required|exists:ea_properties,id',
-            'upsell_type' => 'required|in:promoted,featured,sponsored',
-            'duration_days' => 'required|in:7,14,30',
+            'property_id' => 'required|exists:properties,id',
+            'upsell_type' => 'required|string|in:promoted,featured,sponsored,promote,feature,sponsor',
+            'duration_days' => 'nullable|integer|in:7,14,30',
+            'price' => 'nullable|numeric|min:0',
+            'currency' => 'nullable|string|max:10',
         ];
     }
 

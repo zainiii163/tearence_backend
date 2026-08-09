@@ -126,12 +126,13 @@ class JobResource extends Resource
                         Forms\Components\Select::make('work_type')
                             ->required()
                             ->options([
-                                'Full-time' => 'Full-time',
-                                'Part-time' => 'Part-time',
-                                'Contract' => 'Contract',
-                                'Freelance' => 'Freelance',
-                                'Internship' => 'Internship',
-                                'Temporary' => 'Temporary',
+                                'full_time' => 'Full-time',
+                                'part_time' => 'Part-time',
+                                'contract' => 'Contract',
+                                'freelance' => 'Freelance',
+                                'internship' => 'Internship',
+                                'temporary' => 'Temporary',
+                                'remote' => 'Remote',
                             ]),
                         
                         Forms\Components\TextInput::make('salary_range')
@@ -151,6 +152,7 @@ class JobResource extends Resource
                             ->required()
                             ->options([
                                 'entry' => 'Entry Level',
+                                'junior' => 'Junior',
                                 'mid' => 'Mid Level',
                                 'senior' => 'Senior Level',
                                 'executive' => 'Executive Level',
@@ -175,20 +177,18 @@ class JobResource extends Resource
                             ->required()
                             ->options([
                                 'email' => 'Email',
-                                'website' => 'Website',
-                                'phone' => 'Phone',
-                                'in_person' => 'In Person',
+                                'link' => 'External link / website',
+                                'platform' => 'Apply on platform',
                             ]),
                         
                         Forms\Components\TextInput::make('application_email')
                             ->email()
                             ->requiredIf('application_method', 'email'),
                         
-                        Forms\Components\TextInput::make('application_phone'),
-                        
-                        Forms\Components\TextInput::make('application_website')
+                        Forms\Components\TextInput::make('application_link')
                             ->url()
-                            ->requiredIf('application_method', 'website'),
+                            ->label('Application link')
+                            ->requiredIf('application_method', 'link'),
                         
                         Forms\Components\Textarea::make('application_instructions')
                             ->columnSpanFull(),
@@ -197,8 +197,23 @@ class JobResource extends Resource
 
                 Forms\Components\Section::make('Status & Promotion')
                     ->schema([
+                        Forms\Components\Select::make('user_id')
+                            ->label('Posted by (customer)')
+                            ->relationship(
+                                name: 'user',
+                                titleAttribute: 'email',
+                                modifyQueryUsing: fn ($query) => $query->orderBy('email')
+                            )
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => trim(($record->first_name ?? '').' '.($record->last_name ?? '')).' <'.$record->email.'>'
+                            )
+                            ->searchable(['email', 'first_name', 'last_name'])
+                            ->preload()
+                            ->required(),
+
                         Forms\Components\Select::make('status')
                             ->required()
+                            ->default('active')
                             ->options([
                                 'pending_review' => 'Pending Review',
                                 'active' => 'Active',
@@ -206,6 +221,11 @@ class JobResource extends Resource
                                 'draft' => 'Draft',
                                 'rejected' => 'Rejected',
                             ]),
+
+                        Forms\Components\Toggle::make('is_active')
+                            ->label('Visible on /jobs')
+                            ->default(true)
+                            ->helperText('Must be on for the job to appear in the public jobs list'),
                         
                         Forms\Components\Toggle::make('verified_employer'),
                         
@@ -220,9 +240,11 @@ class JobResource extends Resource
                         
                         Forms\Components\DateTimePicker::make('promotion_expires_at'),
                         
-                        Forms\Components\DateTimePicker::make('posted_at'),
+                        Forms\Components\DateTimePicker::make('posted_at')
+                            ->default(now()),
                         
-                        Forms\Components\DateTimePicker::make('expires_at'),
+                        Forms\Components\DateTimePicker::make('expires_at')
+                            ->default(now()->addDays(30)),
                     ])
                     ->columns(2),
             ]);
@@ -244,13 +266,23 @@ class JobResource extends Resource
                 
                 Tables\Columns\TextColumn::make('work_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Full-time' => 'success',
-                        'Part-time' => 'warning',
-                        'Contract' => 'info',
-                        'Freelance' => 'primary',
-                        'Internship' => 'secondary',
-                        'Temporary' => 'gray',
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'full_time' => 'Full-time',
+                        'part_time' => 'Part-time',
+                        'contract' => 'Contract',
+                        'internship' => 'Internship',
+                        'temporary' => 'Temporary',
+                        'remote' => 'Remote',
+                        default => $state ?? '—',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'full_time', 'Full-time' => 'success',
+                        'part_time', 'Part-time' => 'warning',
+                        'contract', 'Contract' => 'info',
+                        'internship', 'Internship' => 'secondary',
+                        'temporary', 'Temporary' => 'gray',
+                        'remote' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('country')
@@ -267,7 +299,12 @@ class JobResource extends Resource
                         'expired' => 'danger',
                         'draft' => 'gray',
                         'rejected' => 'danger',
+                        default => 'gray',
                     }),
+
+                Tables\Columns\IconColumn::make('is_active')
+                    ->boolean()
+                    ->label('Visible'),
                 
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->badge()

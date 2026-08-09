@@ -272,28 +272,19 @@ class Property extends Model
     public function scopePromoted($query)
     {
         return $query->where('advert_type', 'promoted')
-                    ->where(function ($q) {
-                        $q->whereNull('promoted_until')
-                          ->orWhere('promoted_until', '>', now());
-                    });
+                    ->where('promoted_until', '>', now());
     }
 
     public function scopeFeatured($query)
     {
         return $query->where('advert_type', 'featured')
-                    ->where(function ($q) {
-                        $q->whereNull('featured_until')
-                          ->orWhere('featured_until', '>', now());
-                    });
+                    ->where('featured_until', '>', now());
     }
 
     public function scopeSponsored($query)
     {
         return $query->where('advert_type', 'sponsored')
-                    ->where(function ($q) {
-                        $q->whereNull('sponsored_until')
-                          ->orWhere('sponsored_until', '>', now());
-                    });
+                    ->where('sponsored_until', '>', now());
     }
 
     public function scopeByPropertyType($query, $type)

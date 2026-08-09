@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             // Services Marketplace System
             ServiceCategorySeeder::class,
             ServiceSeeder::class,
+            RealUserServiceSeeder::class,
 
             // Events & Venues categories (Explore Events / Explore Venues)
             EventsVenuesCategorySeeder::class,

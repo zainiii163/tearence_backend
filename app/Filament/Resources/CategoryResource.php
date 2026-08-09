@@ -40,7 +40,12 @@ class CategoryResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('icon')
                     ->image()
-                    ->directory('categories'),
+                    ->directory('categories')
+                    ->helperText('Small icon image (optional)'),
+                Forms\Components\FileUpload::make('image')
+                    ->image()
+                    ->directory('categories/hubs')
+                    ->helperText('Homepage / hub card cover image'),
                 Forms\Components\TextInput::make('icon_color')
                     ->label('Icon Color')
                     ->placeholder('#000000')
@@ -105,6 +110,8 @@ class CategoryResource extends Resource
                 Tables\Columns\TextColumn::make('parent.name')
                     ->label('Parent Category'),
                 Tables\Columns\ImageColumn::make('icon'),
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Cover'),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('sort_order')

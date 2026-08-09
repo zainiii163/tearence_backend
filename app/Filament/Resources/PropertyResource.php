@@ -124,12 +124,20 @@ class PropertyResource extends Resource
                                 'AED' => 'AED (د.إ)',
                                 'SAR' => 'SAR (﷼)',
                             ])
-                            ->default('USD'),
+                            ->default('USD')
+                            ->required(),
                         Forms\Components\Checkbox::make('negotiable'),
                         Forms\Components\TextInput::make('deposit')
+                            ->label('Deposit')
                             ->numeric()
                             ->prefix('$')
                             ->step(0.01),
+                        Forms\Components\TextInput::make('deposit_required')
+                            ->label('Deposit required (API field)')
+                            ->numeric()
+                            ->prefix('$')
+                            ->step(0.01)
+                            ->helperText('Kept in sync with Deposit when possible'),
                         Forms\Components\TextInput::make('service_charges')
                             ->numeric()
                             ->prefix('$')
@@ -141,6 +149,30 @@ class PropertyResource extends Resource
                     ])
                     ->columns(2),
 
+                // Type-specific specs (API dashboard form parity)
+                Forms\Components\Section::make('Property specifications')
+                    ->schema([
+                        Forms\Components\TextInput::make('bedrooms')->numeric()->minValue(0),
+                        Forms\Components\TextInput::make('bathrooms')->numeric()->minValue(0),
+                        Forms\Components\TextInput::make('property_size')->numeric()->label('Property size'),
+                        Forms\Components\Select::make('size_unit')
+                            ->options(['sq_ft' => 'sq ft', 'sq_m' => 'sq m'])
+                            ->default('sq_ft'),
+                        Forms\Components\Checkbox::make('furnished'),
+                        Forms\Components\TextInput::make('parking_spaces')->numeric()->minValue(0),
+                        Forms\Components\TextInput::make('commercial_type')->maxLength(100),
+                        Forms\Components\TextInput::make('floor_area')->numeric(),
+                        Forms\Components\TextInput::make('zoning_type')->maxLength(100),
+                        Forms\Components\TextInput::make('warehouse_size')->numeric(),
+                        Forms\Components\TextInput::make('land_size')->numeric(),
+                        Forms\Components\TextInput::make('land_type')->maxLength(100),
+                        Forms\Components\TextInput::make('rental_yield')->numeric()->suffix('%'),
+                        Forms\Components\TextInput::make('roi_percentage')->numeric()->suffix('%'),
+                        Forms\Components\Textarea::make('overview')->rows(3)->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->collapsed(),
+
                 // Media
                 Forms\Components\Section::make('Media')
                     ->schema([
@@ -149,6 +181,8 @@ class PropertyResource extends Resource
                             ->disk('public')
                             ->directory('properties/cover')
                             ->visibility('public')
+                            ->required()
+                            ->helperText('Required — listings cannot be saved without a cover image.')
                             ->columnSpanFull(),
                         Forms\Components\FileUpload::make('additional_images')
                             ->multiple()
@@ -167,6 +201,7 @@ class PropertyResource extends Resource
                     ->schema([
                         Forms\Components\RichEditor::make('description')
                             ->required()
+                            ->helperText('Required in the database. You can mirror Overview below.')
                             ->columnSpanFull(),
                         Forms\Components\KeyValue::make('specifications')
                             ->addActionLabel('Add specification')

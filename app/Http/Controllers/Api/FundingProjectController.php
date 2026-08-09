@@ -58,14 +58,23 @@ class FundingProjectController extends Controller
     public function show($id)
     {
         $project = FundingProject::with([
-            'user',
+            'customer:customer_id,first_name,last_name,email',
             'rewards',
-            'pledges' => function($query) {
-                $query->where('status', 'completed')->where('is_anonymous', false)->latest()->limit(10);
+            'pledges' => function ($query) {
+                $query->where('status', 'completed')
+                    ->where('is_anonymous', false)
+                    ->with('customer:customer_id,first_name,last_name')
+                    ->latest()
+                    ->limit(10);
             }
         ])->findOrFail($id);
 
         $project->increment('views_count');
+
+        // Expose customer as `user` for older clients
+        if ($project->relationLoaded('customer')) {
+            $project->setRelation('user', $project->customer);
+        }
 
         return response()->json(['success' => true, 'data' => $project]);
     }
@@ -242,24 +251,16 @@ class FundingProjectController extends Controller
             $data['social_links'] = json_encode($data['social_links']);
         }
 
+        unset($data['rewards']);
+
         $project = FundingProject::create($data);
 
-        // Create rewards if provided
-        if (!empty($request->rewards)) {
-            foreach ($request->rewards as $rewardData) {
-                $rewardData['funding_project_id'] = $project->id;
-                // Set default estimated_delivery_date if not provided
-                if (!isset($rewardData['estimated_delivery_date']) || empty($rewardData['estimated_delivery_date'])) {
-                    $rewardData['estimated_delivery_date'] = now()->addMonths(3)->format('Y-m-d');
-                }
-                FundingReward::create($rewardData);
-            }
-        }
+        $this->syncProjectRewards($project, $request->input('rewards', []));
 
         return response()->json([
             'success' => true,
             'message' => 'Project created successfully',
-            'data' => $project
+            'data' => $project->fresh()->load(['rewards', 'customer'])
         ], 201);
     }
 
@@ -358,12 +359,18 @@ class FundingProjectController extends Controller
             $data['documents'] = $documents;
         }
 
+        unset($data['rewards']);
+
         $project->update($data);
+
+        if ($request->has('rewards')) {
+            $this->syncProjectRewards($project, $request->input('rewards', []), true);
+        }
 
         return response()->json([
             'success' => true, 
             'message' => 'Project updated successfully', 
-            'data' => $project->load(['rewards', 'upsells'])
+            'data' => $project->fresh()->load(['rewards', 'upsells', 'customer'])
         ]);
     }
 
@@ -398,15 +405,19 @@ class FundingProjectController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'minimum_contribution' => 'required|numeric|min:1',
+            'limit' => 'nullable|integer|min:1',
+            'estimated_delivery_date' => 'nullable|date',
+            'estimated_delivery' => 'nullable|date',
+            'is_active' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $data = $validator->validated();
-        $data['sort_order'] = $project->rewards()->count();
-        $reward = $project->rewards()->create($data);
+        $payload = $this->normalizeRewardPayload($validator->validated());
+        $payload['sort_order'] = $project->rewards()->count();
+        $reward = $project->rewards()->create($payload);
 
         return response()->json(['success' => true, 'data' => $reward], 201);
     }
@@ -1034,10 +1045,87 @@ class FundingProjectController extends Controller
     private function getEngagementMetrics(): array
     {
         return [
-            'total_backers' => FundingProject::sum('backer_count'),
-            'average_backers_per_project' => FundingProject::avg('backer_count'),
+            'total_backers' => FundingProject::sum('backers_count'),
+            'average_backers_per_project' => FundingProject::avg('backers_count'),
             'projects_with_rewards' => FundingProject::has('rewards')->count(),
-            'average_rewards_per_project' => FundingProject::has('rewards')->count() > 0 ? FundingProject::withCount('rewards')->avg('rewards_count') : 0,
+            'average_rewards_per_project' => FundingProject::has('rewards')->count() > 0
+                ? FundingProject::withCount('rewards')->avg('rewards_count')
+                : 0,
         ];
+    }
+
+    /**
+     * Normalize reward payload from dashboard / FormData into DB columns.
+     */
+    private function normalizeRewardPayload(array $rewardData): array
+    {
+        $delivery = $rewardData['estimated_delivery_date']
+            ?? $rewardData['estimated_delivery']
+            ?? null;
+
+        if (empty($delivery)) {
+            $delivery = now()->addMonths(3)->format('Y-m-d');
+        }
+
+        $payload = [
+            'title' => trim((string) ($rewardData['title'] ?? '')),
+            'description' => (string) ($rewardData['description'] ?? ''),
+            'minimum_contribution' => (float) ($rewardData['minimum_contribution'] ?? $rewardData['minimumContribution'] ?? 0),
+            'estimated_delivery_date' => $delivery,
+            'is_active' => array_key_exists('is_active', $rewardData)
+                ? filter_var($rewardData['is_active'], FILTER_VALIDATE_BOOLEAN)
+                : true,
+        ];
+
+        $limit = $rewardData['limit'] ?? null;
+        $payload['limit'] = ($limit === '' || $limit === null) ? null : (int) $limit;
+
+        return $payload;
+    }
+
+    /**
+     * Create or replace project rewards from API payload.
+     */
+    private function syncProjectRewards(FundingProject $project, $rewards, bool $replace = false): void
+    {
+        if (!is_array($rewards) || empty($rewards)) {
+            return;
+        }
+
+        if ($replace) {
+            // Keep rewards that already have completed pledges; replace the rest
+            $lockedIds = $project->pledges()
+                ->where('status', 'completed')
+                ->whereNotNull('funding_reward_id')
+                ->pluck('funding_reward_id')
+                ->unique()
+                ->filter()
+                ->all();
+
+            $project->rewards()
+                ->when(!empty($lockedIds), fn ($q) => $q->whereNotIn('id', $lockedIds))
+                ->delete();
+        }
+
+        foreach ($rewards as $rewardData) {
+            if (!is_array($rewardData) || empty($rewardData['title'])) {
+                continue;
+            }
+
+            $payload = $this->normalizeRewardPayload($rewardData);
+            if ($payload['minimum_contribution'] <= 0) {
+                continue;
+            }
+
+            if (!empty($rewardData['id'])) {
+                $existing = $project->rewards()->where('id', $rewardData['id'])->first();
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+            }
+
+            $project->rewards()->create($payload);
+        }
     }
 }

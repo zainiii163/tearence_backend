@@ -85,7 +85,8 @@ class Job extends Model
     // Relationships
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id', 'user_id');
+        // Marketplace JWT auth stores customer_id in jobs.user_id
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function category(): BelongsTo
@@ -121,7 +122,33 @@ class Job extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        $query->where('is_active', true);
+
+        if (\Schema::hasColumn($this->getTable(), 'status')) {
+            $query->where(function ($q) {
+                $q->where('status', 'active')
+                    ->orWhereNull('status');
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Resolve a publicly visible job by numeric id or slug.
+     */
+    public static function findPublic($idOrSlug, array $with = ['category', 'user']): ?self
+    {
+        $query = static::query()
+            ->with($with)
+            ->active()
+            ->notExpired();
+
+        if (ctype_digit((string) $idOrSlug)) {
+            return $query->where('id', (int) $idOrSlug)->first();
+        }
+
+        return $query->where('slug', $idOrSlug)->first();
     }
 
     public function scopeExpired($query)

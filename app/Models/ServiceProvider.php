@@ -38,7 +38,7 @@ class ServiceProvider extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function services(): HasMany

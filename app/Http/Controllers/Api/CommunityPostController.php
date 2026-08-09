@@ -285,12 +285,28 @@ class CommunityPostController extends Controller
     }
 
     /**
-     * Upload cover image or media for a community post.
+     * Upload cover image, photo, or video for a community post.
+     * Images are resized/WebP when possible; videos accepted up to 50MB.
      */
     public function uploadMedia(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|file|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'file' => [
+                'required',
+                'file',
+                'max:51200',
+                function ($attribute, $value, $fail) {
+                    if (! $value) {
+                        return;
+                    }
+                    $mime = $value->getMimeType();
+                    $okImage = str_starts_with((string) $mime, 'image/');
+                    $okVideo = in_array($mime, ['video/mp4', 'video/webm', 'video/quicktime'], true);
+                    if (! $okImage && ! $okVideo) {
+                        $fail('File must be an image (jpeg/png/gif/webp) or video (mp4/webm/mov).');
+                    }
+                },
+            ],
             'type' => 'nullable|in:cover,media',
         ]);
 
@@ -303,21 +319,45 @@ class CommunityPostController extends Controller
 
         $type = $request->get('type', 'media');
         $folder = $type === 'cover' ? 'community-posts/covers' : 'community-posts/media';
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
 
-        if (!Storage::disk('public')->exists($folder)) {
+        if ($disk === 'public' && ! Storage::disk('public')->exists($folder)) {
             Storage::disk('public')->makeDirectory($folder);
         }
 
         $file = $request->file('file');
-        $fileName = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs($folder, $fileName, 'public');
+        $mime = $file->getMimeType();
+        $isVideo = str_starts_with((string) $mime, 'video/');
+        $ext = $isVideo ? $file->getClientOriginalExtension() : 'webp';
+        $fileName = Str::uuid().'.'.($ext ?: ($isVideo ? 'mp4' : 'webp'));
+        $path = $folder.'/'.$fileName;
+
+        if ($isVideo) {
+            $stored = $file->storeAs($folder, $fileName, $disk);
+            $path = $stored;
+        } else {
+            try {
+                $image = \Intervention\Image\Facades\Image::make($file->getRealPath())
+                    ->orientate()
+                    ->resize(1600, 1600, function ($constraint) {
+                        $constraint->aspectRatio();
+                        $constraint->upsize();
+                    })
+                    ->encode('webp', 82);
+                Storage::disk($disk)->put($path, (string) $image);
+            } catch (\Throwable $e) {
+                $stored = $file->storeAs($folder, $file->hashName(), $disk);
+                $path = $stored;
+            }
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Media uploaded successfully',
             'data' => [
                 'path' => $path,
-                'url' => MediaUrlHelper::resolve($path),
+                'url' => \App\Helpers\MediaUrlHelper::resolve($path),
+                'media_type' => $isVideo ? 'video' : 'image',
             ],
         ], 201);
     }
@@ -389,16 +429,26 @@ class CommunityPostController extends Controller
             }
         }
 
-        // Update user reputation
-        $reputation = auth()->user()->getReputation();
+        // Update user reputation + posts_count (KYC first-post tracking)
+        $user = auth()->user();
+        if ($user && \Illuminate\Support\Facades\Schema::hasColumn('customer', 'posts_count')) {
+            $user->increment('posts_count');
+        }
+        $reputation = $user->getReputation();
         $reputation->incrementPostsCount();
         $reputation->incrementReputationScore(5);
 
-        return response()->json([
+        $payload = [
             'success' => true,
             'data' => $post->load(['user', 'category', 'communities', 'primaryCommunity']),
-            'message' => 'Post created successfully'
-        ], 201);
+            'message' => 'Post created successfully',
+        ];
+        if ($request->attributes->get('kyc_prompt')) {
+            $payload['kyc_prompt'] = true;
+            $payload['message'] .= '. Please complete KYC verification when prompted.';
+        }
+
+        return response()->json($payload, 201);
     }
 
     /**

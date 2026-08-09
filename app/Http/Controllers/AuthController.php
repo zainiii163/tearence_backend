@@ -735,13 +735,8 @@ class AuthController extends APIController
         $email = strtolower(trim(request()->email));
         $phone = request()->phone;
 
-        // Clive: email OTP required on signup; phone verified later when posting.
-        if (!$verification->isEmailVerified($email)) {
-            return $this->errorResponse(
-                'Please verify your email address before registering.',
-                Response::HTTP_BAD_REQUEST
-            );
-        }
+        // Clive: smooth signup — do NOT block registration on OTP.
+        // Email / KYC verification happens after signup (before / on first post).
 
         try {
             DB::beginTransaction();
@@ -913,88 +908,43 @@ class AuthController extends APIController
     {
         $input = $request->only('email');
         $validator = FacadesValidator::make($input, [
-            'email' => "required|email"
+            'email' => 'required|email',
         ]);
 
         if ($validator->fails()) {
             return $this->errorResponse($validator->errors()->first(), RESPONSE::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $user = Customer::where('email', $input['email'])->first();
+        $email = strtolower(trim($input['email']));
+        $user = Customer::where('email', $email)->first();
 
-        if ($user == null) {
-            Log::warning("User not found. email: " . $input['email']);
-            return $this->errorResponse('Data not found.', RESPONSE::HTTP_NOT_FOUND);
+        // Always return success to avoid email enumeration.
+        if ($user) {
+            $plainToken = Str::random(64);
+            DB::table('password_resets')->where('email', $email)->delete();
+            DB::table('password_resets')->insert([
+                'email' => $email,
+                'token' => Hash::make($plainToken),
+                'created_at' => now(),
+            ]);
+
+            $frontend = rtrim(env('FRONTEND_URL', env('APP_FRONTEND_URL', 'http://localhost:3000')), '/');
+            $resetUrl = $frontend.'/reset-password?token='.urlencode($plainToken).'&email='.urlencode($email);
+
+            MailHelper::sendForgotPasswordEmail($user, $resetUrl);
+        } else {
+            Log::info('Forgot password requested for unknown email');
         }
 
-        $helper = new StringHelper;
-        $gen_pass = $helper->generateRandomString(10);
-        $user->update(['password_hash' => bcrypt($gen_pass)]);
-
-        // send email to the user
-        MailHelper::sendForgotPasswordEmail($user, $gen_pass);
-
-        return $this->successResponse($user, 'Reset password mail send successfully', Response::HTTP_OK);
+        return $this->successResponse(null, 'If that email exists, a reset link has been sent.', Response::HTTP_OK);
     }
 
-    /**
-     * @OA\Post(
-     * path="/v1/auth/reset-password",
-     *   tags={"Auth"},
-     *   summary="Reset password user",
-     *   @OA\RequestBody(
-     *         @OA\MediaType(
-     *             mediaType="application/json",
-     *             @OA\Schema(
-     *                 @OA\Property(
-     *                     property="email",
-     *                     type="string"
-     *                 ),
-     *                 @OA\Property(
-     *                     property="password",
-     *                     type="string"
-     *                 ),
-     *                 @OA\Property(
-     *                     property="password_confirmation",
-     *                     type="string"
-     *                 ),
-     *                 example={"email": "string", "password": "string", "password_confirmation": "string"}
-     *             )
-     *         )
-     *     ),
-     *   @OA\Response(
-     *      response=200,
-     *      description="OK",
-     *          @OA\JsonContent(
-     *              @OA\Property(property="status", type="string", format="string"),
-     *              @OA\Property(property="message", type="string", format="string"),
-     *              @OA\Property(property="data", type="object",
-     *                  ref="#/components/schemas/UserResource"
-     *              ),
-     *          ),
-     *   ),
-     *   @OA\Response(
-     *      response=401,
-     *      description="Unauthenticated",
-     *      @OA\JsonContent(ref="#/components/schemas/ErrorResource")
-     *   ),
-     *   @OA\Response(
-     *      response=400,
-     *      description="Bad Request",
-     *      @OA\JsonContent(ref="#/components/schemas/ErrorResource")
-     *   ),
-     *   @OA\Response(
-     *      response=403,
-     *      description="Forbidden",
-     *      @OA\JsonContent(ref="#/components/schemas/ErrorResource")
-     *   )
-     *)
-     **/
     public function resetPassword(Request $request)
     {
-        $input = $request->only('email', 'password', 'password_confirmation');
+        $input = $request->only('email', 'token', 'password', 'password_confirmation');
         $validator = FacadesValidator::make($input, [
-            'email' => 'required',
+            'email' => 'required|email',
+            'token' => 'required|string',
             'password' => 'required|confirmed|min:8',
         ]);
 
@@ -1002,17 +952,59 @@ class AuthController extends APIController
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // validate email
-        $user = Customer::where('email', '=', $input['email'])->first();
-        if ($user != NULL) {
-            // change password
-            $user->password_hash = bcrypt($request->password);
-            $user->updated_at = Carbon::now()->timestamp;
-            $user->save();
-        } else {
-            return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
+        $email = strtolower(trim($input['email']));
+        $row = DB::table('password_resets')->where('email', $email)->first();
+        if (! $row || ! Hash::check($input['token'], $row->token)) {
+            return $this->errorResponse('Invalid or expired reset token.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->successResponse($user, 'Change password success', Response::HTTP_OK);
+        if (Carbon::parse($row->created_at)->addMinutes(60)->isPast()) {
+            DB::table('password_resets')->where('email', $email)->delete();
+
+            return $this->errorResponse('Reset token has expired. Request a new link.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user = Customer::where('email', $email)->first();
+        if (! $user) {
+            return $this->errorResponse('Account not found.', Response::HTTP_NOT_FOUND);
+        }
+
+        $user->password_hash = bcrypt($request->password);
+        $user->updated_at = Carbon::now();
+        $user->save();
+
+        DB::table('password_resets')->where('email', $email)->delete();
+
+        return $this->successResponse(null, 'Password updated successfully. You can sign in now.', Response::HTTP_OK);
+    }
+
+    /**
+     * Authenticated password change (requires current password).
+     */
+    public function changePassword(Request $request)
+    {
+        $validator = FacadesValidator::make($request->all(), [
+            'current_password' => 'required|string',
+            'password' => 'required|confirmed|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        /** @var Customer|null $user */
+        $user = auth()->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated.', Response::HTTP_UNAUTHORIZED);
+        }
+
+        if (! Hash::check($request->current_password, $user->password_hash)) {
+            return $this->errorResponse('Current password is incorrect.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user->password_hash = bcrypt($request->password);
+        $user->save();
+
+        return $this->successResponse(null, 'Password changed successfully.', Response::HTTP_OK);
     }
 }

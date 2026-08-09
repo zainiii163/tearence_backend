@@ -488,8 +488,8 @@ class BusinessTemplateController extends Controller
     }
 
     /**
-     * Buy a template (catalog or seller listing). Platform fee applied.
-     * Payment gateway hook: mark completed after Stripe/PayPal success — demo completes immediately.
+     * Buy a template — creates a pending purchase.
+     * Download unlocks only after confirmPayment (PayPal/Stripe capture).
      */
     public function purchase(Request $request): JsonResponse
     {
@@ -520,7 +520,6 @@ class BusinessTemplateController extends Controller
         }
 
         if (!$template && $request->filled('slug')) {
-            // Allow purchasing static catalog files by slug/path until seeded
             $file = $request->input('file_url') ?: ('/templates/'.$request->slug.'.html');
             $title = $request->input('title') ?: Str::title(str_replace('-', ' ', $request->slug));
             $price = (float) ($request->input('price') ?? 19);
@@ -536,19 +535,18 @@ class BusinessTemplateController extends Controller
                 'fee_percent' => $fee['fee_percent'],
                 'platform_fee' => $fee['platform_fee'],
                 'seller_amount' => $fee['seller_amount'],
-                'payment_method' => $request->payment_method ?: 'platform',
+                'payment_method' => null,
                 'payment_status' => 'pending',
             ]);
-            $purchase->markCompleted($request->payment_method ?: 'platform');
 
             return response()->json([
                 'success' => true,
-                'message' => 'Template purchased successfully.',
+                'message' => 'Order created. Complete PayPal payment to unlock your download.',
                 'data' => [
                     'purchase_id' => $purchase->id,
-                    'download_token' => $purchase->download_token,
-                    'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
-                    'expires_at' => $purchase->download_token_expires_at,
+                    'payment_status' => 'pending',
+                    'amount' => (float) $purchase->price_paid,
+                    'title' => $purchase->title,
                     'platform_fee' => $purchase->platform_fee,
                     'fee_percent' => $purchase->fee_percent,
                 ],
@@ -574,9 +572,29 @@ class BusinessTemplateController extends Controller
                 'message' => 'Already purchased.',
                 'data' => [
                     'purchase_id' => $existing->id,
+                    'payment_status' => 'completed',
                     'download_token' => $existing->download_token,
                     'download_url' => url('/api/v1/business-templates/download/'.$existing->download_token),
                     'expires_at' => $existing->download_token_expires_at,
+                ],
+            ]);
+        }
+
+        $pending = TemplatePurchase::where('customer_id', $customerId)
+            ->where('business_template_id', $template->id)
+            ->where('payment_status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if ($pending) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Complete PayPal payment to unlock your download.',
+                'data' => [
+                    'purchase_id' => $pending->id,
+                    'payment_status' => 'pending',
+                    'amount' => (float) $pending->price_paid,
+                    'title' => $pending->title,
                 ],
             ]);
         }
@@ -594,25 +612,72 @@ class BusinessTemplateController extends Controller
             'fee_percent' => $fee['fee_percent'],
             'platform_fee' => $fee['platform_fee'],
             'seller_amount' => $fee['seller_amount'],
-            'payment_method' => $request->payment_method ?: 'platform',
+            'payment_method' => null,
             'payment_status' => 'pending',
         ]);
 
-        // Hook Stripe/PayPal here — for now complete so buyers can download immediately.
-        $purchase->markCompleted($request->payment_method ?: 'platform');
-
         return response()->json([
             'success' => true,
-            'message' => 'Template purchased successfully.',
+            'message' => 'Order created. Complete PayPal payment to unlock your download.',
             'data' => [
                 'purchase_id' => $purchase->id,
-                'download_token' => $purchase->download_token,
-                'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
-                'expires_at' => $purchase->download_token_expires_at,
+                'payment_status' => 'pending',
+                'amount' => (float) $purchase->price_paid,
+                'title' => $purchase->title,
                 'platform_fee' => $purchase->platform_fee,
                 'fee_percent' => $purchase->fee_percent,
             ],
         ], 201);
+    }
+
+    /**
+     * Confirm PayPal/Stripe capture — then unlock download.
+     */
+    public function confirmPayment(Request $request, int $id): JsonResponse
+    {
+        if (!Schema::hasTable('template_purchases')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $purchase = TemplatePurchase::find($id);
+        if (!$purchase || (int) $purchase->customer_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($purchase->payment_status === 'completed') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'completed',
+                    'download_token' => $purchase->download_token,
+                    'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
+                    'expires_at' => $purchase->download_token_expires_at,
+                ],
+            ]);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:191',
+            'payment_method' => 'required|in:paypal,stripe',
+        ]);
+
+        $purchase->payment_id = $request->payment_id;
+        $purchase->paid_at = now();
+        $purchase->markCompleted($request->payment_method);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Your download is ready.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'completed',
+                'download_token' => $purchase->download_token,
+                'download_url' => url('/api/v1/business-templates/download/'.$purchase->download_token),
+                'expires_at' => $purchase->download_token_expires_at,
+            ],
+        ]);
     }
 
     public function download(string $token): BinaryFileResponse|JsonResponse|\Illuminate\Http\RedirectResponse

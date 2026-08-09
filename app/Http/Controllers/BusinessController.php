@@ -121,7 +121,9 @@ class BusinessController extends APIController
      */
     public function index(Request $request)
     {
-        $query = new CustomerBusiness();
+        $query = CustomerBusiness::query()->where(function ($q) {
+            $q->where('status', 'active')->orWhereNull('status');
+        });
         $skip = $request->get('skip');
         $limit = $request->get('limit');
 
@@ -240,9 +242,7 @@ class BusinessController extends APIController
             return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
         }
         
-        \Log::info('Business creation - User ID: ' . $user->id . ', Customer ID: ' . ($user->customer_id ?? 'null'));
-        
-        $customer_id = $user->customer_id;
+        $customer_id = $user->customer_id ?? $user->getKey();
         
         if (!$customer_id) {
             return $this->errorResponse('Customer ID not found for user', Response::HTTP_BAD_REQUEST);
@@ -257,15 +257,8 @@ class BusinessController extends APIController
         try {
             DB::beginTransaction();
             
-            \Log::info('Creating business with data: ', [
-                'customer_id' => $customer_id,
-                'business_name' => $request->business_name,
-                'slug' => Str::slug($request->business_name),
-                'category_id' => $request->category_id,
-            ]);
-
             $query = new CustomerBusiness();
-            $query->slug = Str::slug($request->business_name);
+            $query->slug = Str::slug($request->business_name).'-'.Str::lower(Str::random(4));
             $query->customer_id = $customer_id;
             $query->business_name = $request->business_name;
             $query->business_description = $request->business_description;
@@ -281,19 +274,16 @@ class BusinessController extends APIController
             $query->business_company_name = $request->business_company_name;
             $query->business_company_no = $request->business_company_no;
             $query->category_id = $request->category_id;
+            $query->business_category_slug = $request->business_category_slug;
             $query->status = 'active';
             
-            \Log::info('About to save business...');
             $query->save();
-            \Log::info('Business saved successfully with ID: ' . $query->id);
 
             DB::commit();
             return $this->successResponse($query, '', Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Business creation error: ' . $e->getMessage());
-            \Log::error('Request data: ' . json_encode($request->all()));
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
             return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -475,16 +465,17 @@ class BusinessController extends APIController
             $query->business_company_name = $request->business_company_name;
             $query->business_company_no = $request->business_company_no;
             $query->category_id = $request->category_id ?? null;
-            $query->status = 'active';
+            if ($request->filled('business_category_slug')) {
+                $query->business_category_slug = $request->business_category_slug;
+            }
+            $query->status = $request->input('status', 'active');
             $query->save();
 
             DB::commit();
-            \Log::error('Business update error: ' . $e->getMessage());
-            \Log::error('Request data: ' . json_encode($request->all()));
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
-            return $this->successResponse($query, '', Response::HTTP_CREATED);
+            return $this->successResponse($query, '', Response::HTTP_OK);
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Business update error: ' . $e->getMessage());
             return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

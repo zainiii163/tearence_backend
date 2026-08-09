@@ -22,6 +22,7 @@ class CustomerNotification extends Model
     public const TYPE_SPONSORED_ENDING = 'sponsored_ending';
     public const TYPE_SUBSCRIPTION = 'subscription';
     public const TYPE_MESSAGE = 'message';
+    public const TYPE_SELLER_ENQUIRY = 'seller_enquiry';
     public const TYPE_SALE = 'sale';
     public const TYPE_SYSTEM = 'system';
 

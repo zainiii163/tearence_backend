@@ -33,6 +33,9 @@ class CustomerStore extends Model
 
     public function getStoreBannerAttribute($image)
     {
+        if (!$image) {
+            return null;
+        }
         $fileUpload = new FileUploadHelper();
         $path = str_replace("/uploads/images/store", "", $image);
         return $fileUpload->getFile($path, 'store');
@@ -40,6 +43,9 @@ class CustomerStore extends Model
 
     public function getStoreLogoAttribute($image)
     {
+        if (!$image) {
+            return null;
+        }
         $fileUpload = new FileUploadHelper();
         $path = str_replace("/uploads/images/store", "", $image);
         return $fileUpload->getFile($path, 'store');

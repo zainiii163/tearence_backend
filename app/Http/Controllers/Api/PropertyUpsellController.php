@@ -6,10 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PropertyUpsellStoreRequest;
 use App\Http\Resources\PropertyUpsellCollection;
 use App\Http\Resources\PropertyUpsellResource;
+use App\Models\PromoPricingPlan;
 use App\Models\Property;
 use App\Models\PropertyUpsell;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PropertyUpsellController extends Controller
@@ -29,73 +30,84 @@ class PropertyUpsellController extends Controller
         try {
             $property = Property::findOrFail($request->property_id);
 
-            // Check if user owns this property
-            if ($property->user_id !== Auth::id()) {
+            if ((int) $property->user_id !== (int) Auth::id()) {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Check if there's already an active upsell of this type
+            $upsellType = $this->normalizeUpsellType($request->upsell_type);
+            if (! $upsellType) {
+                return response()->json(['message' => 'Invalid upsell type'], 422);
+            }
+
             $existingUpsell = PropertyUpsell::where('property_id', $property->id)
-                ->where('upsell_type', $request->upsell_type)
+                ->where('upsell_type', $upsellType)
                 ->where('status', 'active')
+                ->where('payment_status', 'paid')
                 ->where('expires_at', '>', now())
                 ->first();
 
             if ($existingUpsell) {
                 return response()->json([
-                    'message' => 'An active upsell of this type already exists for this property'
+                    'message' => 'An active upsell of this type already exists for this property',
                 ], 422);
             }
 
-            $pricing = PropertyUpsell::getPricing();
-            $price = $pricing[$request->upsell_type][$request->duration_days] ?? 0;
+            $durationDays = (int) ($request->duration_days ?: 30);
+            if (! in_array($durationDays, [7, 14, 30], true)) {
+                $durationDays = 30;
+            }
+
+            $price = $this->resolvePrice($upsellType, $durationDays, $request->input('price'));
 
             $upsell = PropertyUpsell::create([
                 'property_id' => $property->id,
                 'user_id' => Auth::id(),
-                'upsell_type' => $request->upsell_type,
+                'upsell_type' => $upsellType,
                 'price' => $price,
-                'currency' => 'USD',
-                'duration_days' => $request->duration_days,
+                'currency' => $request->input('currency', 'USD'),
+                'duration_days' => $durationDays,
                 'starts_at' => now(),
-                'expires_at' => now()->addDays($request->duration_days),
-                'payment_status' => 'pending',
-                'status' => 'active',
+                'expires_at' => now()->addDays($durationDays),
+                'payment_status' => $price > 0 ? 'pending' : 'paid',
+                'status' => $price > 0 ? 'pending' : 'active',
+                'paid_at' => $price > 0 ? null : now(),
             ]);
 
-            // Update property upsell flags
-            $property->update([
-                $request->upsell_type => true,
-                $request->upsell_type . '_until' => $upsell->expires_at,
-            ]);
+            // Never activate promo flags until payment is confirmed (unless free)
+            if ($price <= 0) {
+                $this->activatePropertyPromotion($property, $upsell);
+            }
 
             return response()->json([
                 'message' => 'Upsell created successfully',
                 'upsell' => new PropertyUpsellResource($upsell->load(['property', 'user'])),
-                'payment_required' => $price > 0
+                'payment_required' => $price > 0,
+                'amount' => (float) $price,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to create upsell',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function show(PropertyUpsell $upsell): PropertyUpsellResource
+    public function show($id): JsonResponse|PropertyUpsellResource
     {
-        // Check if user owns this upsell
-        if ($upsell->user_id !== Auth::id()) {
+        $upsell = PropertyUpsell::with(['property', 'user'])->findOrFail($id);
+
+        if ((int) $upsell->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        return new PropertyUpsellResource($upsell->load(['property', 'user']));
+        return new PropertyUpsellResource($upsell);
     }
 
-    public function completePayment(PropertyUpsell $upsell, Request $request): JsonResponse
+    public function completePayment($id, Request $request): JsonResponse
     {
-        // Check if user owns this upsell
-        if ($upsell->user_id !== Auth::id()) {
+        $upsell = PropertyUpsell::with('property')->findOrFail($id);
+
+        if ((int) $upsell->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -110,24 +122,30 @@ class PropertyUpsellController extends Controller
                 'payment_method' => $request->payment_method,
                 'transaction_id' => $request->transaction_id,
                 'paid_at' => now(),
+                'status' => 'active',
+                'starts_at' => now(),
+                'expires_at' => now()->addDays((int) $upsell->duration_days),
             ]);
+
+            $this->activatePropertyPromotion($upsell->property, $upsell->fresh());
 
             return response()->json([
                 'message' => 'Payment completed successfully',
-                'upsell' => new PropertyUpsellResource($upsell->load(['property', 'user']))
+                'upsell' => new PropertyUpsellResource($upsell->fresh()->load(['property', 'user'])),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to complete payment',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function cancel(PropertyUpsell $upsell): JsonResponse
+    public function cancel($id): JsonResponse
     {
-        // Check if user owns this upsell
-        if ($upsell->user_id !== Auth::id()) {
+        $upsell = PropertyUpsell::with('property')->findOrFail($id);
+
+        if ((int) $upsell->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -136,26 +154,27 @@ class PropertyUpsellController extends Controller
                 'status' => 'cancelled',
             ]);
 
-            // Update property upsell flags
             $property = $upsell->property;
-            $property->update([
-                $upsell->upsell_type => false,
-                $upsell->upsell_type . '_until' => null,
-            ]);
+            if ($property && $property->advert_type === $upsell->upsell_type) {
+                $untilField = $upsell->upsell_type.'_until';
+                $property->update([
+                    'advert_type' => 'basic',
+                    $untilField => null,
+                ]);
+            }
 
             return response()->json(['message' => 'Upsell cancelled successfully']);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to cancel upsell',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function getPropertyUpsells(Property $property): PropertyUpsellCollection
+    public function getPropertyUpsells(Property $property): JsonResponse|PropertyUpsellCollection
     {
-        // Check if user owns this property
-        if ($property->user_id !== Auth::id()) {
+        if ((int) $property->user_id !== (int) Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -224,5 +243,59 @@ class PropertyUpsellController extends Controller
         ];
 
         return response()->json($stats);
+    }
+
+    protected function normalizeUpsellType(?string $type): ?string
+    {
+        $type = strtolower(trim((string) $type));
+        $aliases = [
+            'promoted' => 'promoted',
+            'promote' => 'promoted',
+            'featured' => 'featured',
+            'feature' => 'featured',
+            'sponsored' => 'sponsored',
+            'sponsor' => 'sponsored',
+        ];
+
+        return $aliases[$type] ?? null;
+    }
+
+    protected function resolvePrice(string $upsellType, int $durationDays, $requestedPrice = null): float
+    {
+        if ($requestedPrice !== null && $requestedPrice !== '' && is_numeric($requestedPrice)) {
+            return max(0, (float) $requestedPrice);
+        }
+
+        $plan = PromoPricingPlan::query()
+            ->active()
+            ->forVertical('property')
+            ->where(function ($q) use ($upsellType) {
+                $q->where('slug', $upsellType)->orWhere('tier', $upsellType);
+            })
+            ->orderBy('sort_order')
+            ->first();
+
+        if ($plan && $plan->price_usd !== null) {
+            return (float) $plan->price_usd;
+        }
+
+        $pricing = PropertyUpsell::getPricing();
+
+        return (float) ($pricing[$upsellType][$durationDays] ?? 0);
+    }
+
+    protected function activatePropertyPromotion(?Property $property, PropertyUpsell $upsell): void
+    {
+        if (! $property) {
+            return;
+        }
+
+        $type = $upsell->upsell_type;
+        $untilField = $type.'_until';
+
+        $property->update([
+            'advert_type' => $type,
+            $untilField => $upsell->expires_at,
+        ]);
     }
 }

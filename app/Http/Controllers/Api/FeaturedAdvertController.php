@@ -50,23 +50,34 @@ class FeaturedAdvertController extends Controller
         $query = FeaturedAdvert::with(['listing', 'customer', 'category', 'country'])
             ->active();
 
+        $filled = static function ($value): bool {
+            if ($value === null || $value === '') {
+                return false;
+            }
+            if (is_string($value)) {
+                $v = strtolower(trim($value));
+                return $v !== '' && $v !== 'undefined' && $v !== 'null';
+            }
+            return true;
+        };
+
         // Filter by upsell tier
-        if ($request->has('tier')) {
+        if ($filled($request->input('tier'))) {
             $query->byTier($request->tier);
         }
 
         // Filter by country
-        if ($request->has('country')) {
+        if ($filled($request->input('country'))) {
             $query->byCountry($request->country);
         }
 
         // Filter by city
-        if ($request->has('city')) {
+        if ($filled($request->input('city'))) {
             $query->byCity($request->city);
         }
 
         // Filter by category
-        if ($request->has('category_id')) {
+        if ($filled($request->input('category_id'))) {
             $categoryValue = $request->category_id;
             // If it's a string (category name), look up the ID
             if (!is_numeric($categoryValue)) {
@@ -80,13 +91,16 @@ class FeaturedAdvertController extends Controller
         }
 
         // Filter by advert type
-        if ($request->has('type')) {
+        if ($filled($request->input('type'))) {
             $query->byType($request->type);
         }
 
         // Filter by price range
-        if ($request->has('min_price')) {
-            $query->byPriceRange($request->min_price, $request->max_price);
+        if ($filled($request->input('min_price')) && is_numeric($request->input('min_price'))) {
+            $max = $filled($request->input('max_price')) && is_numeric($request->input('max_price'))
+                ? (float) $request->max_price
+                : null;
+            $query->byPriceRange((float) $request->min_price, $max);
         }
 
         // Filter verified sellers only
@@ -95,7 +109,7 @@ class FeaturedAdvertController extends Controller
         }
 
         // Search functionality
-        if ($request->has('search')) {
+        if ($filled($request->input('search'))) {
             $query->search($request->search);
         }
 
@@ -103,7 +117,7 @@ class FeaturedAdvertController extends Controller
         $query->orderByPriority();
 
         // Pagination
-        $perPage = min($request->get('per_page', 20), 100);
+        $perPage = min((int) $request->get('per_page', 20), 100);
         $featuredAdverts = $query->paginate($perPage);
 
         return response()->json([

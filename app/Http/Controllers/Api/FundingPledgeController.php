@@ -8,6 +8,7 @@ use App\Models\FundingPledge;
 use App\Models\FundingReward;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class FundingPledgeController extends Controller
@@ -39,14 +40,21 @@ class FundingPledgeController extends Controller
         }
 
         $data = $validator->validated();
-        $data['user_id'] = Auth::id();
+        $data['customer_id'] = Auth::id();
         $data['funding_project_id'] = $projectId;
+        $data['currency'] = $project->currency ?: 'USD';
         $data['status'] = 'pending';
         $data['is_anonymous'] = $data['is_anonymous'] ?? false;
 
-        // Validate reward availability if specified
         if (!empty($data['funding_reward_id'])) {
             $reward = FundingReward::findOrFail($data['funding_reward_id']);
+
+            if ((int) $reward->funding_project_id !== (int) $projectId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reward does not belong to this project'
+                ], 422);
+            }
 
             if ($reward->isLimitReached()) {
                 return response()->json([
@@ -67,17 +75,91 @@ class FundingPledgeController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Pledge created successfully',
+            'message' => 'Pledge created successfully. Complete payment to confirm your backing.',
             'data' => $pledge->load('reward')
         ], 201);
     }
 
+    /**
+     * Backer confirms PayPal (or other) payment — marks pledge completed and updates project totals.
+     */
+    public function confirmPayment(Request $request, $pledgeId)
+    {
+        $pledge = FundingPledge::with(['fundingProject', 'reward'])->findOrFail($pledgeId);
+
+        if ((int) $pledge->customer_id !== (int) Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        if ($pledge->status === 'completed') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pledge already completed',
+                'data' => $pledge
+            ]);
+        }
+
+        if ($pledge->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only pending pledges can be confirmed'
+            ], 422);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'payment_id' => 'required|string|max:255',
+            'payment_method' => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $payload = $validator->validated();
+
+        DB::transaction(function () use ($pledge, $payload) {
+            $pledge->update([
+                'status' => 'completed',
+                'transaction_id' => $payload['payment_id'],
+                'payment_method' => $payload['payment_method'] ?? 'paypal',
+                'completed_at' => now(),
+            ]);
+
+            if ($pledge->funding_reward_id && $pledge->reward) {
+                $pledge->reward->increment('claimed_count');
+            }
+
+            $project = $pledge->fundingProject;
+            $project->increment('current_funded', $pledge->amount);
+            $project->increment('backers_count');
+
+            if ($project->fresh()->isFunded() && $project->status === 'active') {
+                $project->update(['status' => 'funded']);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Thank you for backing this project!',
+            'data' => $pledge->fresh()->load(['reward', 'fundingProject'])
+        ]);
+    }
+
     public function show($pledgeId)
     {
-        $pledge = FundingPledge::with(['fundingProject', 'reward', 'user'])->findOrFail($pledgeId);
+        $pledge = FundingPledge::with(['fundingProject', 'reward', 'customer'])->findOrFail($pledgeId);
 
-        // Check authorization
-        if ($pledge->user_id !== Auth::id() && Auth::user()->role !== 'admin') {
+        $isOwner = (int) $pledge->customer_id === (int) Auth::id();
+        $isAdmin = Auth::user() && method_exists(Auth::user(), 'isAdmin') && Auth::user()->isAdmin();
+
+        if (!$isOwner && !$isAdmin) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized'
@@ -92,10 +174,10 @@ class FundingPledgeController extends Controller
 
     public function myPledges(Request $request)
     {
-        $pledges = FundingPledge::where('user_id', Auth::id())
-                               ->with(['fundingProject', 'reward'])
-                               ->latest()
-                               ->paginate($request->per_page ?? 10);
+        $pledges = FundingPledge::where('customer_id', Auth::id())
+            ->with(['fundingProject', 'reward'])
+            ->latest()
+            ->paginate($request->per_page ?? 10);
 
         return response()->json([
             'success' => true,
@@ -105,10 +187,13 @@ class FundingPledgeController extends Controller
 
     public function updateStatus(Request $request, $pledgeId)
     {
-        $pledge = FundingPledge::findOrFail($pledgeId);
+        $pledge = FundingPledge::with('fundingProject')->findOrFail($pledgeId);
+        $project = $pledge->fundingProject;
 
-        // Only admin or project owner can update pledge status
-        if (Auth::id() !== $pledge->fundingProject->user_id && Auth::user()->role !== 'admin') {
+        $isProjectOwner = $project && (int) $project->customer_id === (int) Auth::id();
+        $isAdmin = Auth::user() && method_exists(Auth::user(), 'isAdmin') && Auth::user()->isAdmin();
+
+        if (!$isProjectOwner && !$isAdmin) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized'
@@ -130,17 +215,15 @@ class FundingPledgeController extends Controller
 
         $data = $validator->validated();
 
-        if ($data['status'] === 'completed' && !$pledge->completed_at) {
+        if ($data['status'] === 'completed' && $pledge->status !== 'completed') {
             $data['completed_at'] = now();
 
-            // Increment reward claimed count
-            if ($pledge->funding_reward_id) {
+            if ($pledge->funding_reward_id && $pledge->reward) {
                 $pledge->reward->increment('claimed_count');
             }
 
-            // Update project amount raised and backer count
-            $pledge->fundingProject->increment('amount_raised', $pledge->amount);
-            $pledge->fundingProject->increment('backer_count');
+            $project->increment('current_funded', $pledge->amount);
+            $project->increment('backers_count');
         }
 
         $pledge->update($data);
@@ -156,7 +239,6 @@ class FundingPledgeController extends Controller
     {
         $pledge = FundingPledge::findOrFail($pledgeId);
 
-        // Only allow deletion if status is pending
         if ($pledge->status !== 'pending') {
             return response()->json([
                 'success' => false,
@@ -164,12 +246,14 @@ class FundingPledgeController extends Controller
             ], 403);
         }
 
-        // Check authorization
-        if ($pledge->user_id !== Auth::id() && Auth::user()->role !== 'admin') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
+        if ((int) $pledge->customer_id !== (int) Auth::id()) {
+            $isAdmin = Auth::user() && method_exists(Auth::user(), 'isAdmin') && Auth::user()->isAdmin();
+            if (!$isAdmin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
         }
 
         $pledge->delete();
@@ -185,13 +269,13 @@ class FundingPledgeController extends Controller
         $project = FundingProject::findOrFail($projectId);
 
         $pledges = $project->pledges()
-                          ->where('status', 'completed')
-                          ->when(!$request->include_anonymous, function ($query) {
-                              $query->where('is_anonymous', false);
-                          })
-                          ->with('user')
-                          ->latest()
-                          ->paginate($request->per_page ?? 10);
+            ->where('status', 'completed')
+            ->when(!$request->boolean('include_anonymous'), function ($query) {
+                $query->where('is_anonymous', false);
+            })
+            ->with('customer:customer_id,first_name,last_name')
+            ->latest()
+            ->paginate($request->per_page ?? 10);
 
         return response()->json([
             'success' => true,

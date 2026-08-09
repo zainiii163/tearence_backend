@@ -24,7 +24,7 @@ class CategoryController extends APIController
             'except' => [
                 'index',
                 'show',
-                'tree'
+                'tree',
             ]
         ]);
     }

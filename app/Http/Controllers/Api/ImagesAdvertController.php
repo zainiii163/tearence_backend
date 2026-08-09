@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ImagesAdvert;
+use App\Models\ImageAdvertPurchase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -764,6 +766,33 @@ class ImagesAdvertController extends Controller
             })
             ->firstOrFail();
 
+        $price = (float) ($image->standard_price ?? $image->royalty_free_price ?? 0);
+        $token = request()->query('token') ?: request()->input('token');
+
+        if ($price > 0) {
+            if (!Schema::hasTable('image_advert_purchases')) {
+                return response()->json(['success' => false, 'message' => 'Purchase required'], 402);
+            }
+            $purchase = null;
+            if ($token) {
+                $purchase = ImageAdvertPurchase::where('download_token', $token)
+                    ->where('image_id', $image->id)
+                    ->first();
+            } elseif (Auth::id()) {
+                $purchase = ImageAdvertPurchase::where('customer_id', Auth::id())
+                    ->where('image_id', $image->id)
+                    ->where('payment_status', 'completed')
+                    ->latest('id')
+                    ->first();
+            }
+            if (!$purchase || !$purchase->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Purchase required before download.',
+                ], 402);
+            }
+        }
+
         if (method_exists($image, 'incrementDownloads')) {
             $image->incrementDownloads();
         } else {
@@ -775,7 +804,6 @@ class ImagesAdvertController extends Controller
         if ($path && ! str_starts_with($path, 'http') && ! str_starts_with($path, '/images/')) {
             $url = asset('storage/' . ltrim($path, '/'));
         } elseif ($path && str_starts_with($path, '/images/')) {
-            // Frontend public asset path — caller should use site origin
             $url = $path;
         }
 
@@ -791,33 +819,158 @@ class ImagesAdvertController extends Controller
         ]);
     }
 
-    public function processPayment(Request $request, $id)
+    /**
+     * Start image license purchase (PayPal confirm next).
+     */
+    public function purchase(Request $request, $id)
     {
+        if (!Schema::hasTable('image_advert_purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: image_advert_purchases missing.',
+            ], 503);
+        }
+
         $request->validate([
             'license_type' => 'required|in:royalty_free,rights_managed,extended,editorial,exclusive',
         ]);
 
         $image = ImagesAdvert::active()->verified()->findOrFail($id);
-
         $licenseType = $request->input('license_type');
-        $price = $image->{$licenseType . '_price'} ?? $image->standard_price;
+        $price = (float) ($image->{$licenseType . '_price'} ?? $image->standard_price ?? 0);
+        $currency = $image->currency ?: 'USD';
+        $customerId = Auth::id();
 
-        // Here you would integrate with your payment gateway
-        // For now, we'll just simulate a successful payment
-        
-        $image->incrementDownloads();
+        if (!$customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $existing = ImageAdvertPurchase::where('customer_id', $customerId)
+            ->where('image_id', $image->id)
+            ->where('payment_status', 'completed')
+            ->latest('id')
+            ->first();
+
+        if ($existing && $existing->isValid()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already purchased.',
+                'data' => [
+                    'purchase_id' => $existing->id,
+                    'payment_status' => 'completed',
+                    'amount' => (float) $existing->price_paid,
+                    'download_token' => $existing->download_token,
+                    'download_url' => url('/api/v1/images-adverts/'.$image->id.'/download?token='.$existing->download_token),
+                ],
+            ]);
+        }
+
+        if ($price <= 0) {
+            $purchase = ImageAdvertPurchase::create([
+                'customer_id' => $customerId,
+                'image_id' => $image->id,
+                'license_type' => $licenseType,
+                'price_paid' => 0,
+                'currency' => $currency,
+                'payment_status' => 'completed',
+                'payment_method' => 'free',
+            ]);
+            $image->increment('downloads_count');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Free license unlocked.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'completed',
+                    'amount' => 0,
+                    'download_token' => $purchase->download_token,
+                    'download_url' => url('/api/v1/images-adverts/'.$image->id.'/download?token='.$purchase->download_token),
+                ],
+            ]);
+        }
+
+        $pending = ImageAdvertPurchase::where('customer_id', $customerId)
+            ->where('image_id', $image->id)
+            ->where('payment_status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if (!$pending) {
+            $pending = ImageAdvertPurchase::create([
+                'customer_id' => $customerId,
+                'image_id' => $image->id,
+                'license_type' => $licenseType,
+                'price_paid' => $price,
+                'currency' => $currency,
+                'payment_status' => 'pending',
+            ]);
+        } else {
+            $pending->update([
+                'license_type' => $licenseType,
+                'price_paid' => $price,
+                'currency' => $currency,
+            ]);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Payment processed successfully',
+            'message' => 'Order created. Complete PayPal to unlock download.',
             'data' => [
-                'image_id' => $image->id,
-                'license_type' => $licenseType,
-                'price' => $price,
-                'currency' => $image->currency,
-                'download_url' => $image->main_image_url,
+                'purchase_id' => $pending->id,
+                'payment_status' => 'pending',
+                'amount' => (float) $pending->price_paid,
+                'currency' => $pending->currency,
+                'title' => $image->title,
+            ],
+        ], 201);
+    }
+
+    public function confirmPurchasePayment(Request $request, int $purchaseId)
+    {
+        if (!Schema::hasTable('image_advert_purchases')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $purchase = ImageAdvertPurchase::findOrFail($purchaseId);
+        if ((int) $purchase->customer_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:255',
+            'payment_method' => 'nullable|string|max:50',
+        ]);
+
+        $image = ImagesAdvert::find($purchase->image_id);
+
+        if ($purchase->payment_status !== 'completed') {
+            $purchase->payment_id = $request->input('payment_id');
+            $purchase->markCompleted($request->input('payment_method', 'paypal'));
+            if ($image) {
+                $image->increment('downloads_count');
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment complete. Download unlocked.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'completed',
+                'download_token' => $purchase->download_token,
+                'download_url' => $image
+                    ? url('/api/v1/images-adverts/'.$image->id.'/download?token='.$purchase->download_token)
+                    : null,
+                'amount' => (float) $purchase->price_paid,
             ],
         ]);
+    }
+
+    /** @deprecated use purchase + confirmPurchasePayment */
+    public function processPayment(Request $request, $id)
+    {
+        return $this->purchase($request, $id);
     }
 
     private function generateUniqueSlug($title, $excludeId = null)

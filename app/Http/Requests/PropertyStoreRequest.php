@@ -31,13 +31,19 @@ class PropertyStoreRequest extends FormRequest
             }
         }
 
-        \Log::info('Property Store Request Data:', [
-            'all' => $this->all(),
-            'input' => $this->input(),
-            'keys' => array_keys($this->all()),
-            'content_type' => $this->header('Content-Type'),
-            'has_file' => $this->hasFile('cover_image'),
-        ]);
+        if ($this->input('category') === 'sell') {
+            $this->merge(['category' => 'buy']);
+        }
+
+        // Decode JSON string fields from multipart FormData
+        foreach (['premium_features', 'security_features', 'amenities'] as $jsonField) {
+            if ($this->has($jsonField) && is_string($this->input($jsonField))) {
+                $decoded = json_decode($this->input($jsonField), true);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $this->merge([$jsonField => $decoded]);
+                }
+            }
+        }
     }
 
     protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
@@ -52,102 +58,84 @@ class PropertyStoreRequest extends FormRequest
 
     public function rules(): array
     {
-        // Temporarily disable validation to test data reception
-        return [];
-        /*
         $rules = [
-            // Basic Information
             'title' => 'required|string|max:255',
             'tagline' => 'nullable|string|max:500',
             'category' => 'required|in:buy,rent,lease,auction,invest',
             'property_type' => 'required|in:residential,commercial,industrial,land,agricultural,luxury,short_term_rental,investment,new_development',
-            'category_id' => 'nullable|exists:ea_categories,id',
-            
-            // Location
+
             'country' => 'required|string|max:100',
             'city' => 'required|string|max:100',
             'region' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:500',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'show_exact_location' => 'boolean',
-            
-            // Residential Specifications
+            'show_exact_location' => 'nullable|boolean',
+
             'bedrooms' => 'nullable|integer|min:0|max:50',
             'bathrooms' => 'nullable|integer|min:0|max:50',
             'property_size' => 'nullable|numeric|min:0|max:999999.99',
-            'size_unit' => 'in:sq_m,sq_ft',
-            'furnished' => 'boolean',
+            'size_unit' => 'nullable|in:sq_m,sq_ft',
+            'furnished' => 'nullable|boolean',
             'parking_spaces' => 'nullable|integer|min:0|max:100',
-            
-            // Commercial Specifications
-            'commercial_type' => 'nullable|in:office,retail,warehouse,industrial,restaurant,showroom',
+
+            'commercial_type' => 'nullable|string|max:100',
             'floor_area' => 'nullable|numeric|min:0|max:999999.99',
-            'footfall_rating' => 'nullable|in:low,medium,high',
-            'accessibility_features' => 'boolean',
-            
-            // Industrial Specifications
+            'footfall_rating' => 'nullable|string|max:50',
+            'accessibility_features' => 'nullable|boolean',
+
             'zoning_type' => 'nullable|string|max:100',
             'warehouse_size' => 'nullable|numeric|min:0|max:999999.99',
             'loading_bays' => 'nullable|integer|min:0|max:100',
-            'power_capacity' => 'nullable|numeric|min:0|max:999999.99',
+            'power_capacity' => 'nullable|string|max:100',
             'ceiling_height' => 'nullable|numeric|min:0|max:99.99',
-            
-            // Land Specifications
+
             'land_size' => 'nullable|numeric|min:0|max:9999999.99',
-            'land_type' => 'nullable|in:residential,commercial,agricultural',
-            'planning_permission' => 'nullable|in:approved,pending,none',
+            'land_type' => 'nullable|string|max:100',
+            'planning_permission' => 'nullable|string|max:100',
             'soil_quality' => 'nullable|string|max:500',
-            
-            // Luxury Specifications
-            'premium_features' => 'nullable|array',
-            'premium_features.*' => 'string|max:100',
-            'security_features' => 'nullable|array',
-            'security_features.*' => 'string|max:100',
-            'view_type' => 'nullable|in:sea,mountain,skyline,garden,pool',
-            
-            // Investment Specifications
+
+            'premium_features' => 'nullable',
+            'security_features' => 'nullable',
+            'view_type' => 'nullable|string|max:100',
+
             'rental_yield' => 'nullable|numeric|min:0|max:100',
             'occupancy_rate' => 'nullable|numeric|min:0|max:100',
             'current_rental_income' => 'nullable|numeric|min:0|max:999999999.99',
             'roi_percentage' => 'nullable|numeric|min:0|max:100',
-            
-            // Pricing
+
             'price' => 'required|numeric|min:0|max:999999999.99',
             'currency' => 'required|string|size:3',
-            'negotiable' => 'boolean',
+            'negotiable' => 'nullable|boolean',
+            'deposit' => 'nullable|numeric|min:0|max:999999999.99',
             'deposit_required' => 'nullable|numeric|min:0|max:999999999.99',
             'service_charges' => 'nullable|numeric|min:0|max:999999.99',
             'maintenance_fees' => 'nullable|numeric|min:0|max:999999.99',
-            
-            // Media
+
             'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'additional_images' => 'array|max:10',
+            'additional_images' => 'nullable|array|max:10',
             'additional_images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'video_tour_link' => 'nullable|url|max:500',
-            
-            // Description
+            'video_tour_link' => 'nullable|string|max:500',
+
             'description' => 'nullable|string|max:10000',
-            'overview' => 'nullable|string|max:1000',
-            'key_features' => 'nullable|string|max:2000',
-            'location_highlights' => 'nullable|string|max:2000',
-            'nearby_amenities' => 'nullable|string|max:2000',
-            'transport_links' => 'nullable|string|max:2000',
-            'additional_notes' => 'nullable|string|max:2000',
-            'amenities' => 'nullable|array',
-            'amenities.*' => 'string|max:100',
-            
-            // Seller/Agent Information
+            'overview' => 'nullable|string|max:5000',
+            'key_features' => 'nullable|string|max:5000',
+            'location_highlights' => 'nullable|string|max:5000',
+            'nearby_amenities' => 'nullable|string|max:5000',
+            'transport_links' => 'nullable|string|max:5000',
+            'additional_notes' => 'nullable|string|max:5000',
+            'amenities' => 'nullable',
+
             'seller_name' => 'required|string|max:255',
             'seller_company' => 'nullable|string|max:255',
             'seller_phone' => 'required|string|max:50',
             'seller_email' => 'required|email|max:255',
-            'seller_website' => 'nullable|url|max:500',
+            'seller_website' => 'nullable|string|max:500',
             'seller_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'verified_agent' => 'boolean',
+            'verified_agent' => 'nullable|boolean',
+            'advert_type' => 'nullable|in:standard,promoted,featured,sponsored',
         ];
 
-        // Conditional validation based on property type
         if ($this->input('property_type') === 'residential') {
             $rules['bedrooms'] = 'required|integer|min:0|max:50';
             $rules['bathrooms'] = 'required|integer|min:0|max:50';
@@ -155,7 +143,7 @@ class PropertyStoreRequest extends FormRequest
         }
 
         if ($this->input('property_type') === 'commercial') {
-            $rules['commercial_type'] = 'required|in:office,retail,warehouse,industrial,restaurant,showroom';
+            $rules['commercial_type'] = 'required|string|max:100';
             $rules['floor_area'] = 'required|numeric|min:0|max:999999.99';
         }
 
@@ -164,9 +152,9 @@ class PropertyStoreRequest extends FormRequest
             $rules['warehouse_size'] = 'required|numeric|min:0|max:999999.99';
         }
 
-        if ($this->input('property_type') === 'land') {
+        if (in_array($this->input('property_type'), ['land', 'agricultural'], true)) {
             $rules['land_size'] = 'required|numeric|min:0|max:9999999.99';
-            $rules['land_type'] = 'required|in:residential,commercial,agricultural';
+            $rules['land_type'] = 'required|string|max:100';
         }
 
         if ($this->input('property_type') === 'investment') {
@@ -175,7 +163,6 @@ class PropertyStoreRequest extends FormRequest
         }
 
         return $rules;
-        */
     }
 
     public function messages(): array

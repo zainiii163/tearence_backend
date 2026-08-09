@@ -26,7 +26,16 @@ class Category extends Model
         'sort_order',
         'parent_id',
         'filter_config',
-        'posting_form_config'
+        'posting_form_config',
+        'icon',
+        'icon_color',
+        'image',
+        'page_title',
+        'page_meta_description',
+    ];
+
+    protected $appends = [
+        'image_url',
     ];
 
     protected $casts = [
@@ -35,6 +44,20 @@ class Category extends Model
         'is_active' => 'boolean',
     ];
 
+    public function getImageUrlAttribute(): ?string
+    {
+        $raw = $this->image ?: null;
+        if ($raw && (str_contains($raw, '/') || str_starts_with($raw, 'http') || preg_match('/\.(jpe?g|png|gif|webp|svg)/i', $raw))) {
+            return \App\Helpers\MediaUrlHelper::resolve($raw);
+        }
+
+        $icon = $this->icon ?: null;
+        if ($icon && (str_contains($icon, '/') || str_starts_with($icon, 'http') || preg_match('/\.(jpe?g|png|gif|webp|svg)/i', $icon))) {
+            return \App\Helpers\MediaUrlHelper::resolve($icon);
+        }
+
+        return null;
+    }
     public function childs() {
         return $this->hasMany(Category::class, 'parent_id', 'category_id') ;
     }

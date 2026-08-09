@@ -144,6 +144,11 @@ class ResortsTravel extends Model
         return $this->belongsTo(ResortsTravelCategory::class, 'category_id');
     }
 
+    public function bookings()
+    {
+        return $this->hasMany(TravelBooking::class, 'advert_id');
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

@@ -20,12 +20,80 @@ class VehiclesAdvertController extends Controller
         $query = Vehicle::query()->published();
 
         // Filters - only apply if not empty
-        if ($request->filled('vehicle_type')) {
-            // vehicles table doesn't have vehicle_type, skip this filter
+        if ($request->filled('category_id')) {
+            $query->where('category_id', (int) $request->category_id);
         }
 
-        if ($request->filled('category')) {
-            $query->where('advert_type', $request->category);
+        if ($request->filled('category_slug')) {
+            $slug = $request->category_slug;
+            $query->whereHas('category', function ($q) use ($slug) {
+                $q->where('slug', $slug);
+            });
+        }
+
+        // Legacy param from older UI — map type key / slug onto vehicle_categories
+        if ($request->filled('vehicle_type') && !$request->filled('category_id') && !$request->filled('category_slug')) {
+            $type = strtolower(trim((string) $request->vehicle_type));
+            $slugAliases = [
+                'car' => 'cars',
+                'cars' => 'cars',
+                'van' => 'vans',
+                'vans' => 'vans',
+                'motorbike' => 'motorcycles',
+                'motorcycle' => 'motorcycles',
+                'motorcycles' => 'motorcycles',
+                'motorbikes' => 'motorcycles',
+                'truck' => 'trucks',
+                'trucks' => 'trucks',
+                'trucks-lorries' => 'trucks',
+                'bus' => 'buses-coaches',
+                'buses' => 'buses-coaches',
+                'coach' => 'buses-coaches',
+                'buses-coaches' => 'buses-coaches',
+                'electric_vehicle' => 'electric-vehicles',
+                'electric-vehicles' => 'electric-vehicles',
+                'classic_car' => 'classic-cars',
+                'classic-cars' => 'classic-cars',
+                'luxury_vehicle' => 'luxury-exotic',
+                'luxury-exotic' => 'luxury-exotic',
+                'caravan' => 'caravans-motorhomes',
+                'motorhome' => 'caravans-motorhomes',
+                'caravans-motorhomes' => 'caravans-motorhomes',
+                'boat' => 'boats-jet-skis',
+                'boats' => 'boats-jet-skis',
+                'jet_ski' => 'boats-jet-skis',
+                'boats-jet-skis' => 'boats-jet-skis',
+                'boats-marine' => 'boats-jet-skis',
+                'agricultural' => 'agricultural-vehicles',
+                'agricultural-vehicles' => 'agricultural-vehicles',
+                'construction' => 'construction-vehicles',
+                'construction-vehicles' => 'construction-vehicles',
+                'other' => 'other',
+            ];
+            $slug = $slugAliases[$type] ?? $type;
+            $category = \App\Models\VehicleCategory::query()
+                ->where(function ($q) use ($slug, $type) {
+                    $q->where('slug', $slug)
+                        ->orWhere('slug', $type)
+                        ->orWhereRaw('LOWER(name) = ?', [str_replace(['_', '-'], ' ', $type)]);
+                })
+                ->first();
+            if ($category) {
+                $query->where('category_id', $category->id);
+            } else {
+                // No matching category — return empty rather than all vehicles
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if ($request->filled('category') && !$request->filled('category_id')) {
+            // advert_type (sale/rent) when numeric category not intended
+            $cat = $request->category;
+            if (is_numeric($cat)) {
+                $query->where('category_id', (int) $cat);
+            } else {
+                $query->where('advert_type', $cat);
+            }
         }
 
         if ($request->filled('country')) {
@@ -190,7 +258,8 @@ class VehiclesAdvertController extends Controller
      */
     public function show($id)
     {
-        $vehicle = Vehicle::where('id', $id)
+        $vehicle = Vehicle::with(['category', 'make', 'vehicleModel', 'user', 'business'])
+            ->where('id', $id)
             ->published()
             ->first();
 
@@ -201,23 +270,38 @@ class VehiclesAdvertController extends Controller
             ], 404);
         }
 
-        // Increment view count
         $vehicle->increment('views');
+
+        // Related listings in same category
+        $related = Vehicle::with(['category', 'make', 'vehicleModel'])
+            ->published()
+            ->where('id', '!=', $vehicle->id)
+            ->when($vehicle->category_id, fn ($q) => $q->where('category_id', $vehicle->category_id))
+            ->latest()
+            ->limit(6)
+            ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $vehicle,
+            'data' => new \App\Http\Resources\VehicleResource($vehicle),
+            'related' => \App\Http\Resources\VehicleResource::collection($related),
         ]);
     }
 
     /**
-     * Display vehicle by slug.
+     * Display vehicle by slug or numeric id (legacy links).
      */
     public function showBySlug($slug)
     {
-        $vehicle = Vehicle::where('slug', $slug)
-            ->published()
-            ->first();
+        $query = Vehicle::with(['category', 'make', 'vehicleModel', 'user', 'business'])
+            ->published();
+
+        if (is_numeric($slug)) {
+            $vehicle = (clone $query)->where('id', (int) $slug)->first();
+        } else {
+            // vehicles table may not have slug — try title slug match via id only when numeric
+            $vehicle = null;
+        }
 
         if (!$vehicle) {
             return response()->json([
@@ -226,12 +310,11 @@ class VehiclesAdvertController extends Controller
             ], 404);
         }
 
-        // Increment view count
         $vehicle->increment('views');
 
         return response()->json([
             'success' => true,
-            'data' => $vehicle,
+            'data' => new \App\Http\Resources\VehicleResource($vehicle),
         ]);
     }
 
@@ -472,11 +555,12 @@ class VehiclesAdvertController extends Controller
             ], 404);
         }
 
-        $vehicle->increment('save_count');
+        $vehicle->incrementSaves();
 
         return response()->json([
             'success' => true,
             'message' => 'Vehicle advert saved successfully',
+            'saves' => $vehicle->fresh()->saves,
         ]);
     }
 
@@ -534,14 +618,24 @@ class VehiclesAdvertController extends Controller
             ], 404);
         }
 
-        $vehicle->increment('contact_count');
+        $vehicle->incrementEnquiries();
 
-        // Here you would send an email notification to the seller
-        // For now, just return success
+        try {
+            \App\Models\VehicleEnquiry::create([
+                'vehicle_id' => $vehicle->id,
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'message' => $request->message,
+                'status' => 'new',
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Vehicle enquiry create failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Contact message sent successfully',
+            'message' => 'Your message was sent to the seller',
         ]);
     }
 
@@ -627,44 +721,53 @@ class VehiclesAdvertController extends Controller
     }
 
     /**
-     * Get vehicle types from database.
+     * Get vehicle types — sourced from active DB categories (Filament / seeder).
      */
     public function getVehicleTypes()
-    {
-        // Return the allowed vehicle types from validation rules
-        $vehicleTypes = [
-            'car' => 'Cars',
-            'van' => 'Vans',
-            'motorbike' => 'Motorcycles',
-            'truck' => 'Trucks',
-            'bus' => 'Buses',
-            'coach' => 'Coaches',
-            'electric_vehicle' => 'Electric Vehicles',
-            'classic_car' => 'Classic Cars',
-            'luxury_vehicle' => 'Luxury Vehicles',
-            'caravan' => 'Caravans',
-            'motorhome' => 'Motorhomes',
-            'boat' => 'Boats',
-            'jet_ski' => 'Jet Skis',
-            'agricultural' => 'Agricultural Vehicles',
-            'construction' => 'Construction Vehicles',
-            'other' => 'Other'
-        ];
-        
-        return response()->json(['data' => $vehicleTypes]);
-    }
-
-    /**
-     * Get vehicle categories from database (for form - array format).
-     */
-    public function getCategories()
     {
         $categories = \App\Models\VehicleCategory::where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name']);
-        
-        return response()->json(['data' => $categories->toArray()]);
+            ->get(['slug', 'name']);
+
+        $vehicleTypes = [];
+        foreach ($categories as $category) {
+            $vehicleTypes[$category->slug] = $category->name;
+        }
+
+        return response()->json(['data' => $vehicleTypes]);
+    }
+
+    /**
+     * Get vehicle categories from database (for form / browse grid).
+     */
+    public function getCategories()
+    {
+        $categories = \App\Models\VehicleCategory::where('is_active', true)
+            ->withCount(['vehicles' => function ($query) {
+                $query->published();
+            }])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $rows = $categories->map(function ($category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'image' => $category->image,
+                'image_url' => $category->image
+                    ? asset('storage/' . ltrim($category->image, '/'))
+                    : null,
+                'icon' => $category->icon,
+                'vehicles_count' => $category->vehicles_count,
+                'sort_order' => $category->sort_order,
+            ];
+        })->values();
+
+        return response()->json(['data' => $rows]);
     }
 
     /**
@@ -675,13 +778,13 @@ class VehiclesAdvertController extends Controller
         $categories = \App\Models\VehicleCategory::where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['slug', 'name']);
-        
+            ->get(['id', 'slug', 'name']);
+
         $formatted = [];
         foreach ($categories as $category) {
             $formatted[$category->slug] = $category->name;
         }
-        
+
         return response()->json(['data' => $formatted]);
     }
 

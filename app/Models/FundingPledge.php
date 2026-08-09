@@ -11,7 +11,7 @@ class FundingPledge extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'customer_id',
         'funding_project_id',
         'funding_reward_id',
         'amount',
@@ -30,9 +30,15 @@ class FundingPledge extends Model
         'completed_at' => 'datetime',
     ];
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    /** @deprecated Prefer customer() */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->customer();
     }
 
     public function fundingProject(): BelongsTo

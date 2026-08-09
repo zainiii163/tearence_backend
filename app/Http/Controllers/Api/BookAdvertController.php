@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
 use App\Models\Book;
+use App\Models\BookAdvertPurchase;
 use App\Models\AdPricingPlan;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class BookAdvertController extends Controller
@@ -212,9 +215,42 @@ class BookAdvertController extends Controller
         // Increment view count
         $book->incrementViews();
 
+        $payload = $book->toArray();
+        $payload['is_purchased'] = false;
+        $payload['purchase'] = null;
+
+        $viewerId = null;
+        try {
+            if (request()->bearerToken()) {
+                $viewerId = \Tymon\JWTAuth\Facades\JWTAuth::parseToken()->authenticate()?->getAuthIdentifier();
+            }
+        } catch (\Throwable $e) {
+            $viewerId = null;
+        }
+
+        if ($viewerId && Schema::hasTable('book_advert_purchases')) {
+            $owned = BookAdvertPurchase::where('customer_id', $viewerId)
+                ->where('book_id', $book->id)
+                ->where('payment_status', 'completed')
+                ->latest('id')
+                ->first();
+            if ($owned) {
+                $payload['is_purchased'] = true;
+                $payload['purchase'] = [
+                    'purchase_id' => $owned->id,
+                    'format' => $owned->format,
+                    'download_token' => $owned->isDownloadValid() ? $owned->download_token : null,
+                    'download_url' => $owned->isDownloadValid()
+                        ? url('/api/v1/books-adverts/purchases/download/'.$owned->download_token)
+                        : null,
+                    'expires_at' => $owned->download_token_expires_at,
+                ];
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $book
+            'data' => $payload
         ]);
     }
 
@@ -428,6 +464,245 @@ class BookAdvertController extends Controller
             'success' => true,
             'data' => $books,
             'genre' => $genre
+        ]);
+    }
+
+    /**
+     * Start book purchase (reader buys the listing). PayPal confirm unlocks order.
+     */
+    public function purchase(Request $request, $id): JsonResponse
+    {
+        if (!Schema::hasTable('book_advert_purchases')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: book_advert_purchases table missing.',
+            ], 503);
+        }
+
+        $book = Book::active()->findOrFail($id);
+        $customerId = Auth::id();
+
+        if ((int) $book->user_id === (int) $customerId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot purchase your own book listing.',
+            ], 422);
+        }
+
+        $format = $request->input('format', $book->format);
+        $price = (float) ($book->price ?? 0);
+        $currency = strtoupper($book->currency ?: 'USD');
+
+        $existing = BookAdvertPurchase::where('customer_id', $customerId)
+            ->where('book_id', $book->id)
+            ->where('payment_status', 'completed')
+            ->latest('id')
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already purchased.',
+                'data' => [
+                    'purchase_id' => $existing->id,
+                    'payment_status' => 'completed',
+                    'amount' => (float) $existing->price_paid,
+                    'currency' => $existing->currency,
+                    'format' => $existing->format,
+                    'fulfillment' => in_array($existing->format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+                    'download_token' => $existing->isDownloadValid() ? $existing->download_token : null,
+                    'download_url' => $existing->isDownloadValid()
+                        ? url('/api/v1/books-adverts/purchases/download/'.$existing->download_token)
+                        : null,
+                    'seller_email' => $book->user?->email,
+                ],
+            ]);
+        }
+
+        // Free books — complete immediately
+        if ($price <= 0) {
+            $purchase = BookAdvertPurchase::create([
+                'customer_id' => $customerId,
+                'book_id' => $book->id,
+                'book_slug' => $book->slug,
+                'title' => $book->title,
+                'format' => $format,
+                'price_paid' => 0,
+                'currency' => $currency,
+                'payment_status' => 'completed',
+                'payment_method' => 'free',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Book claimed successfully.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'completed',
+                    'amount' => 0,
+                    'currency' => $currency,
+                    'format' => $format,
+                    'fulfillment' => in_array($format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+                    'download_token' => $purchase->download_token,
+                    'download_url' => url('/api/v1/books-adverts/purchases/download/'.$purchase->download_token),
+                    'seller_email' => $book->user?->email,
+                ],
+            ]);
+        }
+
+        $pending = BookAdvertPurchase::where('customer_id', $customerId)
+            ->where('book_id', $book->id)
+            ->where('payment_status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if (!$pending) {
+            $pending = BookAdvertPurchase::create([
+                'customer_id' => $customerId,
+                'book_id' => $book->id,
+                'book_slug' => $book->slug,
+                'title' => $book->title,
+                'format' => $format,
+                'price_paid' => $price,
+                'currency' => $currency,
+                'payment_status' => 'pending',
+            ]);
+        } else {
+            $pending->update([
+                'format' => $format,
+                'price_paid' => $price,
+                'currency' => $currency,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order created. Complete PayPal payment to finish your purchase.',
+            'data' => [
+                'purchase_id' => $pending->id,
+                'payment_status' => 'pending',
+                'amount' => (float) $pending->price_paid,
+                'currency' => $pending->currency,
+                'title' => $pending->title,
+                'format' => $pending->format,
+                'fulfillment' => in_array($pending->format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+            ],
+        ], 201);
+    }
+
+    /**
+     * Confirm PayPal payment for a book purchase.
+     */
+    public function confirmPurchasePayment(Request $request, int $purchaseId): JsonResponse
+    {
+        if (!Schema::hasTable('book_advert_purchases')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $purchase = BookAdvertPurchase::find($purchaseId);
+        if (!$purchase || (int) $purchase->customer_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $book = Book::with('user')->find($purchase->book_id);
+
+        if ($purchase->payment_status === 'completed') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid.',
+                'data' => [
+                    'purchase_id' => $purchase->id,
+                    'payment_status' => 'completed',
+                    'format' => $purchase->format,
+                    'fulfillment' => in_array($purchase->format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+                    'download_token' => $purchase->isDownloadValid() ? $purchase->download_token : null,
+                    'download_url' => $purchase->isDownloadValid()
+                        ? url('/api/v1/books-adverts/purchases/download/'.$purchase->download_token)
+                        : null,
+                    'seller_email' => $book?->user?->email,
+                    'seller_name' => $book?->author_name,
+                ],
+            ]);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:255',
+            'payment_method' => 'nullable|string|max:50',
+        ]);
+
+        $purchase->payment_id = $request->input('payment_id');
+        $purchase->markCompleted($request->input('payment_method', 'paypal'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment complete. Your book order is confirmed.',
+            'data' => [
+                'purchase_id' => $purchase->id,
+                'payment_status' => 'completed',
+                'format' => $purchase->format,
+                'fulfillment' => in_array($purchase->format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+                'download_token' => $purchase->download_token,
+                'download_url' => url('/api/v1/books-adverts/purchases/download/'.$purchase->download_token),
+                'seller_email' => $book?->user?->email,
+                'seller_name' => $book?->author_name,
+                'amount' => (float) $purchase->price_paid,
+                'currency' => $purchase->currency,
+            ],
+        ]);
+    }
+
+    /**
+     * Download digital book content after purchase (sample/ebook files).
+     */
+    public function downloadPurchase(string $token)
+    {
+        if (!Schema::hasTable('book_advert_purchases')) {
+            abort(404);
+        }
+
+        $purchase = BookAdvertPurchase::where('download_token', $token)->first();
+        if (!$purchase || !$purchase->isDownloadValid()) {
+            return response()->json(['success' => false, 'message' => 'Download unavailable or expired'], 403);
+        }
+
+        $book = Book::find($purchase->book_id);
+        if (!$book) {
+            return response()->json(['success' => false, 'message' => 'Book not found'], 404);
+        }
+
+        $purchase->increment('download_attempts');
+
+        $samples = is_array($book->sample_files) ? $book->sample_files : [];
+        if (!empty($samples)) {
+            $first = $samples[0];
+            $path = is_array($first) ? ($first['path'] ?? null) : $first;
+            if ($path && Storage::disk('public')->exists($path)) {
+                $name = is_array($first) ? ($first['name'] ?? basename($path)) : basename($path);
+                return Storage::disk('public')->download($path, $name);
+            }
+        }
+
+        // Receipt / order confirmation when no digital file is attached
+        $lines = [
+            'World Wide Adverts — Book Order Receipt',
+            '=======================================',
+            'Order ID: '.$purchase->id,
+            'Title: '.$book->title,
+            'Author: '.$book->author_name,
+            'Format: '.$purchase->format,
+            'Paid: '.$purchase->currency.' '.$purchase->price_paid,
+            'Status: '.$purchase->payment_status,
+            'Purchased: '.$purchase->updated_at,
+            '',
+            in_array($purchase->format, ['ebook', 'audiobook'], true)
+                ? 'Digital fulfillment: contact the seller if a file was not attached to this listing.'
+                : 'Physical fulfillment: the seller will arrange shipping. Contact them with this order ID.',
+            'Seller email: '.($book->user?->email ?? 'n/a'),
+        ];
+
+        return response($content = implode("\n", $lines), 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="book-order-'.$purchase->id.'.txt"',
         ]);
     }
 

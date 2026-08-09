@@ -42,8 +42,10 @@ class JobController extends Controller
 
         // Location filter
         if ($request->location) {
-            $query->where('city', 'LIKE', "%{$request->location}%")
+            $query->where(function ($q) use ($request) {
+                $q->where('city', 'LIKE', "%{$request->location}%")
                   ->orWhere('country', 'LIKE', "%{$request->location}%");
+            });
         }
 
         // Category filter
@@ -118,17 +120,7 @@ class JobController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $query = Job::with(['category', 'user'])
-            ->active()
-            ->notExpired();
-
-        if (ctype_digit((string) $id)) {
-            $query->where('id', (int) $id);
-        } else {
-            $query->where('slug', $id);
-        }
-
-        $job = $query->first();
+        $job = Job::findPublic($id);
 
         if (!$job) {
             return response()->json([
@@ -147,9 +139,23 @@ class JobController extends Controller
             // Ignore view tracking errors
         }
 
+        $payload = $job->toArray();
+        $viewerId = Auth::id();
+        if (! $viewerId) {
+            try {
+                $viewerId = \Tymon\JWTAuth\Facades\JWTAuth::parseToken()->authenticate()?->getAuthIdentifier();
+            } catch (\Throwable $e) {
+                $viewerId = null;
+            }
+        }
+        if ($viewerId) {
+            $payload['has_applied'] = $job->hasAppliedByUser($viewerId);
+            $payload['is_saved'] = $job->isSavedByUser($viewerId);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $job,
+            'data' => $payload,
         ]);
     }
 
@@ -629,7 +635,7 @@ class JobController extends Controller
      */
     public function saveJob($id): JsonResponse
     {
-        $job = Job::active()->notExpired()->find($id);
+        $job = Job::findPublic($id);
 
         if (!$job) {
             return response()->json([
@@ -641,13 +647,14 @@ class JobController extends Controller
             ], 404);
         }
 
-        $isSaved = JobSave::isSaved($id, Auth::id());
+        $jobId = (int) $job->id;
+        $isSaved = JobSave::isSaved($jobId, Auth::id());
 
         if ($isSaved) {
-            JobSave::unsaveJob($id, Auth::id());
+            JobSave::unsaveJob($jobId, Auth::id());
             $message = 'Job removed from saved jobs';
         } else {
-            JobSave::saveJob($id, Auth::id());
+            JobSave::saveJob($jobId, Auth::id());
             $message = 'Job saved successfully';
         }
 

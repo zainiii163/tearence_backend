@@ -25,8 +25,16 @@ class PromoPricingPlanResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Select::make('vertical')
+                ->options(PromoPricingPlan::VERTICALS)
+                ->default('all')
+                ->required()
+                ->helperText('Choose which marketplace form this plan appears on. “All verticals” is the fallback.'),
             Forms\Components\TextInput::make('name')->required()->maxLength(255),
-            Forms\Components\TextInput::make('slug')->required()->unique(ignoreRecord: true)->maxLength(255),
+            Forms\Components\TextInput::make('slug')
+                ->required()
+                ->maxLength(255)
+                ->helperText('Unique per vertical, e.g. promoted / featured / sponsored'),
             Forms\Components\Select::make('tier')
                 ->options([
                     'paid' => 'Paid',
@@ -38,8 +46,12 @@ class PromoPricingPlanResource extends Resource
             Forms\Components\TextInput::make('price_usd')->numeric()->required()->prefix('$')->step(0.01),
             Forms\Components\TextInput::make('duration_days')->numeric()->required()->suffix('days'),
             Forms\Components\Textarea::make('description')->columnSpanFull(),
-            Forms\Components\TagsInput::make('features'),
+            Forms\Components\TagsInput::make('features')
+                ->helperText('Shown as bullet points on the post form'),
             Forms\Components\Toggle::make('is_active')->default(true),
+            Forms\Components\Toggle::make('is_popular')
+                ->label('Most popular badge')
+                ->default(false),
             Forms\Components\TextInput::make('sort_order')->numeric()->default(0),
         ])->columns(2);
     }
@@ -48,14 +60,30 @@ class PromoPricingPlanResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('vertical')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => PromoPricingPlan::VERTICALS[$state] ?? $state)
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('tier')->badge(),
                 Tables\Columns\TextColumn::make('price_usd')->money('USD'),
                 Tables\Columns\TextColumn::make('duration_days')->suffix(' days'),
+                Tables\Columns\IconColumn::make('is_popular')->boolean()->label('Popular'),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
                 Tables\Columns\TextColumn::make('sort_order')->sortable(),
             ])
             ->defaultSort('sort_order')
+            ->filters([
+                Tables\Filters\SelectFilter::make('vertical')
+                    ->options(PromoPricingPlan::VERTICALS),
+                Tables\Filters\SelectFilter::make('tier')
+                    ->options([
+                        'paid' => 'Paid',
+                        'promoted' => 'Promoted',
+                        'featured' => 'Featured',
+                        'sponsored' => 'Sponsored',
+                    ]),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])

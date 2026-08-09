@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\VehicleCategory;
-use Illuminate\Support\Facades\DB;
+use App\Models\Vehicle;
 
 class VehicleCategorySeeder extends Seeder
 {
@@ -16,7 +16,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'cars',
                 'description' => 'Passenger vehicles including sedans, hatchbacks, SUVs, and more',
                 'icon' => 'car',
-                'image' => 'categories/cars.jpg',
                 'is_active' => true,
                 'sort_order' => 1,
             ],
@@ -25,25 +24,22 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'vans',
                 'description' => 'Commercial and passenger vans for business and personal use',
                 'icon' => 'van',
-                'image' => 'categories/vans.jpg',
                 'is_active' => true,
                 'sort_order' => 2,
             ],
             [
-                'name' => 'Motorbikes',
-                'slug' => 'motorbikes',
+                'name' => 'Motorcycles',
+                'slug' => 'motorcycles',
                 'description' => 'Motorcycles, scooters, and other two-wheeled vehicles',
                 'icon' => 'motorbike',
-                'image' => 'categories/motorbikes.jpg',
                 'is_active' => true,
                 'sort_order' => 3,
             ],
             [
-                'name' => 'Trucks & Lorries',
-                'slug' => 'trucks-lorries',
+                'name' => 'Trucks',
+                'slug' => 'trucks',
                 'description' => 'Heavy duty trucks and lorries for commercial use',
                 'icon' => 'truck',
-                'image' => 'categories/trucks.jpg',
                 'is_active' => true,
                 'sort_order' => 4,
             ],
@@ -52,7 +48,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'buses-coaches',
                 'description' => 'Passenger buses and coaches for public and private transport',
                 'icon' => 'bus',
-                'image' => 'categories/buses.jpg',
                 'is_active' => true,
                 'sort_order' => 5,
             ],
@@ -61,7 +56,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'electric-vehicles',
                 'description' => 'Electric and hybrid vehicles for eco-friendly transportation',
                 'icon' => 'electric-car',
-                'image' => 'categories/electric.jpg',
                 'is_active' => true,
                 'sort_order' => 6,
             ],
@@ -70,7 +64,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'classic-cars',
                 'description' => 'Vintage and classic collector vehicles',
                 'icon' => 'classic-car',
-                'image' => 'categories/classic.jpg',
                 'is_active' => true,
                 'sort_order' => 7,
             ],
@@ -79,7 +72,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'luxury-exotic',
                 'description' => 'Premium luxury and exotic sports cars',
                 'icon' => 'luxury-car',
-                'image' => 'categories/luxury.jpg',
                 'is_active' => true,
                 'sort_order' => 8,
             ],
@@ -88,7 +80,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'caravans-motorhomes',
                 'description' => 'Recreational vehicles for camping and travel',
                 'icon' => 'caravan',
-                'image' => 'categories/caravans.jpg',
                 'is_active' => true,
                 'sort_order' => 9,
             ],
@@ -97,7 +88,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'boats-jet-skis',
                 'description' => 'Water vehicles including boats, yachts, and jet skis',
                 'icon' => 'boat',
-                'image' => 'categories/boats.jpg',
                 'is_active' => true,
                 'sort_order' => 10,
             ],
@@ -106,7 +96,6 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'agricultural-vehicles',
                 'description' => 'Farm and agricultural machinery',
                 'icon' => 'tractor',
-                'image' => 'categories/agricultural.jpg',
                 'is_active' => true,
                 'sort_order' => 11,
             ],
@@ -115,14 +104,36 @@ class VehicleCategorySeeder extends Seeder
                 'slug' => 'construction-vehicles',
                 'description' => 'Heavy construction and industrial vehicles',
                 'icon' => 'excavator',
-                'image' => 'categories/construction.jpg',
                 'is_active' => true,
                 'sort_order' => 12,
             ],
         ];
 
+        $keepSlugs = [];
         foreach ($categories as $category) {
-            VehicleCategory::create($category);
+            $keepSlugs[] = $category['slug'];
+            VehicleCategory::updateOrCreate(
+                ['slug' => $category['slug']],
+                $category
+            );
         }
+
+        // Also keep legacy "motorbikes" slug as alias of motorcycles if present
+        VehicleCategory::where('slug', 'motorbikes')->update([
+            'is_active' => true,
+            'name' => 'Motorcycles',
+            'sort_order' => 3,
+        ]);
+
+        // Deactivate junk / test categories that aren't in the canonical list
+        VehicleCategory::whereNotIn('slug', array_merge($keepSlugs, ['motorbikes']))
+            ->update(['is_active' => false]);
+
+        // Demo sample should not appear as Featured
+        Vehicle::where('title', 'Sample Toyota Corolla')->update([
+            'is_featured' => false,
+            'is_promoted' => false,
+            'is_sponsored' => false,
+        ]);
     }
 }

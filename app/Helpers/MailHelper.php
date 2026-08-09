@@ -44,14 +44,24 @@ class MailHelper
         Log::info("Send welcome email to : " . $user->email);
     }
 
-    public static function sendForgotPasswordEmail($user, $password) 
+    public static function sendForgotPasswordEmail($user, $resetUrl)
     {
-        try{
-            Mail::to($user->email)->send(new ForgotPasswordMail($user->first_name . ' ' .$user->last_name, $password));
+        try {
+            \App\Jobs\SendQueuedMailable::dispatch(
+                $user->email,
+                new ForgotPasswordMail($user->first_name.' '.$user->last_name, $resetUrl)
+            );
         } catch (\Exception $e) {
-            Log::warning("Email reset password not sent. error: " . $e->getMessage());
+            Log::warning('Email reset password not sent. error: '.$e->getMessage());
+            try {
+                Mail::to($user->email)->send(
+                    new ForgotPasswordMail($user->first_name.' '.$user->last_name, $resetUrl)
+                );
+            } catch (\Exception $inner) {
+                Log::warning('Email reset password sync fallback failed: '.$inner->getMessage());
+            }
         }
- 
-        Log::info("Send forgot password email to : " . $user->email);
+
+        Log::info('Send forgot password reset link to : '.$user->email);
     }
 }

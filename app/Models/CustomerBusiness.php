@@ -66,6 +66,9 @@ class CustomerBusiness extends Model
         if (!$value) {
             return null;
         }
+        if (is_string($value) && (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:'))) {
+            return $value;
+        }
         $fileUpload = new FileUploadHelper();
         $path = str_replace("/uploads/images/business", "", $value);
         return $fileUpload->getFile($path, 'business');

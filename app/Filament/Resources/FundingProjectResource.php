@@ -28,9 +28,13 @@ class FundingProjectResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Project Type & Basic Information')
                     ->schema([
-                        Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
+                        Forms\Components\Select::make('customer_id')
+                            ->label('Creator (customer)')
+                            ->relationship('customer', 'email')
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) . ' (' . $record->email . ')'
+                            )
+                            ->searchable(['first_name', 'last_name', 'email'])
                             ->preload()
                             ->required(),
                         Forms\Components\Select::make('project_type')
@@ -422,6 +426,13 @@ class FundingProjectResource extends Resource
             ->emptyStateActions([
                 Tables\Actions\CreateAction::make(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Resources\FundingProjectResource\RelationManagers\RewardsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -47,6 +47,7 @@ class BookAdvertResource extends Resource
 
                         Forms\Components\Textarea::make('description')
                             ->required()
+                            ->minLength(50)
                             ->columnSpanFull(),
 
                         Forms\Components\Textarea::make('short_description')
@@ -70,9 +71,26 @@ class BookAdvertResource extends Resource
                                 'other' => 'Other',
                             ]),
 
-                        Forms\Components\TextInput::make('genre')
+                        Forms\Components\Select::make('genre')
                             ->required()
-                            ->maxLength(100),
+                            ->searchable()
+                            ->options([
+                                'Fiction' => 'Fiction',
+                                'Non-Fiction' => 'Non-Fiction',
+                                'Romance' => 'Romance',
+                                'Mystery' => 'Mystery',
+                                'Sci-Fi' => 'Sci-Fi',
+                                'Biography' => 'Biography',
+                                'History' => 'History',
+                                'Self-Help' => 'Self-Help',
+                                'Business' => 'Business',
+                                'Programming' => 'Programming',
+                                'Fantasy' => 'Fantasy',
+                                'Thriller' => 'Thriller',
+                                'Education' => 'Education',
+                                'Textbook' => 'Textbook',
+                                'Children' => 'Children',
+                            ]),
 
                         Forms\Components\TextInput::make('author_name')
                             ->required()
@@ -122,13 +140,42 @@ class BookAdvertResource extends Resource
                             ])
                             ->default('USD'),
 
-                        Forms\Components\TextInput::make('country')
+                        Forms\Components\Select::make('country')
                             ->required()
-                            ->maxLength(100),
+                            ->searchable()
+                            ->options([
+                                'US' => 'United States',
+                                'GB' => 'United Kingdom',
+                                'CA' => 'Canada',
+                                'AU' => 'Australia',
+                                'DE' => 'Germany',
+                                'FR' => 'France',
+                                'IT' => 'Italy',
+                                'ES' => 'Spain',
+                                'NL' => 'Netherlands',
+                                'IN' => 'India',
+                                'JP' => 'Japan',
+                                'CN' => 'China',
+                                'BR' => 'Brazil',
+                                'MX' => 'Mexico',
+                                'ZA' => 'South Africa',
+                                'AE' => 'United Arab Emirates',
+                                'PK' => 'Pakistan',
+                                'NG' => 'Nigeria',
+                                'KE' => 'Kenya',
+                            ]),
 
-                        Forms\Components\TextInput::make('language')
+                        Forms\Components\Select::make('language')
                             ->required()
-                            ->maxLength(10)
+                            ->options([
+                                'English' => 'English',
+                                'Spanish' => 'Spanish',
+                                'French' => 'French',
+                                'German' => 'German',
+                                'Arabic' => 'Arabic',
+                                'Chinese' => 'Chinese',
+                                'Japanese' => 'Japanese',
+                            ])
                             ->default('English'),
                     ])
                     ->columns(2),

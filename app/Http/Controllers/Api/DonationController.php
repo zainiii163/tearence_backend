@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Donation;
+use App\Models\DonationContribution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -312,6 +315,125 @@ class DonationController extends Controller
                 'total_donors' => $totalDonors,
                 'average_progress' => $totalGoal > 0 ? round(($totalRaised / $totalGoal) * 100, 2) : 0,
             ]
+        ]);
+    }
+
+    /**
+     * Start a donation pledge (PayPal confirms next).
+     */
+    public function startDonate(Request $request, $id)
+    {
+        if (!Schema::hasTable('donation_contributions')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations: donation_contributions missing.',
+            ], 503);
+        }
+
+        $donation = Donation::active()->findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:1|max:999999',
+            'donor_name' => 'nullable|string|max:255',
+            'donor_email' => 'nullable|email|max:255',
+            'message' => 'nullable|string|max:500',
+            'is_anonymous' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $userId = $this->authUserId();
+        $contribution = DonationContribution::create([
+            'donation_id' => $donation->id,
+            'customer_id' => $userId,
+            'donor_name' => $request->boolean('is_anonymous')
+                ? 'Anonymous'
+                : ($request->input('donor_name') ?: 'Supporter'),
+            'donor_email' => $request->input('donor_email'),
+            'amount' => $request->input('amount'),
+            'currency' => $donation->currency ?: 'USD',
+            'is_anonymous' => $request->boolean('is_anonymous'),
+            'message' => $request->input('message'),
+            'payment_status' => 'pending',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Donation started. Complete PayPal payment to confirm.',
+            'data' => [
+                'contribution_id' => $contribution->id,
+                'donation_id' => $donation->id,
+                'amount' => (float) $contribution->amount,
+                'currency' => $contribution->currency,
+                'payment_status' => 'pending',
+                'title' => $donation->title,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Confirm PayPal payment and credit the campaign.
+     */
+    public function confirmDonate(Request $request, $contributionId)
+    {
+        if (!Schema::hasTable('donation_contributions')) {
+            return response()->json(['success' => false, 'message' => 'Not available'], 503);
+        }
+
+        $contribution = DonationContribution::findOrFail($contributionId);
+        $userId = $this->authUserId();
+
+        if ($contribution->customer_id && $userId && (int) $contribution->customer_id !== (int) $userId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:255',
+            'payment_method' => 'nullable|string|max:50',
+        ]);
+
+        if ($contribution->payment_status === 'completed') {
+            $donation = Donation::find($contribution->donation_id);
+            return response()->json([
+                'success' => true,
+                'message' => 'Already confirmed.',
+                'data' => [
+                    'contribution_id' => $contribution->id,
+                    'payment_status' => 'completed',
+                    'donation' => $donation,
+                ],
+            ]);
+        }
+
+        DB::transaction(function () use ($contribution, $request) {
+            $contribution->payment_status = 'completed';
+            $contribution->payment_method = $request->input('payment_method', 'paypal');
+            $contribution->payment_id = $request->input('payment_id');
+            $contribution->save();
+
+            $donation = Donation::lockForUpdate()->findOrFail($contribution->donation_id);
+            $donation->current_amount = (float) $donation->current_amount + (float) $contribution->amount;
+            $donation->donor_count = (int) $donation->donor_count + 1;
+            $donation->save();
+        });
+
+        $donation = Donation::find($contribution->donation_id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Thank you! Your donation is confirmed.',
+            'data' => [
+                'contribution_id' => $contribution->id,
+                'payment_status' => 'completed',
+                'amount' => (float) $contribution->amount,
+                'currency' => $contribution->currency,
+                'donation' => $donation,
+            ],
         ]);
     }
 }

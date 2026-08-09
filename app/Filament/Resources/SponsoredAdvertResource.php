@@ -138,6 +138,9 @@ class SponsoredAdvertResource extends Resource
                             ->maxLength(255),
                         Forms\Components\TextInput::make('business_name')
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('company_number')
+                            ->label('Company registration number')
+                            ->maxLength(100),
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->maxLength(50),

@@ -16,7 +16,7 @@ class JobApplicationController extends Controller
      */
     public function apply(Request $request, $jobId): JsonResponse
     {
-        $job = Job::active()->notExpired()->find($jobId);
+        $job = Job::findPublic($jobId);
 
         if (!$job) {
             return response()->json([
@@ -28,8 +28,18 @@ class JobApplicationController extends Controller
             ], 404);
         }
 
+        $resolvedJobId = (int) $job->id;
+        $userId = Auth::id();
+
+        if (! $userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+            ], 401);
+        }
+
         // Check if user has already applied
-        if ($job->hasAppliedByUser(Auth::id())) {
+        if ($job->hasAppliedByUser($userId)) {
             return response()->json([
                 'success' => false,
                 'error' => [
@@ -39,26 +49,93 @@ class JobApplicationController extends Controller
             ], 422);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'contact_email' => 'required|email|max:255',
+            'contact_phone' => 'nullable|string|max:50',
+            'cover_letter' => 'nullable|string|max:5000',
+            'portfolio_link' => 'nullable|string|max:500',
+            'cv_file' => 'nullable|string|max:500',
+            'full_name' => 'nullable|string|max:255',
         ]);
 
+        if (! empty($validated['portfolio_link']) && ! filter_var($validated['portfolio_link'], FILTER_VALIDATE_URL)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Portfolio link must be a valid URL',
+                'errors' => ['portfolio_link' => ['Portfolio link must be a valid URL']],
+            ], 422);
+        }
+
+        $seeker = \App\Models\JobSeeker::query()
+            ->where('user_id', $userId)
+            ->first();
+
+        $cvPath = $validated['cv_file'] ?? null;
+        if (! $cvPath && $seeker && ! empty($seeker->cv_file)) {
+            $cvPath = $seeker->cv_file;
+        }
+
+        // Prefer storage-relative path when a /storage URL is sent
+        if (is_string($cvPath) && preg_match('#/storage/(.+)$#', $cvPath, $m)) {
+            $cvPath = $m[1];
+        }
+
         $application = JobApplication::create([
-            'job_id' => $jobId,
-            'user_id' => Auth::id(),
-            'contact_email' => $request->contact_email,
+            'job_id' => $resolvedJobId,
+            'user_id' => $userId,
+            'job_seeker_id' => $seeker?->id,
+            'cover_letter' => $validated['cover_letter'] ?? null,
+            'cv_file' => $cvPath,
+            'portfolio_link' => $validated['portfolio_link'] ?? null,
+            'contact_email' => $validated['contact_email'],
+            'contact_phone' => $validated['contact_phone'] ?? ($seeker->phone ?? null),
             'status' => 'pending',
             'applied_at' => now(),
         ]);
+
+        try {
+            $job->incrementApplications();
+        } catch (\Throwable $e) {
+            // applications_count column may be missing on older schemas
+        }
+
+        // Soft notification for employer (dashboard)
+        try {
+            if ($job->user_id) {
+                $authUser = Auth::user();
+                $applicantName = $validated['full_name']
+                    ?? trim(($authUser->first_name ?? '').' '.($authUser->last_name ?? ''))
+                    ?: ($authUser->email ?? 'A candidate');
+
+                \App\Models\CustomerNotification::notify(
+                    (int) $job->user_id,
+                    \App\Models\CustomerNotification::TYPE_SELLER_ENQUIRY,
+                    "{$applicantName} applied for \"{$job->title}\"",
+                    'New job application',
+                    [
+                        'hub' => 'jobs',
+                        'job_id' => $resolvedJobId,
+                        'application_id' => $application->id,
+                        'url' => '/jobs/'.$job->slug,
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Job application notification failed', [
+                'job_id' => $resolvedJobId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Application submitted successfully',
             'data' => [
                 'application_id' => $application->id,
-                'job_id' => $jobId,
+                'job_id' => $resolvedJobId,
                 'status' => $application->status,
-                'submitted_at' => $application->created_at,
+                'submitted_at' => $application->applied_at ?? $application->created_at,
+                'has_seeker_profile' => (bool) $seeker,
             ],
         ], 201);
     }

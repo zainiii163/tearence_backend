@@ -59,13 +59,15 @@ class Service extends Model
         'is_verified' => 'boolean',
         'whats_included' => 'array',
         'whats_not_included' => 'array',
+        'requirements' => 'array',
         'availability' => 'array',
         'languages' => 'array',
     ];
 
+    /** Marketplace sellers authenticate as Customer; user_id stores customer_id. */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function serviceProvider(): BelongsTo

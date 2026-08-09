@@ -44,21 +44,39 @@ class ServiceOrderController extends Controller
         $request->validate([
             'service_id' => 'required|exists:services,id',
             'package_id' => 'nullable|exists:service_packages,id',
-            'requirements' => 'required|array',
+            'requirements' => 'required',
             'buyer_notes' => 'nullable|string',
         ]);
 
         $service = Service::findOrFail($request->service_id);
-        
-        if ($service->user_id === Auth::id()) {
+
+        if ((int) $service->user_id === (int) Auth::id()) {
             return response()->json([
                 'success' => false,
                 'message' => 'You cannot order your own service',
             ], 400);
         }
 
+        if ($service->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This service is not available for purchase',
+            ], 400);
+        }
+
+        $requirements = $request->requirements;
+        if (is_string($requirements)) {
+            $requirements = ['brief' => $requirements];
+        }
+        if (! is_array($requirements) || count($requirements) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please provide order requirements',
+            ], 422);
+        }
+
         $package = null;
-        $totalPrice = $service->base_price;
+        $totalPrice = (float) ($service->starting_price ?? 0);
 
         if ($request->package_id) {
             $package = ServicePackage::findOrFail($request->package_id);
@@ -68,7 +86,14 @@ class ServiceOrderController extends Controller
                     'message' => 'Invalid package for this service',
                 ], 400);
             }
-            $totalPrice = $package->price;
+            $totalPrice = (float) $package->price;
+        }
+
+        if ($totalPrice <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Service price is not configured',
+            ], 400);
         }
 
         DB::beginTransaction();
@@ -80,35 +105,72 @@ class ServiceOrderController extends Controller
                 'buyer_id' => Auth::id(),
                 'seller_id' => $service->user_id,
                 'package_id' => $request->package_id,
-                'requirements' => $request->requirements,
+                'requirements' => $requirements,
                 'total_price' => $totalPrice,
                 'fee_percent' => $fee['fee_percent'],
                 'platform_fee' => $fee['platform_fee'],
                 'seller_amount' => $fee['seller_amount'],
                 'delivery_time' => $package->delivery_time ?? $service->delivery_time,
                 'status' => 'pending',
+                'payment_status' => 'unpaid',
                 'buyer_notes' => $request->buyer_notes,
             ]);
 
-            // Increment service orders count
-            $service->incrementOrders();
+            if (method_exists($service, 'incrementEnquiries')) {
+                $service->incrementEnquiries();
+            }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Order placed successfully',
+                'message' => 'Order created. Complete payment to notify the seller.',
                 'data' => $order->load(['service', 'buyer', 'seller', 'package']),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to place order',
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function confirmPayment(Request $request, ServiceOrder $order): JsonResponse
+    {
+        if ((int) $order->buyer_id !== (int) Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        if ($order->payment_status === 'paid') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Order already paid',
+                'data' => $order->load(['service', 'buyer', 'seller', 'package']),
+            ]);
+        }
+
+        $request->validate([
+            'payment_id' => 'required|string|max:191',
+            'payment_method' => 'required|in:paypal,stripe',
+        ]);
+
+        $order->payment_status = 'paid';
+        $order->payment_method = $request->payment_method;
+        $order->payment_id = $request->payment_id;
+        $order->paid_at = now();
+        $order->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. The seller can now start your order.',
+            'data' => $order->load(['service', 'buyer', 'seller', 'package']),
+        ]);
     }
 
     public function show(ServiceOrder $order): JsonResponse
@@ -173,6 +235,13 @@ class ServiceOrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Order cannot be accepted',
+            ], 400);
+        }
+
+        if (($order->payment_status ?? 'unpaid') !== 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order must be paid before it can be accepted',
             ], 400);
         }
 

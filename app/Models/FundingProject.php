@@ -77,9 +77,15 @@ class FundingProject extends Model
         'published_at' => 'datetime',
     ];
 
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    /** @deprecated Prefer customer() — kept for API compatibility */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->customer();
     }
 
     public function pledges(): HasMany
@@ -109,7 +115,7 @@ class FundingProject extends Model
 
     public function backers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'funding_pledges', 'funding_project_id', 'user_id');
+        return $this->belongsToMany(Customer::class, 'funding_pledges', 'funding_project_id', 'customer_id');
     }
 
     public function getFundingPercentageAttribute(): float

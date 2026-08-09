@@ -22,23 +22,35 @@ class PromoController extends Controller
     {
     }
 
-    public function pricingPlans(): JsonResponse
+    public function pricingPlans(Request $request): JsonResponse
     {
-        $plans = $this->promo->allActivePlans()->map(function ($plan) {
+        $vertical = $request->query('vertical');
+        $listingOnly = filter_var($request->query('listing_tiers', false), FILTER_VALIDATE_BOOLEAN);
+
+        $plans = $this->promo->allActivePlans($vertical, $listingOnly)->map(function ($plan) {
             $days = (int) ($plan->duration_days ?? 30);
             $label = method_exists($plan, 'durationLabel')
                 ? $plan->durationLabel()
                 : ($days === 30 ? '1 month' : (($days % 7 === 0) ? (($days / 7) . ' weeks') : "{$days} days"));
 
+            $price = (float) ($plan->price_usd ?? 0);
+
             return [
+                'id' => $plan->tier ?? $plan->slug,
                 'slug' => $plan->slug,
+                'vertical' => $plan->vertical ?? 'all',
                 'name' => $plan->name,
                 'tier' => $plan->tier,
-                'price_usd' => (float) $plan->price_usd,
+                'price' => $price,
+                'price_usd' => $price,
+                'price_label' => '$' . number_format($price, $price == floor($price) ? 0 : 2),
                 'duration_days' => $days,
                 'duration_label' => $label,
                 'description' => $plan->description ?? null,
                 'features' => $plan->features ?? [],
+                'benefits' => $plan->features ?? [],
+                'is_popular' => (bool) ($plan->is_popular ?? false),
+                'popular' => (bool) ($plan->is_popular ?? false),
                 'sort_order' => $plan->sort_order ?? 0,
             ];
         })->values();
@@ -46,6 +58,7 @@ class PromoController extends Controller
         return response()->json([
             'success' => true,
             'data' => $plans,
+            'vertical' => $vertical,
             'default_free_duration_days' => PromoPricingService::DEFAULT_FREE_DURATION_DAYS,
         ]);
     }

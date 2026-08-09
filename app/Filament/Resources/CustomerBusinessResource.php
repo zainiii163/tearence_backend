@@ -76,6 +76,31 @@ class CustomerBusinessResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        Forms\Components\Textarea::make('business_description')
+                            ->label('Description')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                        Forms\Components\Select::make('business_category_slug')
+                            ->label('Directory category')
+                            ->options([
+                                'retail' => 'Retail & Shopping',
+                                'restaurants' => 'Restaurants & Food',
+                                'professional-services' => 'Professional Services',
+                                'healthcare-wellness' => 'Healthcare & Wellness',
+                                'education-training' => 'Education & Training',
+                                'automotive' => 'Automotive',
+                                'real-estate' => 'Real Estate',
+                                'entertainment' => 'Entertainment & Leisure',
+                                'travel' => 'Travel & Hospitality',
+                                'beauty' => 'Beauty & Personal Care',
+                                'pets' => 'Pet Services',
+                                'home-garden' => 'Home & Garden',
+                                'technology-electronics' => 'Technology & Electronics',
+                                'sports-fitness' => 'Sports & Fitness',
+                                'industrial' => 'Industrial & Manufacturing',
+                                'non-profit' => 'Non-Profit & Religious',
+                            ])
+                            ->searchable(),
                         Forms\Components\TextInput::make('business_owner')
                             ->label('Business Owner')
                             ->maxLength(255),

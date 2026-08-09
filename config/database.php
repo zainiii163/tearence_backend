@@ -43,25 +43,44 @@ return [
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],
 
-        'mysql' => [
-            'driver' => 'mysql',
-            'url' => env('DATABASE_URL'),
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '3306'),
-            'database' => env('DB_DATABASE', 'forge'),
-            'username' => env('DB_USERNAME', 'forge'),
-            'password' => env('DB_PASSWORD', ''),
-            'unix_socket' => env('DB_SOCKET', ''),
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'strict' => true,
-            'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (defined('Pdo\Mysql::ATTR_SSL_CA') ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
-        ],
+        'mysql' => (static function () {
+            $base = [
+                'driver' => 'mysql',
+                'url' => env('DATABASE_URL'),
+                'host' => env('DB_HOST', '127.0.0.1'),
+                'port' => env('DB_PORT', '3306'),
+                'database' => env('DB_DATABASE', 'forge'),
+                'username' => env('DB_USERNAME', 'forge'),
+                'password' => env('DB_PASSWORD', ''),
+                'unix_socket' => env('DB_SOCKET', ''),
+                'charset' => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'prefix' => '',
+                'prefix_indexes' => true,
+                'strict' => true,
+                'engine' => null,
+                'options' => extension_loaded('pdo_mysql') ? array_filter([
+                    (defined('Pdo\Mysql::ATTR_SSL_CA') ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                ]) : [],
+            ];
+
+            // Read replica for load-balanced / HA deployments (set DB_READ_HOST).
+            if (env('DB_READ_HOST')) {
+                $base['read'] = [
+                    'host' => [env('DB_READ_HOST')],
+                    'port' => env('DB_READ_PORT', env('DB_PORT', '3306')),
+                    'database' => env('DB_READ_DATABASE', env('DB_DATABASE', 'forge')),
+                    'username' => env('DB_READ_USERNAME', env('DB_USERNAME', 'forge')),
+                    'password' => env('DB_READ_PASSWORD', env('DB_PASSWORD', '')),
+                ];
+                $base['write'] = [
+                    'host' => [env('DB_HOST', '127.0.0.1')],
+                ];
+                $base['sticky'] = true;
+            }
+
+            return $base;
+        })(),
 
         'pgsql' => [
             'driver' => 'pgsql',

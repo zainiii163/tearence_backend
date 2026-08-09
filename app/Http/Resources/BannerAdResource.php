@@ -28,9 +28,15 @@ class BannerAdResource extends JsonResource
             'banner_type' => $this->banner_type,
             'banner_size' => $this->banner_size,
             'banner_size_display' => $this->banner_size_display,
-            'banner_image' => $this->banner_image_url,
-            'destination_link' => $this->destination_link,
+            // Public browse uses watermarked preview — never the raw storage URL
+            'banner_image' => url('/api/v1/banner-ads/'.$this->id.'/preview'),
+            'banner_image_preview' => url('/api/v1/banner-ads/'.$this->id.'/preview'),
+            // Hide creative file URLs — Visit must not open a free download
+            'destination_link' => $this->safePublicDestinationLink(),
             'call_to_action' => $this->call_to_action,
+            'price' => $this->promotion_price,
+            'is_paid_creative' => true,
+            'requires_purchase' => true,
             'key_selling_points' => $this->key_selling_points,
             'offer_details' => $this->offer_details,
             'validity_start' => $this->validity_start,
@@ -67,5 +73,33 @@ class BannerAdResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    /**
+     * Only expose real marketing URLs — never the banner creative file itself.
+     */
+    protected function safePublicDestinationLink(): ?string
+    {
+        $link = $this->destination_link;
+        if (!$link || !is_string($link)) {
+            return null;
+        }
+
+        $lower = strtolower($link);
+        if (
+            str_contains($lower, '/storage/banner-images')
+            || str_contains($lower, '/img/banners/marketplace')
+            || (str_contains($lower, '/banner-ads/') && str_contains($lower, '/preview'))
+            || str_contains($lower, '/banner-ads/download/')
+        ) {
+            return null;
+        }
+
+        $imageUrl = $this->banner_image_url;
+        if ($imageUrl && rtrim($link, '/') === rtrim($imageUrl, '/')) {
+            return null;
+        }
+
+        return $link;
     }
 }

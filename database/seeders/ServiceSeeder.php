@@ -85,7 +85,8 @@ class ServiceSeeder extends Seeder
                     'delivery_time' => 14, // days (integer column on live)
                     'country' => 'United Kingdom',
                     'city' => 'London',
-                    'status' => 'active',
+                    // Kept draft so RealUserServiceSeeder owns the live marketplace listings.
+                    'status' => 'draft',
                     'promotion_type' => $promo,
                     'promotion_expires_at' => now()->addMonths(3),
                     'is_verified' => true,

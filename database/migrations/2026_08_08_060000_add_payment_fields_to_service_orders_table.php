@@ -1,0 +1,37 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('service_orders', function (Blueprint $table) {
+            if (! Schema::hasColumn('service_orders', 'payment_status')) {
+                $table->string('payment_status', 32)->default('unpaid')->after('status');
+            }
+            if (! Schema::hasColumn('service_orders', 'payment_method')) {
+                $table->string('payment_method', 32)->nullable()->after('payment_status');
+            }
+            if (! Schema::hasColumn('service_orders', 'payment_id')) {
+                $table->string('payment_id')->nullable()->after('payment_method');
+            }
+            if (! Schema::hasColumn('service_orders', 'paid_at')) {
+                $table->timestamp('paid_at')->nullable()->after('payment_id');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('service_orders', function (Blueprint $table) {
+            foreach (['payment_status', 'payment_method', 'payment_id', 'paid_at'] as $column) {
+                if (Schema::hasColumn('service_orders', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
+        });
+    }
+};

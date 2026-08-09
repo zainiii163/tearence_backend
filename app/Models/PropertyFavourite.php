@@ -17,7 +17,8 @@ class PropertyFavourite extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        // Marketplace JWT auth stores customer_id in user_id
+        return $this->belongsTo(Customer::class, 'user_id', 'customer_id');
     }
 
     public function property(): BelongsTo
