@@ -530,7 +530,26 @@ class CrossPromotionFeedService
                 $query->where('country', 'like', "%{$country}%");
             }
 
-            return $query->orderByDesc('id')->limit(30)->get()->map(function ($ad) use ($mode) {
+            // Public browse only — draft seed rows must not appear as clickable featured cards
+            if (method_exists(Service::class, 'scopeActive')) {
+                $query->active();
+            } else {
+                $query->where('status', 'active');
+            }
+
+            return $query->with(['category', 'media'])->orderByDesc('id')->limit(30)->get()->map(function ($ad) use ($mode) {
+                $thumb = null;
+                try {
+                    $media = $ad->media;
+                    if ($media && $media->count()) {
+                        $thumbModel = $media->firstWhere('is_thumbnail', true) ?: $media->first();
+                        $thumb = $thumbModel?->file_path ?? $thumbModel?->full_url ?? null;
+                    }
+                } catch (\Throwable $e) {
+                    $thumb = null;
+                }
+
+                // Services use numeric /services/{id} routes (no slug route key)
                 return $this->normalize([
                     'source' => 'services',
                     'source_id' => $ad->id,
@@ -538,16 +557,18 @@ class CrossPromotionFeedService
                     'title' => $ad->title,
                     'slug' => $ad->slug ?? (string) $ad->id,
                     'description' => Str::limit(strip_tags((string) ($ad->description ?? '')), 160),
-                    'price' => $ad->price ?? null,
+                    'price' => $ad->starting_price ?? $ad->price ?? null,
                     'currency' => $ad->currency ?? 'USD',
                     'country' => $ad->country ?? null,
                     'city' => $ad->city ?? null,
-                    'main_image' => $ad->main_image ?? $ad->image ?? null,
+                    'main_image' => $thumb ?? $ad->main_image ?? $ad->image ?? null,
                     'views_count' => $ad->views ?? $ad->views_count ?? 0,
                     'category_name' => $ad->category?->name ?? 'Services',
-                    'href' => '/services/' . ($ad->slug ?: $ad->id),
+                    'href' => '/services/' . $ad->id,
                     'created_at' => optional($ad->created_at)?->toIso8601String(),
                     'badge' => $this->badgeFor($mode),
+                    'featured' => true,
+                    'is_featured' => true,
                 ]);
             });
         } catch (\Throwable $e) {

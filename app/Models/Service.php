@@ -150,6 +150,20 @@ class Service extends Model
         return $query->where('status', 'active');
     }
 
+    /**
+     * Allow /services/{id} and /services/{slug} detail URLs.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $field = $field ?: $this->getRouteKeyName();
+
+        return $this->newQuery()
+            ->where($field, $value)
+            ->orWhere('slug', $value)
+            ->orWhere($this->getKeyName(), $value)
+            ->firstOrFail();
+    }
+
     public function scopePromoted(Builder $query): Builder
     {
         return $query->whereIn('promotion_type', ['promoted', 'featured', 'sponsored', 'network_boost'])
