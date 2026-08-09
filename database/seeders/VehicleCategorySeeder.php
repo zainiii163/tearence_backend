@@ -6,104 +6,108 @@ use Illuminate\Database\Seeder;
 use App\Models\VehicleCategory;
 use App\Models\Vehicle;
 
+/**
+ * Vehicle categories aligned with CarServicesLtd.com service lanes
+ * (FAQ / marketplace categories), adapted for Worldwide Adverts Vehicles hub.
+ */
 class VehicleCategorySeeder extends Seeder
 {
     public function run(): void
     {
         $categories = [
             [
-                'name' => 'Cars',
-                'slug' => 'cars',
-                'description' => 'Passenger vehicles including sedans, hatchbacks, SUVs, and more',
+                'name' => 'Cars for Sale',
+                'slug' => 'cars-for-sale',
+                'description' => 'Passenger cars listed for purchase',
                 'icon' => 'car',
                 'is_active' => true,
                 'sort_order' => 1,
             ],
             [
-                'name' => 'Vans',
-                'slug' => 'vans',
-                'description' => 'Commercial and passenger vans for business and personal use',
-                'icon' => 'van',
+                'name' => 'Cars for Hire',
+                'slug' => 'cars-for-hire',
+                'description' => 'Cars available for daily, weekly or monthly hire',
+                'icon' => 'car-hire',
                 'is_active' => true,
                 'sort_order' => 2,
             ],
             [
-                'name' => 'Motorcycles',
-                'slug' => 'motorcycles',
-                'description' => 'Motorcycles, scooters, and other two-wheeled vehicles',
-                'icon' => 'motorbike',
+                'name' => 'Car Share',
+                'slug' => 'car-share',
+                'description' => 'Car sharing and pooling listings',
+                'icon' => 'car-share',
                 'is_active' => true,
                 'sort_order' => 3,
             ],
             [
-                'name' => 'Trucks',
-                'slug' => 'trucks',
-                'description' => 'Heavy duty trucks and lorries for commercial use',
-                'icon' => 'truck',
+                'name' => 'Chauffeur / Drivers for Hire',
+                'slug' => 'chauffeur-drivers',
+                'description' => 'Professional drivers and chauffeur services',
+                'icon' => 'chauffeur',
                 'is_active' => true,
                 'sort_order' => 4,
             ],
             [
-                'name' => 'Buses & Coaches',
-                'slug' => 'buses-coaches',
-                'description' => 'Passenger buses and coaches for public and private transport',
-                'icon' => 'bus',
+                'name' => 'Tow Services',
+                'slug' => 'tow-services',
+                'description' => 'Breakdown recovery and tow truck services',
+                'icon' => 'tow',
                 'is_active' => true,
                 'sort_order' => 5,
             ],
             [
-                'name' => 'Electric Vehicles',
-                'slug' => 'electric-vehicles',
-                'description' => 'Electric and hybrid vehicles for eco-friendly transportation',
-                'icon' => 'electric-car',
+                'name' => 'Car / Truck Mechanics',
+                'slug' => 'mechanics',
+                'description' => 'Repair shops and mobile mechanics',
+                'icon' => 'mechanic',
                 'is_active' => true,
                 'sort_order' => 6,
             ],
             [
-                'name' => 'Classic Cars',
-                'slug' => 'classic-cars',
-                'description' => 'Vintage and classic collector vehicles',
-                'icon' => 'classic-car',
+                'name' => 'Car & Truck Parts',
+                'slug' => 'parts',
+                'description' => 'Spare parts, accessories and consumables',
+                'icon' => 'parts',
                 'is_active' => true,
                 'sort_order' => 7,
             ],
             [
-                'name' => 'Luxury & Exotic',
-                'slug' => 'luxury-exotic',
-                'description' => 'Premium luxury and exotic sports cars',
-                'icon' => 'luxury-car',
+                'name' => 'Farm Equipment Hire & Sale',
+                'slug' => 'farm-equipment',
+                'description' => 'Agricultural machinery for hire or sale',
+                'icon' => 'tractor',
                 'is_active' => true,
                 'sort_order' => 8,
             ],
             [
-                'name' => 'Caravans & Motorhomes',
-                'slug' => 'caravans-motorhomes',
-                'description' => 'Recreational vehicles for camping and travel',
-                'icon' => 'caravan',
+                'name' => 'Commercial Vehicles Hire & Sale',
+                'slug' => 'commercial-vehicles',
+                'description' => 'Vans, HGVs and fleet vehicles for hire or sale',
+                'icon' => 'truck',
                 'is_active' => true,
                 'sort_order' => 9,
             ],
             [
-                'name' => 'Boats & Jet Skis',
-                'slug' => 'boats-jet-skis',
-                'description' => 'Water vehicles including boats, yachts, and jet skis',
-                'icon' => 'boat',
+                'name' => 'Motorbikes',
+                'slug' => 'motorbikes',
+                'description' => 'Motorcycles, scooters and two-wheelers',
+                'icon' => 'motorbike',
                 'is_active' => true,
                 'sort_order' => 10,
             ],
             [
-                'name' => 'Agricultural Vehicles',
-                'slug' => 'agricultural-vehicles',
-                'description' => 'Farm and agricultural machinery',
-                'icon' => 'tractor',
+                'name' => 'Construction Vehicles',
+                'slug' => 'construction-vehicles',
+                'description' => 'Plant and construction machinery',
+                'icon' => 'excavator',
                 'is_active' => true,
                 'sort_order' => 11,
             ],
             [
-                'name' => 'Construction Vehicles',
-                'slug' => 'construction-vehicles',
-                'description' => 'Heavy construction and industrial vehicles',
-                'icon' => 'excavator',
+                'name' => 'Other Services',
+                'slug' => 'other-services',
+                'description' => 'Detailing, insurance, specialists and other vehicle services',
+                'icon' => 'other',
                 'is_active' => true,
                 'sort_order' => 12,
             ],
@@ -118,18 +122,27 @@ class VehicleCategorySeeder extends Seeder
             );
         }
 
-        // Also keep legacy "motorbikes" slug as alias of motorcycles if present
-        VehicleCategory::where('slug', 'motorbikes')->update([
-            'is_active' => true,
-            'name' => 'Motorcycles',
-            'sort_order' => 3,
-        ]);
+        // Keep common legacy slugs active so old listings still route
+        $legacyAliases = [
+            'cars' => ['name' => 'Cars for Sale', 'sort_order' => 1],
+            'motorcycles' => ['name' => 'Motorbikes', 'sort_order' => 10],
+            'trucks' => ['name' => 'Commercial Vehicles Hire & Sale', 'sort_order' => 9],
+            'agricultural-vehicles' => ['name' => 'Farm Equipment Hire & Sale', 'sort_order' => 8],
+        ];
+        foreach ($legacyAliases as $slug => $meta) {
+            if (VehicleCategory::where('slug', $slug)->exists()) {
+                VehicleCategory::where('slug', $slug)->update([
+                    'is_active' => true,
+                    'name' => $meta['name'],
+                    'sort_order' => $meta['sort_order'],
+                ]);
+                $keepSlugs[] = $slug;
+            }
+        }
 
-        // Deactivate junk / test categories that aren't in the canonical list
-        VehicleCategory::whereNotIn('slug', array_merge($keepSlugs, ['motorbikes']))
+        VehicleCategory::whereNotIn('slug', array_unique($keepSlugs))
             ->update(['is_active' => false]);
 
-        // Demo sample should not appear as Featured
         Vehicle::where('title', 'Sample Toyota Corolla')->update([
             'is_featured' => false,
             'is_promoted' => false,
