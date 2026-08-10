@@ -367,12 +367,14 @@ class AffiliateController extends Controller
     public function applyToPromote(Request $request, string $offerId): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'message' => 'nullable|string',
+            'message' => 'nullable|string|max:5000',
             'promotion_methods' => 'nullable|array',
             'promotion_methods.*' => 'string',
             'audience_details' => 'nullable|array',
-            'website_url' => 'nullable|url',
+            'website_url' => 'nullable|url|max:500',
             'social_media_links' => 'nullable|array',
+            'social_media_links.*.platform' => 'nullable|string|max:50',
+            'social_media_links.*.url' => 'required_with:social_media_links|url|max:500',
             'estimated_monthly_visitors' => 'nullable|integer|min:0',
         ]);
 
@@ -381,6 +383,22 @@ class AffiliateController extends Controller
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $socialLinks = collect($request->input('social_media_links', []))
+            ->filter(fn ($row) => is_array($row) && !empty($row['url']))
+            ->values()
+            ->all();
+        $websiteUrl = $request->input('website_url');
+
+        if (empty($websiteUrl) && count($socialLinks) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Share a website or at least one social media link to be considered.',
+                'errors' => [
+                    'social_media_links' => ['At least one social link or website is required.'],
+                ],
             ], 422);
         }
 
@@ -395,14 +413,41 @@ class AffiliateController extends Controller
             if ($existingApplication->status === 'approved') {
                 $existingApplication->ensureTrackingCode();
                 $existingApplication->refresh();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'You already promote this offer — here is your tracking link',
+                    'data' => $existingApplication->load('businessAffiliateOffer.affiliateCategory'),
+                ]);
             }
+
+            if ($existingApplication->status === 'pending') {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Your join application is still pending review',
+                    'data' => $existingApplication->load('businessAffiliateOffer.affiliateCategory'),
+                ]);
+            }
+
+            // Rejected / withdrawn — allow re-apply with fresh socials
+            $existingApplication->update([
+                'message' => $request->message,
+                'promotion_methods' => $request->promotion_methods,
+                'audience_details' => $request->audience_details,
+                'website_url' => $websiteUrl,
+                'social_media_links' => $socialLinks,
+                'estimated_monthly_visitors' => $request->estimated_monthly_visitors,
+                'status' => 'pending',
+                'rejection_reason' => null,
+                'reviewed_at' => null,
+                'reviewed_by' => null,
+                'approval_notes' => null,
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => $existingApplication->status === 'approved'
-                    ? 'You already promote this offer — here is your tracking link'
-                    : 'You have already applied to this offer',
-                'data' => $existingApplication->load('businessAffiliateOffer.affiliateCategory'),
+                'message' => 'Join application re-submitted for review.',
+                'data' => $existingApplication->fresh()->load('businessAffiliateOffer.affiliateCategory'),
             ]);
         }
 
@@ -412,25 +457,19 @@ class AffiliateController extends Controller
             'message' => $request->message,
             'promotion_methods' => $request->promotion_methods,
             'audience_details' => $request->audience_details,
-            'website_url' => $request->website_url,
-            'social_media_links' => $request->social_media_links,
+            'website_url' => $websiteUrl,
+            'social_media_links' => $socialLinks,
             'estimated_monthly_visitors' => $request->estimated_monthly_visitors,
-            // ClickBank-style open marketplace: join instantly and get a unique hop link
-            'status' => 'approved',
-            'joined_at' => now(),
-            'reviewed_at' => now(),
-            'approval_notes' => 'Auto-approved — open affiliate marketplace join',
+            // Promoters share socials to be considered; merchant approves → hop link minted
+            'status' => 'pending',
         ]);
-
-        $application->ensureTrackingCode();
-        $application->refresh();
 
         // Increment applications count
         $offer->increment('applications');
 
         return response()->json([
             'success' => true,
-            'message' => 'You are approved to promote this offer. Copy your unique tracking link.',
+            'message' => 'Join application submitted. The business will review your social channels.',
             'data' => $application->load('businessAffiliateOffer.affiliateCategory'),
         ], 201);
     }
