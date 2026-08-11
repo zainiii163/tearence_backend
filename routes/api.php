@@ -675,6 +675,14 @@ Route::group([
 
         Route::get('/my-business', [BusinessController::class, 'myBusiness']);
 
+        Route::get('/{id}/members', [BusinessController::class, 'members']);
+
+        Route::post('/{id}/members', [BusinessController::class, 'addMember']);
+
+        Route::put('/{id}/members/{memberId}', [BusinessController::class, 'updateMember']);
+
+        Route::delete('/{id}/members/{memberId}', [BusinessController::class, 'removeMember']);
+
     });
 
     Route::group(['prefix' => 'business'], function () {

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FileUploadHelper;
+use App\Models\Customer;
 use App\Models\CustomerBusiness;
+use App\Models\StaffManagement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -695,5 +697,186 @@ class BusinessController extends APIController
         }
 
         return $this->successResponse($query, '', Response::HTTP_OK);
+    }
+
+    /**
+     * List business team members (StaffManagement wrapper for dashboard invite UI).
+     */
+    public function members($id)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $business = CustomerBusiness::where('id', $id)->first();
+        if (!$business) {
+            return $this->errorResponse('Business not found', Response::HTTP_NOT_FOUND);
+        }
+
+        $isOwner = (int) $business->customer_id === (int) $user->customer_id;
+        $staffRows = StaffManagement::where('entity_type', 'business')
+            ->where('entity_id', $id)
+            ->with('staffMember')
+            ->get();
+
+        $members = $staffRows->map(function ($row) {
+            $person = $row->staffMember;
+            return [
+                'id' => $row->staff_id,
+                'member_id' => $row->staff_id,
+                'staff_id' => $row->staff_id,
+                'customer_id' => $row->staff_customer_id,
+                'email' => $person->email ?? null,
+                'name' => trim(($person->first_name ?? '').' '.($person->last_name ?? '')),
+                'role' => $row->role === 'admin' ? 'manager' : $row->role,
+                'status' => $row->is_active ? 'active' : 'revoked',
+            ];
+        })->values();
+
+        return $this->successResponse([
+            'members' => $members,
+            'available_roles' => ['admin', 'manager', 'editor', 'viewer'],
+            'can_manage' => $isOwner,
+            'current_role' => $isOwner ? 'owner' : 'member',
+        ], '', Response::HTTP_OK);
+    }
+
+    /**
+     * Invite / add a team member by email.
+     */
+    public function addMember(Request $request, $id)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $business = CustomerBusiness::where('id', $id)
+            ->where('customer_id', $user->customer_id)
+            ->first();
+        if (!$business) {
+            return $this->errorResponse('Business not found or access denied', Response::HTTP_FORBIDDEN);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'role' => 'nullable|in:admin,manager,editor,viewer',
+        ]);
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
+        }
+
+        $staffCustomer = Customer::where('email', strtolower(trim($request->email)))->first();
+        if (!$staffCustomer) {
+            return $this->errorResponse('User not found. Ask them to register on Worldwide Adverts first.', Response::HTTP_NOT_FOUND);
+        }
+        if ((int) $staffCustomer->customer_id === (int) $user->customer_id) {
+            return $this->errorResponse('Cannot add yourself as a team member', Response::HTTP_BAD_REQUEST);
+        }
+
+        $role = $request->input('role', 'editor');
+        if ($role === 'manager' || $role === 'admin') {
+            $role = 'admin';
+        }
+        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) {
+            $role = 'editor';
+        }
+
+        $existing = StaffManagement::where('customer_id', $user->customer_id)
+            ->where('staff_customer_id', $staffCustomer->customer_id)
+            ->where('entity_type', 'business')
+            ->where('entity_id', $id)
+            ->first();
+        if ($existing) {
+            return $this->errorResponse('Member already invited', Response::HTTP_CONFLICT);
+        }
+
+        $staff = StaffManagement::create([
+            'customer_id' => $user->customer_id,
+            'staff_customer_id' => $staffCustomer->customer_id,
+            'entity_type' => 'business',
+            'entity_id' => $id,
+            'role' => $role,
+            'can_post_ads' => in_array($role, ['admin', 'editor'], true),
+            'can_edit_ads' => in_array($role, ['admin', 'editor'], true),
+            'can_delete_ads' => $role === 'admin',
+            'can_manage_payments' => $role === 'admin',
+            'can_view_analytics' => true,
+            'can_manage_staff' => $role === 'admin',
+            'is_active' => true,
+            'invited_at' => now(),
+            'joined_at' => now(),
+        ]);
+
+        return $this->successResponse($staff->load('staffMember'), 'Member added', Response::HTTP_CREATED);
+    }
+
+    public function updateMember(Request $request, $id, $memberId)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $business = CustomerBusiness::where('id', $id)
+            ->where('customer_id', $user->customer_id)
+            ->first();
+        if (!$business) {
+            return $this->errorResponse('Business not found or access denied', Response::HTTP_FORBIDDEN);
+        }
+
+        $staff = StaffManagement::where('staff_id', $memberId)
+            ->where('entity_type', 'business')
+            ->where('entity_id', $id)
+            ->first();
+        if (!$staff) {
+            return $this->errorResponse('Member not found', Response::HTTP_NOT_FOUND);
+        }
+
+        $role = $request->input('role', $staff->role);
+        if ($role === 'manager' || $role === 'admin') {
+            $role = 'admin';
+        }
+        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) {
+            $role = $staff->role;
+        }
+
+        $staff->role = $role;
+        $staff->can_post_ads = in_array($role, ['admin', 'editor'], true);
+        $staff->can_edit_ads = in_array($role, ['admin', 'editor'], true);
+        $staff->can_delete_ads = $role === 'admin';
+        $staff->can_manage_payments = $role === 'admin';
+        $staff->can_manage_staff = $role === 'admin';
+        $staff->save();
+
+        return $this->successResponse($staff, 'Member updated', Response::HTTP_OK);
+    }
+
+    public function removeMember($id, $memberId)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $business = CustomerBusiness::where('id', $id)
+            ->where('customer_id', $user->customer_id)
+            ->first();
+        if (!$business) {
+            return $this->errorResponse('Business not found or access denied', Response::HTTP_FORBIDDEN);
+        }
+
+        $staff = StaffManagement::where('staff_id', $memberId)
+            ->where('entity_type', 'business')
+            ->where('entity_id', $id)
+            ->first();
+        if (!$staff) {
+            return $this->errorResponse('Member not found', Response::HTTP_NOT_FOUND);
+        }
+
+        $staff->delete();
+
+        return $this->successResponse(null, 'Member removed', Response::HTTP_OK);
     }
 }
