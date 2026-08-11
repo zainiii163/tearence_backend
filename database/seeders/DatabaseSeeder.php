@@ -85,6 +85,8 @@ class DatabaseSeeder extends Seeder
             // Business directory categories + live restaurant/automotive demos
             BusinessCategorySeeder::class,
             BusinessDirectoryDemoSeeder::class,
+            // One demo business user per homepage category dashboard
+            BusinessCategoryDashboardUserSeeder::class,
 
             // Revenue tracking (must be last)
             RevenueTrackingSeeder::class,
