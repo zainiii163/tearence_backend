@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 
 /**
  * Demo business users — one per homepage category dashboard.
- * Login: {category}@demo.wwa.local  /  Dashboard@123
+ * Login: {category}-demo@worldwideadverts.info  /  Dashboard@123
  * Safe to re-run (upserts by email / business slug).
  */
 class BusinessCategoryDashboardUserSeeder extends Seeder
@@ -52,7 +52,9 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
         };
 
         foreach ($demos as $demo) {
-            $email = $demo['slug'].'@demo.wwa.local';
+            // Prefer real-looking emails (browser email fields often reject *.local)
+            $email = $demo['slug'].'-demo@worldwideadverts.info';
+            $legacyEmail = $demo['slug'].'@demo.wwa.local';
             $nameParts = explode(' ', $demo['owner'], 2);
 
             $customerAttrs = [
@@ -82,7 +84,15 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
                 $customerAttrs
             );
 
-            // Keep category on existing rows too
+            // Keep legacy .local accounts in sync too (password refresh)
+            Customer::updateOrCreate(
+                ['email' => $legacyEmail],
+                array_merge($customerAttrs, [
+                    'first_name' => $nameParts[0] ?? 'Business',
+                    'last_name' => $nameParts[1] ?? 'Owner',
+                ])
+            );
+
             $touch = [];
             if (Schema::hasColumn('customer', 'user_type')) {
                 $touch['user_type'] = 'business';
@@ -130,11 +140,11 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
                 $bizPayload
             );
 
-            $this->command?->info("Seeded category dashboard user: {$email} → {$demo['slug']}");
+            $this->command?->info("Seeded: {$email} / Dashboard@123 → {$demo['slug']}");
         }
 
         $this->command?->newLine();
-        $this->command?->info('All demo logins use password: Dashboard@123');
-        $this->command?->info('Example: funding@demo.wwa.local → Funding dashboard');
+        $this->command?->info('Password for all demo users: Dashboard@123');
+        $this->command?->info('Example: vehicles-demo@worldwideadverts.info');
     }
 }
