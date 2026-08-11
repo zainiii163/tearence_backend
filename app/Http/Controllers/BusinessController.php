@@ -3,12 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FileUploadHelper;
+use App\Mail\BusinessStaffInviteMail;
+use App\Models\AffiliateApplication;
+use App\Models\BusinessAffiliateOffer;
+use App\Models\BusinessStaffInvite;
 use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\StaffManagement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -25,6 +31,7 @@ class BusinessController extends APIController
                 'show',
                 'getBySlug',
                 'detail',
+                'acceptStaffInvite',
             ]
         ]);
 
@@ -734,11 +741,35 @@ class BusinessController extends APIController
             ];
         })->values();
 
+        $pendingInvites = [];
+        if (Schema::hasTable('business_staff_invites')) {
+            $pendingInvites = BusinessStaffInvite::where('business_id', $id)
+                ->where('status', 'pending')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->get()
+                ->map(function ($invite) {
+                    return [
+                        'id' => 'invite-'.$invite->id,
+                        'member_id' => null,
+                        'invite_id' => $invite->id,
+                        'email' => $invite->email,
+                        'name' => $invite->email,
+                        'role' => $invite->role,
+                        'status' => 'pending',
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
         return $this->successResponse([
-            'members' => $members,
+            'members' => $members->concat($pendingInvites)->values(),
             'available_roles' => ['admin', 'manager', 'editor', 'viewer'],
             'can_manage' => $isOwner,
             'current_role' => $isOwner ? 'owner' : 'member',
+            'pending_invites' => $pendingInvites,
         ], '', Response::HTTP_OK);
     }
 
@@ -767,20 +798,20 @@ class BusinessController extends APIController
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
         }
 
-        $staffCustomer = Customer::where('email', strtolower(trim($request->email)))->first();
+        $email = strtolower(trim($request->email));
+        $roleInput = $request->input('role', 'editor');
+        $staffRole = in_array($roleInput, ['manager', 'admin'], true) ? 'admin' : $roleInput;
+        if (!in_array($staffRole, ['admin', 'editor', 'viewer'], true)) {
+            $staffRole = 'editor';
+        }
+
+        $staffCustomer = Customer::where('email', $email)->first();
         if (!$staffCustomer) {
-            return $this->errorResponse('User not found. Ask them to register on Worldwide Adverts first.', Response::HTTP_NOT_FOUND);
+            // Pending email invite for unregistered staff (Clive: invite members to manage page)
+            return $this->createPendingStaffInvite($business, $user, $email, $roleInput ?: 'editor');
         }
         if ((int) $staffCustomer->customer_id === (int) $user->customer_id) {
             return $this->errorResponse('Cannot add yourself as a team member', Response::HTTP_BAD_REQUEST);
-        }
-
-        $role = $request->input('role', 'editor');
-        if ($role === 'manager' || $role === 'admin') {
-            $role = 'admin';
-        }
-        if (!in_array($role, ['admin', 'editor', 'viewer'], true)) {
-            $role = 'editor';
         }
 
         $existing = StaffManagement::where('customer_id', $user->customer_id)
@@ -797,19 +828,263 @@ class BusinessController extends APIController
             'staff_customer_id' => $staffCustomer->customer_id,
             'entity_type' => 'business',
             'entity_id' => $id,
-            'role' => $role,
-            'can_post_ads' => in_array($role, ['admin', 'editor'], true),
-            'can_edit_ads' => in_array($role, ['admin', 'editor'], true),
-            'can_delete_ads' => $role === 'admin',
-            'can_manage_payments' => $role === 'admin',
+            'role' => $staffRole,
+            'can_post_ads' => in_array($staffRole, ['admin', 'editor'], true),
+            'can_edit_ads' => in_array($staffRole, ['admin', 'editor'], true),
+            'can_delete_ads' => $staffRole === 'admin',
+            'can_manage_payments' => $staffRole === 'admin',
             'can_view_analytics' => true,
-            'can_manage_staff' => $role === 'admin',
+            'can_manage_staff' => $staffRole === 'admin',
             'is_active' => true,
             'invited_at' => now(),
             'joined_at' => now(),
         ]);
 
         return $this->successResponse($staff->load('staffMember'), 'Member added', Response::HTTP_CREATED);
+    }
+
+    /**
+     * Create pending invite + email for a user who has not registered yet.
+     */
+    protected function createPendingStaffInvite($business, $user, string $email, string $role)
+    {
+        if (!Schema::hasTable('business_staff_invites')) {
+            return $this->errorResponse(
+                'User not found. Ask them to register on Worldwide Adverts first.',
+                Response::HTTP_NOT_FOUND
+            );
+        }
+
+        $invite = BusinessStaffInvite::updateOrCreate(
+            [
+                'business_id' => $business->id,
+                'email' => $email,
+                'status' => 'pending',
+            ],
+            [
+                'invited_by_customer_id' => $user->customer_id,
+                'role' => $role,
+                'token' => BusinessStaffInvite::mintToken(),
+                'expires_at' => now()->addDays(14),
+            ]
+        );
+
+        $frontend = rtrim(config('app.frontend_url', env('FRONTEND_URL', 'https://worldwideadverts.uk')), '/');
+        $signupUrl = $frontend.'/register?email='.urlencode($email).'&invite='.$invite->token;
+        $acceptUrl = $frontend.'/my-business?invite='.$invite->token;
+        $businessName = $business->business_name ?: $business->name ?: 'a business';
+        $inviterName = trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: 'A business owner';
+
+        try {
+            Mail::to($email)->send(new BusinessStaffInviteMail(
+                $email,
+                $businessName,
+                $inviterName,
+                $role,
+                $signupUrl,
+                $acceptUrl
+            ));
+        } catch (\Throwable $e) {
+            // Invite still saved even if mail transport fails
+        }
+
+        return $this->successResponse([
+            'invite' => $invite,
+            'user_exists' => false,
+            'signup_url' => $signupUrl,
+            'accept_url' => $acceptUrl,
+            'email_sent' => true,
+        ], 'Invite sent. They must register with this email, then open the accept link.', Response::HTTP_CREATED);
+    }
+
+    /**
+     * Accept a pending staff invite after the invitee has registered.
+     */
+    public function acceptStaffInvite(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+        if (!Schema::hasTable('business_staff_invites')) {
+            return $this->errorResponse('Invites not available', Response::HTTP_BAD_REQUEST);
+        }
+
+        $token = $request->input('token') ?: $request->query('token');
+        if (!$token) {
+            return $this->errorResponse('Invite token required', Response::HTTP_BAD_REQUEST);
+        }
+
+        $invite = BusinessStaffInvite::where('token', $token)->first();
+        if (!$invite || !$invite->isPending()) {
+            return $this->errorResponse('Invite not found or expired', Response::HTTP_NOT_FOUND);
+        }
+
+        $email = strtolower(trim((string) ($user->email ?? '')));
+        if ($email !== strtolower($invite->email)) {
+            return $this->errorResponse('Sign in with the invited email to accept.', Response::HTTP_FORBIDDEN);
+        }
+
+        $business = CustomerBusiness::find($invite->business_id);
+        if (!$business) {
+            return $this->errorResponse('Business not found', Response::HTTP_NOT_FOUND);
+        }
+
+        $staffRole = in_array($invite->role, ['manager', 'admin'], true) ? 'admin' : $invite->role;
+        if (!in_array($staffRole, ['admin', 'editor', 'viewer'], true)) {
+            $staffRole = 'editor';
+        }
+
+        $existing = StaffManagement::where('entity_type', 'business')
+            ->where('entity_id', $business->id)
+            ->where('staff_customer_id', $user->customer_id)
+            ->first();
+
+        if (!$existing) {
+            StaffManagement::create([
+                'customer_id' => $business->customer_id,
+                'staff_customer_id' => $user->customer_id,
+                'entity_type' => 'business',
+                'entity_id' => $business->id,
+                'role' => $staffRole,
+                'can_post_ads' => in_array($staffRole, ['admin', 'editor'], true),
+                'can_edit_ads' => in_array($staffRole, ['admin', 'editor'], true),
+                'can_delete_ads' => $staffRole === 'admin',
+                'can_manage_payments' => $staffRole === 'admin',
+                'can_view_analytics' => true,
+                'can_manage_staff' => $staffRole === 'admin',
+                'is_active' => true,
+                'invited_at' => $invite->created_at,
+                'joined_at' => now(),
+            ]);
+        }
+
+        $invite->update(['status' => 'accepted', 'accepted_at' => now()]);
+
+        return $this->successResponse([
+            'business_id' => $business->id,
+            'role' => $invite->role,
+        ], 'Invite accepted. You can manage this business page.', Response::HTTP_OK);
+    }
+
+    /**
+     * Category-specific dashboard stats for the signed-in business owner.
+     */
+    public function dashboardStats(Request $request)
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $category = strtolower(trim((string) $request->query('category', 'business')));
+        $customerId = $user->customer_id;
+        $userId = $user->user_id ?? $user->id ?? null;
+
+        $stats = [
+            'listings' => 0,
+            'orders' => 0,
+            'views' => 0,
+            'leads' => 0,
+            'enquiries' => 0,
+            'applications' => 0,
+            'affiliates' => 0,
+            'offers' => 0,
+            'applicants' => 0,
+            'hops' => 0,
+            'products' => 0,
+            'campaigns' => 0,
+            'tickets' => 0,
+            'sales' => 0,
+            'rating' => null,
+            'pledges' => 0,
+            'goal' => 0,
+            'visits' => 0,
+            'donors' => 0,
+            'raised' => 0,
+            'replies' => 0,
+            'bookings' => 0,
+            'interest' => 0,
+            'impressions' => 0,
+            'clicks' => 0,
+        ];
+
+        try {
+            if (Schema::hasTable('business_affiliate_offers') && $userId) {
+                $offerQuery = BusinessAffiliateOffer::where('user_id', $userId);
+                $stats['offers'] = (clone $offerQuery)->count();
+                $stats['affiliates'] = $stats['offers'];
+                $offerIds = (clone $offerQuery)->pluck('id');
+                if (Schema::hasTable('affiliate_applications') && $offerIds->isNotEmpty()) {
+                    $stats['applicants'] = AffiliateApplication::whereIn('business_affiliate_offer_id', $offerIds)
+                        ->where('status', 'pending')
+                        ->count();
+                    $stats['applications'] = AffiliateApplication::whereIn('business_affiliate_offer_id', $offerIds)->count();
+                }
+            }
+
+            $business = CustomerBusiness::where('customer_id', $customerId)->first();
+            if ($business) {
+                $profile = is_array($business->category_profile) ? $business->category_profile : [];
+                $stats['views'] = (int) ($profile['views_30d'] ?? $business->views ?? 0);
+                $stats['leads'] = (int) ($profile['leads'] ?? 0);
+                $stats['enquiries'] = (int) ($profile['enquiries'] ?? $stats['leads']);
+                $stats['listings'] = (int) ($profile['listings_count'] ?? 1);
+            }
+
+            // Soft counts from common listing tables when present
+            $listingTables = [
+                'vehicles' => ['vehicle_adverts', 'vehicles'],
+                'property' => ['property_adverts', 'properties'],
+                'jobs' => ['job_adverts', 'jobs'],
+                'buy-sell' => ['buy_sell_adverts'],
+                'services' => ['service_adverts', 'services'],
+                'books' => ['book_adverts'],
+                'software' => ['software_adverts'],
+                'events' => ['event_adverts', 'events'],
+                'funding' => ['funding_campaigns'],
+                'donations' => ['donation_campaigns', 'campaigns'],
+                'classifieds' => ['classified_adverts', 'classifieds'],
+                'images' => ['image_adverts', 'stock_images'],
+                'resorts' => ['resort_adverts', 'travel_adverts'],
+                'investment' => ['investment_adverts'],
+                'stores' => ['store_products', 'customer_store_products'],
+                'adverts' => ['sponsored_adverts', 'featured_adverts'],
+            ];
+
+            if (isset($listingTables[$category])) {
+                foreach ($listingTables[$category] as $table) {
+                    if (!Schema::hasTable($table)) {
+                        continue;
+                    }
+                    $q = DB::table($table);
+                    if (Schema::hasColumn($table, 'customer_id')) {
+                        $stats['listings'] = max($stats['listings'], (int) $q->where('customer_id', $customerId)->count());
+                    } elseif (Schema::hasColumn($table, 'user_id') && $userId) {
+                        $stats['listings'] = max($stats['listings'], (int) $q->where('user_id', $userId)->count());
+                    }
+                    break;
+                }
+            }
+
+            if ($category === 'affiliate') {
+                $stats['listings'] = $stats['offers'];
+            }
+            if ($category === 'stores') {
+                $stats['products'] = $stats['listings'];
+            }
+            if (in_array($category, ['adverts', 'funding', 'donations'], true)) {
+                $stats['campaigns'] = $stats['listings'];
+            }
+        } catch (\Throwable $e) {
+            // return zeros rather than failing the dashboard shell
+        }
+
+        return $this->successResponse([
+            'category' => $category,
+            'stats' => $stats,
+            'updated_at' => now()->toIso8601String(),
+        ], '', Response::HTTP_OK);
     }
 
     public function updateMember(Request $request, $id, $memberId)

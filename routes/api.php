@@ -675,6 +675,10 @@ Route::group([
 
         Route::get('/my-business', [BusinessController::class, 'myBusiness']);
 
+        Route::get('/dashboard-stats', [BusinessController::class, 'dashboardStats']);
+
+        Route::post('/staff-invites/accept', [BusinessController::class, 'acceptStaffInvite']);
+
         Route::get('/{id}/members', [BusinessController::class, 'members']);
 
         Route::post('/{id}/members', [BusinessController::class, 'addMember']);
@@ -2334,6 +2338,17 @@ Route::group([
             Route::put('/{id}', [BusinessTemplateController::class, 'update'])->whereNumber('id');
             Route::delete('/{id}', [BusinessTemplateController::class, 'destroy'])->whereNumber('id');
         });
+    });
+
+    // Sellable marketing / advertising tools (besides templates)
+    Route::group(['prefix' => 'business-tools'], function () {
+        Route::get('/', [\App\Http\Controllers\Api\BusinessToolController::class, 'index']);
+        Route::get('/my-purchases', [\App\Http\Controllers\Api\BusinessToolController::class, 'myPurchases'])->middleware('jwt.auth');
+        Route::post('/purchase', [\App\Http\Controllers\Api\BusinessToolController::class, 'purchase'])->middleware('jwt.auth');
+        Route::post('/purchases/{id}/confirm-payment', [\App\Http\Controllers\Api\BusinessToolController::class, 'confirmPayment'])
+            ->middleware('jwt.auth')
+            ->whereNumber('id');
+        Route::get('/{slug}', [\App\Http\Controllers\Api\BusinessToolController::class, 'show']);
     });
 
     // Admin — business templates + premium fee settings

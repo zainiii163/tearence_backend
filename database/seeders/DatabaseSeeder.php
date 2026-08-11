@@ -53,6 +53,8 @@ class DatabaseSeeder extends Seeder
 
             // Business document templates (pitch, grant, plans)
             BusinessTemplateSeeder::class,
+            // Marketing / advertising tools for businesses (besides templates)
+            BusinessToolSeeder::class,
             
             // Sponsored Adverts System
             SponsoredCategorySeeder::class,
