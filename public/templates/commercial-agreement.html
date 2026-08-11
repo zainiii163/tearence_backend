@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Commercial Agreement (Dispute-Ready) | Worldwide Adverts Template</title>
+<style>
+  :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#0f766e; --fill:#eff6ff; --fill-border:#93c5fd; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Georgia, 'Times New Roman', serif; color:var(--ink); background:#f1f5f9; line-height:1.55; }
+  .toolbar { position:sticky; top:0; z-index:20; display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; padding:10px 16px; background:#0f172a; color:#fff; font-family:system-ui,sans-serif; font-size:13px; }
+  .toolbar button { appearance:none; border:0; border-radius:6px; padding:7px 12px; font-weight:700; cursor:pointer; font-size:12px; background:#fff; color:#0f172a; }
+  .toolbar .ghost { background:transparent; color:#fff; border:1px solid #475569; }
+  .sheet { max-width:860px; margin:20px auto 48px; background:#fff; border:1px solid var(--line); padding:36px 44px; box-shadow:0 10px 30px rgba(15,23,42,.06); }
+  .brand { font-family:system-ui,sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--brand); font-weight:700; margin-bottom:8px; }
+  h1 { font-size:26px; margin:0 0 6px; }
+  h2 { font-family:system-ui,sans-serif; font-size:15px; margin:26px 0 10px; color:var(--brand); border-bottom:2px solid var(--brand); padding-bottom:6px; }
+  .sub,.guide,.example,.pullquote { font-family:system-ui,sans-serif; }
+  .sub { font-size:13px; color:var(--muted); margin-bottom:18px; }
+  .guide { background:#f0fdfa; border:1px solid #99f6e4; border-radius:8px; padding:12px 14px; font-size:12.5px; color:#115e59; margin:12px 0 18px; }
+  .pullquote { background:#fff7ed; border-left:4px solid #ea580c; padding:12px 14px; font-size:13px; color:#9a3412; margin:0 0 20px; font-style:italic; }
+  .example { font-size:11px; color:#64748b; font-style:italic; margin-top:4px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px){ .grid2{grid-template-columns:1fr} .sheet{padding:22px 18px;margin:12px} }
+  label.fill-label { display:block; font-family:system-ui,sans-serif; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#475569; margin:10px 0 4px; }
+  input.fill, textarea.fill, select.fill { width:100%; border:1.5px solid var(--fill-border); background:var(--fill); border-radius:8px; padding:10px 12px; font-family:system-ui,sans-serif; font-size:14px; color:var(--ink); }
+  textarea.fill { min-height:72px; resize:vertical; }
+  .checkrow { display:flex; flex-wrap:wrap; gap:10px 16px; font-family:system-ui,sans-serif; font-size:13px; margin:8px 0; }
+  .checkrow label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .footer { margin-top:28px; padding-top:12px; border-top:1px solid var(--line); font-family:system-ui,sans-serif; font-size:11px; color:#94a3b8; }
+  @media print { body{background:#fff} .toolbar{display:none!important} .sheet{box-shadow:none;border:none;margin:0;max-width:none;padding:12px} input.fill,textarea.fill,select.fill{border:none;border-bottom:1px solid #cbd5e1;background:transparent;border-radius:0} }
+</style>
+</head>
+<body data-storage-key="commercial-agreement-dispute-ready">
+<div class="toolbar">
+  <div><strong>Commercial Agreement</strong> · Dispute-ready · Auto-saves</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" onclick="window.print()">Print / Save PDF</button>
+    <button type="button" class="ghost" id="btn-clear">Clear fields</button>
+  </div>
+</div>
+<div class="sheet">
+  <div class="brand">Worldwide Adverts · Business template</div>
+  <h1>Commercial Agreement</h1>
+  <p class="sub">Fillable B2B contract focused on clarity when parties cooperate — and protection when disputes arise.</p>
+
+  <div class="pullquote">
+    “The quality of a commercial agreement is measured not by how it performs when parties cooperate, but by how effectively it protects them when disputes arise.”
+  </div>
+
+  <div class="guide">
+    <strong>Not legal advice.</strong> Customise for your jurisdiction. Have a qualified lawyer review before signing.
+    Complete every blue field, especially dispute, termination, liability, and governing-law sections.
+  </div>
+
+  <h2>1. Parties &amp; agreement date</h2>
+  <div class="grid2">
+    <div>
+      <label class="fill-label" for="ca_party_a">Party A (Provider / Seller)</label>
+      <textarea class="fill" id="ca_party_a" data-field="ca_party_a" rows="3" placeholder="Legal name · registered address · company no. · contact"></textarea>
+    </div>
+    <div>
+      <label class="fill-label" for="ca_party_b">Party B (Client / Buyer)</label>
+      <textarea class="fill" id="ca_party_b" data-field="ca_party_b" rows="3" placeholder="Legal name · registered address · company no. · contact"></textarea>
+    </div>
+  </div>
+  <div class="grid2">
+    <div>
+      <label class="fill-label" for="ca_date">Agreement date</label>
+      <input class="fill" id="ca_date" data-field="ca_date" type="date" />
+    </div>
+    <div>
+      <label class="fill-label" for="ca_ref">Reference / contract no.</label>
+      <input class="fill" id="ca_ref" data-field="ca_ref" placeholder="e.g. WWA-CA-2026-014" />
+    </div>
+  </div>
+
+  <h2>2. Purpose &amp; scope of work</h2>
+  <label class="fill-label" for="ca_purpose">Commercial purpose</label>
+  <textarea class="fill" id="ca_purpose" data-field="ca_purpose" rows="2" placeholder="What this agreement covers in one clear sentence"></textarea>
+  <label class="fill-label" for="ca_scope">Deliverables / services / goods in scope</label>
+  <textarea class="fill" id="ca_scope" data-field="ca_scope" rows="4" placeholder="List deliverables, quantities, milestones, acceptance criteria…"></textarea>
+  <label class="fill-label" for="ca_out_of_scope">Explicitly out of scope</label>
+  <textarea class="fill" id="ca_out_of_scope" data-field="ca_out_of_scope" rows="2" placeholder="What is NOT included (reduces future disputes)"></textarea>
+  <p class="example">Example: Hosting, third-party licence fees, and content creation are out of scope unless listed in Schedule A.</p>
+
+  <h2>3. Term, renewal &amp; termination</h2>
+  <div class="grid2">
+    <div>
+      <label class="fill-label" for="ca_start">Start date</label>
+      <input class="fill" id="ca_start" data-field="ca_start" type="date" />
+    </div>
+    <div>
+      <label class="fill-label" for="ca_end">End date / term</label>
+      <input class="fill" id="ca_end" data-field="ca_end" placeholder="e.g. 12 months / project completion" />
+    </div>
+  </div>
+  <label class="fill-label" for="ca_renewal">Renewal</label>
+  <textarea class="fill" id="ca_renewal" data-field="ca_renewal" rows="2" placeholder="Auto-renew · notice period · fee review"></textarea>
+  <label class="fill-label" for="ca_termination">Termination for convenience / for cause</label>
+  <textarea class="fill" id="ca_termination" data-field="ca_termination" rows="3" placeholder="Notice days · cure period for breach · immediate termination for fraud / insolvency"></textarea>
+  <label class="fill-label" for="ca_exit">Exit assistance &amp; handover on termination</label>
+  <textarea class="fill" id="ca_exit" data-field="ca_exit" rows="2" placeholder="Data return, transition support, final invoice…"></textarea>
+
+  <h2>4. Fees, payment &amp; late payment</h2>
+  <div class="grid2">
+    <div>
+      <label class="fill-label" for="ca_fee">Fees / price</label>
+      <input class="fill" id="ca_fee" data-field="ca_fee" placeholder="e.g. $4,500 + VAT / monthly retainer" />
+    </div>
+    <div>
+      <label class="fill-label" for="ca_currency">Currency</label>
+      <input class="fill" id="ca_currency" data-field="ca_currency" placeholder="USD / GBP / EUR…" />
+    </div>
+  </div>
+  <label class="fill-label" for="ca_payment">Invoicing &amp; payment terms</label>
+  <textarea class="fill" id="ca_payment" data-field="ca_payment" rows="2" placeholder="Net 14 / 30 · deposit · milestones · bank details reference"></textarea>
+  <label class="fill-label" for="ca_late">Late payment &amp; suspension rights</label>
+  <textarea class="fill" id="ca_late" data-field="ca_late" rows="2" placeholder="Interest, suspension of work after X days overdue, collection costs"></textarea>
+
+  <h2>5. Obligations when parties cooperate</h2>
+  <label class="fill-label" for="ca_obl_a">Party A obligations</label>
+  <textarea class="fill" id="ca_obl_a" data-field="ca_obl_a" rows="3" placeholder="Delivery standards, timelines, reporting…"></textarea>
+  <label class="fill-label" for="ca_obl_b">Party B obligations</label>
+  <textarea class="fill" id="ca_obl_b" data-field="ca_obl_b" rows="3" placeholder="Approvals, access, materials, timely feedback…"></textarea>
+  <label class="fill-label" for="ca_change">Change control</label>
+  <textarea class="fill" id="ca_change" data-field="ca_change" rows="2" placeholder="How scope changes are requested, priced, and approved in writing"></textarea>
+
+  <h2>6. Dispute protection (critical)</h2>
+  <div class="guide">Write these clauses as if cooperation has already failed — clear steps reduce cost and delay.</div>
+  <label class="fill-label" for="ca_notice">Notice of dispute</label>
+  <textarea class="fill" id="ca_notice" data-field="ca_notice" rows="2" placeholder="Written notice to named contacts within X days of awareness"></textarea>
+  <label class="fill-label" for="ca_escalation">Escalation ladder</label>
+  <textarea class="fill" id="ca_escalation" data-field="ca_escalation" rows="3" placeholder="1) Project leads (7 days) → 2) Directors (14 days) → 3) Mediation → 4) Arbitration / court"></textarea>
+  <label class="fill-label" for="ca_mediation">Mediation / ADR</label>
+  <textarea class="fill" id="ca_mediation" data-field="ca_mediation" rows="2" placeholder="Mediator body, location, cost share, confidentiality of talks"></textarea>
+  <label class="fill-label" for="ca_forum">Governing law &amp; forum</label>
+  <textarea class="fill" id="ca_forum" data-field="ca_forum" rows="2" placeholder="e.g. Laws of England &amp; Wales; exclusive courts of London / arbitration seat"></textarea>
+  <label class="fill-label" for="ca_interim">Interim relief</label>
+  <textarea class="fill" id="ca_interim" data-field="ca_interim" rows="2" placeholder="Right to seek injunctions for IP / confidentiality breaches despite ADR"></textarea>
+  <div class="checkrow">
+    <label><input type="checkbox" data-field="ca_chk_continue" /> Work continues during dispute (except unpaid invoices)</label>
+    <label><input type="checkbox" data-field="ca_chk_costs" /> Losing party pays reasonable legal costs</label>
+    <label><input type="checkbox" data-field="ca_chk_language" /> Proceedings in English</label>
+  </div>
+
+  <h2>7. Liability, indemnity &amp; insurance</h2>
+  <label class="fill-label" for="ca_liability">Liability cap</label>
+  <textarea class="fill" id="ca_liability" data-field="ca_liability" rows="2" placeholder="e.g. Fees paid in prior 12 months · exclusions for fraud, death, personal injury"></textarea>
+  <label class="fill-label" for="ca_indemnity">Indemnities</label>
+  <textarea class="fill" id="ca_indemnity" data-field="ca_indemnity" rows="2" placeholder="IP infringement, data breach caused by a party, third-party claims…"></textarea>
+  <label class="fill-label" for="ca_insurance">Insurance requirements</label>
+  <textarea class="fill" id="ca_insurance" data-field="ca_insurance" rows="2" placeholder="PI / PL cover amounts; evidence on request"></textarea>
+
+  <h2>8. Confidentiality &amp; intellectual property</h2>
+  <label class="fill-label" for="ca_confidential">Confidentiality</label>
+  <textarea class="fill" id="ca_confidential" data-field="ca_confidential" rows="2" placeholder="Definition, exclusions, survival period after end of agreement"></textarea>
+  <label class="fill-label" for="ca_ip">IP ownership &amp; licence</label>
+  <textarea class="fill" id="ca_ip" data-field="ca_ip" rows="3" placeholder="Pre-existing IP stays with owner · new work assigned / licensed on full payment"></textarea>
+
+  <h2>9. Data protection &amp; compliance</h2>
+  <textarea class="fill" data-field="ca_data" rows="3" placeholder="Roles (controller/processor), processing instructions, security, breach notification…"></textarea>
+
+  <h2>10. Force majeure &amp; general</h2>
+  <label class="fill-label" for="ca_force">Force majeure</label>
+  <textarea class="fill" id="ca_force" data-field="ca_force" rows="2" placeholder="Events beyond reasonable control; notice; suspension; termination if prolonged"></textarea>
+  <label class="fill-label" for="ca_general">Entire agreement / amendments / severability / assignment</label>
+  <textarea class="fill" id="ca_general" data-field="ca_general" rows="3" placeholder="This document + schedules = entire agreement; changes in writing; no assignment without consent…"></textarea>
+
+  <h2>11. Schedules (optional)</h2>
+  <textarea class="fill" data-field="ca_schedules" rows="3" placeholder="Schedule A – Statement of Work · Schedule B – Fees · Schedule C – SLAs · Schedule D – Data processing"></textarea>
+
+  <h2>12. Signatures</h2>
+  <div class="grid2">
+    <div>
+      <label class="fill-label" for="ca_sig_a">Party A authorised signatory</label>
+      <input class="fill" id="ca_sig_a" data-field="ca_sig_a" placeholder="Name · title · signature" />
+      <label class="fill-label" for="ca_sig_a_date">Date signed</label>
+      <input class="fill" id="ca_sig_a_date" data-field="ca_sig_a_date" type="date" />
+    </div>
+    <div>
+      <label class="fill-label" for="ca_sig_b">Party B authorised signatory</label>
+      <input class="fill" id="ca_sig_b" data-field="ca_sig_b" placeholder="Name · title · signature" />
+      <label class="fill-label" for="ca_sig_b_date">Date signed</label>
+      <input class="fill" id="ca_sig_b_date" data-field="ca_sig_b_date" type="date" />
+    </div>
+  </div>
+
+  <div class="footer">© Worldwide Adverts — fillable commercial agreement template. Inspired by dispute-ready contracting practice. Not legal advice.</div>
+</div>
+<script src="/templates/_fillable-shared.js"></script>
+</body>
+</html>

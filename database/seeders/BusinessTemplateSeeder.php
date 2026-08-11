@@ -125,6 +125,7 @@ class BusinessTemplateSeeder extends Seeder
                 ['Startup business plan', 'Fillable 10-page HubSpot/LawDepot-style plan with fields on every page', 'From $39', 'business_plan'],
                 ['Business Plan — Executive Summary', 'Premium fillable exec summary — autosave, validation, print/PDF', 'From $19', 'business_plan'],
                 ['Professional invoice', 'Fillable invoice with line items, tax and payment fields', 'From $8', 'invoice'],
+                ['Commercial agreement (dispute-ready)', 'B2B contract with scope, payment, liability, and clear dispute / ADR clauses', 'From $24', 'agreement'],
                 ['Monthly calendar & planner', 'Fillable month goals and weekly grid', 'From $12', 'planner'],
                 ['Weekly planner', 'Fillable week priorities and daily blocks', 'From $9', 'planner'],
                 ['Meal planner', 'Weekly meals, shopping list and batch prep — fillable', 'From $9', 'planner'],
@@ -439,10 +440,13 @@ class BusinessTemplateSeeder extends Seeder
         if (str_contains($t, 'interview scorecard') || str_contains($t, 'scorecard')) {
             return '/templates/interview-scorecard.html';
         }
+        if (str_contains($t, 'commercial agreement') || str_contains($t, 'dispute-ready') || str_contains($t, 'dispute ready')) {
+            return '/templates/commercial-agreement.html';
+        }
         if (str_contains($t, 'bill of sale')) {
             return '/templates/bill-of-sale.html';
         }
-        if (str_contains($t, 'private sale') || str_contains($t, 'sale agreement')) {
+        if (str_contains($t, 'private sale') || (str_contains($t, 'sale agreement') && ! str_contains($t, 'commercial'))) {
             return '/templates/private-sale-agreement.html';
         }
         if (str_contains($t, 'listing description') || str_contains($t, 'item listing')) {
