@@ -718,7 +718,8 @@ class AuthController extends APIController
             // Company docs / VAT / tax / address completed after login.
             $rules['business_name'] = 'required|string|max:255';
             $rules['phone'] = 'required|string|max:30';
-            $rules['business_category'] = 'nullable|string|max:100';
+            // Clive: category chosen at signup (homepage category → dashboard)
+            $rules['business_category'] = 'required|string|max:100';
             $rules['company_registration_number'] = 'nullable|string|max:50';
             $rules['vat_number'] = 'nullable|string|max:50';
             $rules['tax_number'] = 'nullable|string|max:50';
@@ -813,7 +814,7 @@ class AuthController extends APIController
 
                 $address = trim(request()->city . ', ' . request()->country);
 
-                CustomerBusiness::create([
+                $createPayload = [
                     'customer_id' => $customer->customer_id,
                     'slug' => $slug,
                     'business_name' => $businessName,
@@ -827,10 +828,16 @@ class AuthController extends APIController
                     'personal_email' => $email,
                     'personal_phone_number' => $phone,
                     'category_id' => $categoryId,
-                    'business_category_slug' => $categorySlug,
                     'vat_number' => request()->vat_number,
                     'status' => 'active',
-                ]);
+                ];
+                if (Schema::hasColumn('customer_business', 'business_category_slug')) {
+                    $createPayload['business_category_slug'] = $categorySlug;
+                }
+                if (Schema::hasColumn('customer_business', 'business_category') && request()->business_category_name) {
+                    $createPayload['business_category'] = request()->business_category_name;
+                }
+                CustomerBusiness::create($createPayload);
             }
 
             $userReferral = ReferralService::processRegistrationReferral($customer, request()->referral_code);
