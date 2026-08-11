@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 /**
  * Demo business users — one per homepage category dashboard.
  * Login: {category}-demo@worldwideadverts.info  /  Dashboard@123
- * Safe to re-run (upserts by email / business slug).
+ * Safe to re-run (does not overwrite customer_uid on existing rows).
  */
 class BusinessCategoryDashboardUserSeeder extends Seeder
 {
@@ -52,56 +52,39 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
         };
 
         foreach ($demos as $demo) {
-            // Prefer real-looking emails (browser email fields often reject *.local)
             $email = $demo['slug'].'-demo@worldwideadverts.info';
-            $legacyEmail = $demo['slug'].'@demo.wwa.local';
             $nameParts = explode(' ', $demo['owner'], 2);
+            $phone = '+4477009'.str_pad((string) abs(crc32($demo['slug']) % 100000), 5, '0', STR_PAD_LEFT);
 
-            $customerAttrs = [
+            $customer = Customer::where('email', $email)->first();
+
+            $attrs = [
                 'first_name' => $nameParts[0] ?? 'Business',
                 'last_name' => $nameParts[1] ?? 'Owner',
                 'password_hash' => $password,
-                'phone' => '+4477009'.str_pad((string) abs(crc32($demo['slug']) % 100000), 5, '0', STR_PAD_LEFT),
+                'phone' => $phone,
                 'email_verified_at' => now(),
-                'customer_uid' => Str::random(10),
             ];
-
             if (Schema::hasColumn('customer', 'user_type')) {
-                $customerAttrs['user_type'] = 'business';
+                $attrs['user_type'] = 'business';
             }
             if (Schema::hasColumn('customer', 'business_category')) {
-                $customerAttrs['business_category'] = $demo['slug'];
+                $attrs['business_category'] = $demo['slug'];
             }
             if (Schema::hasColumn('customer', 'city')) {
-                $customerAttrs['city'] = $demo['city'];
+                $attrs['city'] = $demo['city'];
             }
             if (Schema::hasColumn('customer', 'country')) {
-                $customerAttrs['country'] = 'United Kingdom';
+                $attrs['country'] = 'United Kingdom';
             }
 
-            $customer = Customer::updateOrCreate(
-                ['email' => $email],
-                $customerAttrs
-            );
-
-            // Keep legacy .local accounts in sync too (password refresh)
-            Customer::updateOrCreate(
-                ['email' => $legacyEmail],
-                array_merge($customerAttrs, [
-                    'first_name' => $nameParts[0] ?? 'Business',
-                    'last_name' => $nameParts[1] ?? 'Owner',
-                ])
-            );
-
-            $touch = [];
-            if (Schema::hasColumn('customer', 'user_type')) {
-                $touch['user_type'] = 'business';
-            }
-            if (Schema::hasColumn('customer', 'business_category')) {
-                $touch['business_category'] = $demo['slug'];
-            }
-            if ($touch) {
-                $customer->fill($touch)->save();
+            if ($customer) {
+                // Never rewrite customer_uid on existing rows (unique constraint)
+                $customer->fill($attrs)->save();
+            } else {
+                $attrs['email'] = $email;
+                $attrs['customer_uid'] = $this->uniqueCustomerUid('d'.$demo['slug']);
+                $customer = Customer::create($attrs);
             }
 
             $bizSlug = 'demo-'.$demo['slug'].'-dashboard';
@@ -109,7 +92,7 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
                 'customer_id' => $customer->customer_id,
                 'business_name' => $demo['name'],
                 'business_description' => 'Demo '.$demo['slug'].' category dashboard business for Worldwide Adverts QA.',
-                'business_phone_number' => $customer->phone,
+                'business_phone_number' => $phone,
                 'business_address' => '1 Demo Street, '.$demo['city'].', UK',
                 'city' => $demo['city'],
                 'country' => 'United Kingdom',
@@ -118,7 +101,7 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
                 'business_owner' => $demo['owner'],
                 'status' => 'active',
                 'personal_email' => $email,
-                'personal_phone_number' => $customer->phone,
+                'personal_phone_number' => $phone,
                 'category_id' => $resolveCategoryId($demo['slug']),
                 'category_profile' => [
                     'dashboard_category' => $demo['slug'],
@@ -146,5 +129,18 @@ class BusinessCategoryDashboardUserSeeder extends Seeder
         $this->command?->newLine();
         $this->command?->info('Password for all demo users: Dashboard@123');
         $this->command?->info('Example: vehicles-demo@worldwideadverts.info');
+    }
+
+    protected function uniqueCustomerUid(string $seed): string
+    {
+        // Deterministic-ish 10-char uid, then fall back to random if taken
+        $base = substr(preg_replace('/[^A-Za-z0-9]/', '', 'd'.md5($seed)), 0, 10);
+        if ($base === '' || Customer::where('customer_uid', $base)->exists()) {
+            do {
+                $base = Str::random(10);
+            } while (Customer::where('customer_uid', $base)->exists());
+        }
+
+        return $base;
     }
 }
