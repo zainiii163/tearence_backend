@@ -31,7 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->registration()
+            // Public admin registration disabled — create admins via invite / artisan only
             ->passwordReset()
             ->emailVerification()
             ->profile()

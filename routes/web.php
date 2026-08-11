@@ -43,7 +43,7 @@ Route::get('/favicon-32x32.png', function () {
     return response('', 204);
 });
 
-Route::get('logs', [\Rap2hpoutre\LaravelLogViewer\LogViewerController::class, 'index']);
+// Log viewer removed from public routes (security). Use server logs / Filament admin instead.
 
 // Authentication Routes
 Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');

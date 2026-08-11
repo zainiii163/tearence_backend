@@ -258,27 +258,27 @@ Route::group([
 
 
 
-    // no auth
+    // Auth (public) — throttled against brute force
 
     Route::group(['prefix' => 'auth'], function () {
 
-        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
-        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
-        Route::post('/login-admin', [AuthController::class, 'loginAdmin']);
+        Route::post('/login-admin', [AuthController::class, 'loginAdmin'])->middleware('throttle:5,1');
 
-        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 
-        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
-        Route::post('/2fa/verify-login', [TwoFactorController::class, 'verifyLogin']);
+        Route::post('/2fa/verify-login', [TwoFactorController::class, 'verifyLogin'])->middleware('throttle:5,1');
 
 
 
         // JWT-based auth for frontend
 
-        Route::post('/web-login', [AuthController::class, 'webLogin']);
+        Route::post('/web-login', [AuthController::class, 'webLogin'])->middleware('throttle:5,1');
 
         Route::post('/web-logout', [AuthController::class, 'webLogout']);
 
@@ -288,13 +288,7 @@ Route::group([
 
         // Token refresh - must be outside auth middleware to work with expired tokens
 
-        Route::match(['get', 'post'], '/refresh', [AuthController::class, 'refresh']);
-
-
-
-        // Debug endpoint for testing
-
-        Route::get('/debug', [AuthController::class, 'debugAuth']);
+        Route::match(['get', 'post'], '/refresh', [AuthController::class, 'refresh'])->middleware('throttle:20,1');
 
         // Route::post('/generate-otp', [AuthController::class, 'generateOtp']);
 
@@ -379,50 +373,45 @@ Route::group([
 
     });
 
-    // Debug authentication endpoint
-    Route::get('/debug-auth', function (Request $request) {
-        return response()->json([
-            'authenticated' => auth('api')->check(),
-            'user' => auth('api')->user() ? [
-                'id' => auth('api')->user()->customer_id,
-                'email' => auth('api')->user()->email,
-                'name' => auth('api')->user()->first_name . ' ' . auth('api')->user()->last_name,
-                'type' => get_class(auth('api')->user()),
-            ] : null,
-            'token_present' => $request->bearerToken() ? 'Yes' : 'No',
-            'auth_header' => $request->header('Authorization'),
-            'guard_check' => [
-                'default' => auth()->check(),
-                'api' => auth('api')->check(),
-            ],
-            'guards' => array_keys(config('auth.guards')),
-        ]);
-    });
+    // Debug endpoints — local/staging only
+    if (!app()->environment('production')) {
+        Route::get('/debug-auth', function (Request $request) {
+            return response()->json([
+                'authenticated' => auth('api')->check(),
+                'user' => auth('api')->user() ? [
+                    'id' => auth('api')->user()->customer_id,
+                    'email' => auth('api')->user()->email,
+                    'name' => auth('api')->user()->first_name . ' ' . auth('api')->user()->last_name,
+                    'type' => get_class(auth('api')->user()),
+                ] : null,
+                'token_present' => $request->bearerToken() ? 'Yes' : 'No',
+                'guard_check' => [
+                    'default' => auth()->check(),
+                    'api' => auth('api')->check(),
+                ],
+            ]);
+        })->middleware(['jwt.auth', 'admin']);
 
-    // Debug policy endpoint
-    Route::get('/debug-policy', function (Request $request) {
-        $user = auth('api')->user();
-        if (!$user) {
-            return response()->json(['error' => 'Not authenticated via API guard'], 401);
-        }
-        
-        return response()->json([
-            'user_info' => [
-                'id' => $user->customer_id,
-                'email' => $user->email,
-                'type' => get_class($user),
-            ],
-            'policy_checks' => [
-                'can_create_vehicle' => $user->can('create', \App\Models\Vehicle::class),
-                'is_authenticated_method' => $user->isAuthenticated(),
-                'is_admin_method' => $user->isAdmin(),
-            ],
-            'auth_checks' => [
-                'auth_api_check' => auth('api')->check(),
-                'auth_default_check' => auth()->check(),
-            ],
-        ]);
-    })->middleware('auth:api');
+        Route::get('/debug-policy', function (Request $request) {
+            $user = auth('api')->user();
+            if (!$user) {
+                return response()->json(['error' => 'Not authenticated via API guard'], 401);
+            }
+
+            return response()->json([
+                'user_info' => [
+                    'id' => $user->customer_id,
+                    'email' => $user->email,
+                    'type' => get_class($user),
+                ],
+                'policy_checks' => [
+                    'can_create_vehicle' => $user->can('create', \App\Models\Vehicle::class),
+                    'is_authenticated_method' => $user->isAuthenticated(),
+                    'is_admin_method' => $user->isAdmin(),
+                ],
+            ]);
+        })->middleware(['auth:api', 'admin']);
+    }
 
     // Test vehicle store authorization
     Route::get('/test-vehicle-store-auth', function (Request $request) {
@@ -820,13 +809,12 @@ Route::group([
 
         Route::get('/statistics', [VehiclesAdvertController::class, 'getStatistics']);
 
-        Route::post('/upload', [VehiclesAdvertController::class, 'uploadImage']);
-
         Route::get('/slug/{slug}', [VehiclesAdvertController::class, 'showBySlug']);
 
         // Authenticated static routes before /{id}
         Route::middleware('jwt.auth')->group(function () {
             Route::get('/my-vehicles', [VehiclesAdvertController::class, 'myVehicles']);
+            Route::post('/upload', [VehiclesAdvertController::class, 'uploadImage']);
         });
 
         Route::get('/{id}', [VehiclesAdvertController::class, 'show']);
@@ -881,28 +869,28 @@ Route::group([
 
         // Authenticated routes (declared before /{slug} so paths like my-images / admin match correctly)
         Route::group(['middleware' => 'jwt.auth'], function () {
-            Route::get('/admin/all', [ImagesAdvertController::class, 'adminIndex']);
             Route::get('/my-images', [ImagesAdvertController::class, 'myImages']);
             Route::post('/', [ImagesAdvertController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [ImagesAdvertController::class, 'update']);
             Route::delete('/{id}', [ImagesAdvertController::class, 'destroy']);
-            Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
-            Route::post('/{id}/reject', [ImagesAdvertController::class, 'reject']);
+            Route::post('/upload', [ImagesAdvertController::class, 'uploadImage']);
+            Route::post('/upload-multiple', [ImagesAdvertController::class, 'uploadMultipleImages']);
             Route::post('/{id}/purchase', [ImagesAdvertController::class, 'purchase'])->whereNumber('id');
             Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment'])->whereNumber('id');
             Route::post('/purchases/{purchaseId}/confirm-payment', [ImagesAdvertController::class, 'confirmPurchasePayment'])
                 ->whereNumber('purchaseId');
+            Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
+        });
+
+        Route::group(['middleware' => ['jwt.auth', 'admin']], function () {
+            Route::get('/admin/all', [ImagesAdvertController::class, 'adminIndex']);
+            Route::post('/{id}/verify', [ImagesAdvertController::class, 'verify']);
+            Route::post('/{id}/reject', [ImagesAdvertController::class, 'reject']);
         });
 
         Route::get('/{slug}', [ImagesAdvertController::class, 'show']);
 
-        Route::post('/upload', [ImagesAdvertController::class, 'uploadImage']);
-
-        Route::post('/upload-multiple', [ImagesAdvertController::class, 'uploadMultipleImages']);
-
         Route::post('/{id}/views', [ImagesAdvertController::class, 'incrementViews']);
-
-        Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
 
         Route::post('/{id}/download', [ImagesAdvertController::class, 'download']);
 
@@ -932,7 +920,7 @@ Route::group([
 
         Route::get('/featured', [BookController::class, 'featured']);
 
-        Route::post('/scrape', [BookController::class, 'scrape']);
+        Route::post('/scrape', [BookController::class, 'scrape'])->middleware(['jwt.auth', 'admin']);
 
     });
 
@@ -944,23 +932,25 @@ Route::group([
 
         Route::get('/pricing-plans', [BannerController::class, 'getPricingPlans']);
 
-        Route::post('/payment', [BannerController::class, 'processPayment']);
+        Route::get('/', [BannerController::class, 'index']);
 
-        Route::get('/my-banner', [BannerController::class, 'myBanner']);
+        Route::middleware('jwt.auth')->group(function () {
+            Route::post('/payment', [BannerController::class, 'processPayment']);
+
+            Route::get('/my-banner', [BannerController::class, 'myBanner']);
+
+            Route::post('/', [BannerController::class, 'store'])->middleware('verified.to.post');
+
+            Route::put('/{id}', [BannerController::class, 'update']);
+
+            Route::delete('/{id}', [BannerController::class, 'destroy']);
+
+            Route::post('/upload', [BannerController::class, 'upload']);
+        });
 
         Route::get('/{slug}', [BannerController::class, 'getBySlug']);
 
-        Route::get('/', [BannerController::class, 'index']);
-
         Route::get('/{id}', [BannerController::class, 'show']);
-
-        Route::post('/', [BannerController::class, 'store'])->middleware('verified.to.post');
-
-        Route::put('/{id}', [BannerController::class, 'update']);
-
-        Route::delete('/{id}', [BannerController::class, 'destroy']);
-
-        Route::post('/upload', [BannerController::class, 'upload']);
 
     });
 
@@ -1625,7 +1615,7 @@ Route::group([
 
     // Admin category post management
 
-    Route::group(['prefix' => 'admin/category-posts', 'middleware' => 'jwt.auth'], function () {
+    Route::group(['prefix' => 'admin/category-posts', 'middleware' => ['jwt.auth', 'admin']], function () {
 
         Route::get('/category/{categoryId}', [CategoryPostController::class, 'getCategoryPosts']);
 
@@ -1649,7 +1639,7 @@ Route::group([
 
     // Admin post moderation
 
-    Route::group(['prefix' => 'admin/moderation', 'middleware' => 'jwt.auth'], function () {
+    Route::group(['prefix' => 'admin/moderation', 'middleware' => ['jwt.auth', 'admin']], function () {
 
         Route::get('/dashboard', [PostModerationController::class, 'getModerationDashboard']);
 
@@ -1675,7 +1665,7 @@ Route::group([
 
     // Admin notifications
 
-    Route::group(['prefix' => 'admin/notifications', 'middleware' => 'jwt.auth'], function () {
+    Route::group(['prefix' => 'admin/notifications', 'middleware' => ['jwt.auth', 'admin']], function () {
 
         Route::get('/', [NotificationController::class, 'index']);
 
@@ -1747,7 +1737,7 @@ Route::group([
 
     // Admin Analytics Dashboard (with role-based permissions)
 
-    Route::group(['prefix' => 'admin-analytics', 'middleware' => 'jwt.auth'], function () {
+    Route::group(['prefix' => 'admin-analytics', 'middleware' => ['jwt.auth', 'admin']], function () {
 
         Route::get('/dashboard', [AdminAnalyticsController::class, 'getDashboard']);
 

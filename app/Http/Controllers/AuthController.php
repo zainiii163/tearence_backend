@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator as FacadesValidator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rules\Password;
 use App\Helpers\StringHelper;
 use App\Helpers\OtpHelper;
 use App\Models\Customer;
@@ -703,7 +704,7 @@ class AuthController extends APIController
             'first_name' => 'required',
             'last_name' => 'required',
             'email' => 'required|email|unique:customer',
-            'password' => 'required|min:8|same:password_confirmation',
+            'password' => ['required', 'same:password_confirmation', Password::min(8)->letters()->numbers()],
             'password_confirmation' => 'required',
             'referral_code' => 'nullable|string|max:20',
             'phone' => 'nullable|string|max:30',

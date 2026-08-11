@@ -28,8 +28,8 @@ class AffiliateHopController extends Controller
         $offer = $application->businessAffiliateOffer;
         $destination = $offer->tracking_link ?: $offer->website_url;
 
-        if (!$destination) {
-            abort(404, 'Offer destination missing');
+        if (!$destination || !$this->isSafeHttpUrl($destination)) {
+            abort(404, 'Offer destination missing or invalid');
         }
 
         AffiliateHopClick::create([
@@ -42,14 +42,17 @@ class AffiliateHopController extends Controller
         $offer->incrementClicks();
 
         $days = max(1, (int) ($offer->cookie_duration ?: 30));
+        $secure = $request->isSecure() || app()->environment('production');
         Cookie::queue(cookie(
             'wwa_aff',
             $application->tracking_code,
             $days * 24 * 60,
             '/',
             null,
+            $secure,
+            true, // httpOnly
             false,
-            false
+            'Lax'
         ));
 
         $separator = str_contains($destination, '?') ? '&' : '?';
@@ -58,6 +61,29 @@ class AffiliateHopController extends Controller
             'wwa_offer' => $offer->id,
         ]);
 
+        if (!$this->isSafeHttpUrl($target)) {
+            abort(404, 'Offer destination missing or invalid');
+        }
+
         return redirect()->away($target);
+    }
+
+    /**
+     * Only allow http(s) absolute URLs — blocks javascript:, data:, etc.
+     */
+    private function isSafeHttpUrl(string $url): bool
+    {
+        $url = trim($url);
+        if ($url === '' || strlen($url) > 2048) {
+            return false;
+        }
+
+        $parts = parse_url($url);
+        if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) {
+            return false;
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        return in_array($scheme, ['http', 'https'], true);
     }
 }
