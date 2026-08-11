@@ -164,36 +164,50 @@ class DashboardController extends APIController
                 'active_job_alerts' => JobAlert::where('customer_id', $customer_id)->where('is_active', true)->count(),
             ];
 
-            // Job alerts summary
-            $userJobAlerts = JobAlert::where('customer_id', $customer_id)
-                ->where('is_active', true)
-                ->with(['location', 'category'])
-                ->get();
-
+            // Job alerts summary (isolated so a bad alert row cannot 500 the whole dashboard)
             $jobAlerts = [
-                'total_alerts' => $userJobAlerts->count(),
-                'active_alerts' => $userJobAlerts->where('is_active', true)->count(),
-                'alerts' => $userJobAlerts->map(function($alert) {
-                    $matchingJobs = $alert->findMatchingJobs(1);
-                    $matchingJobsCount = ($matchingJobs instanceof \Countable || is_array($matchingJobs)) 
-                        ? count($matchingJobs) 
-                        : 0;
-                    return [
-                        'job_alert_id' => $alert->job_alert_id,
-                        'name' => $alert->name,
-                        'frequency' => $alert->frequency,
-                        'matching_jobs_count' => $matchingJobsCount,
-                        'last_notified_at' => $alert->last_notified_at,
-                    ];
-                }),
+                'total_alerts' => 0,
+                'active_alerts' => 0,
+                'alerts' => [],
+                'has_boost' => false,
             ];
+            try {
+                $userJobAlerts = JobAlert::where('customer_id', $customer_id)
+                    ->where('is_active', true)
+                    ->with(['location', 'category'])
+                    ->get();
 
-            // If user has job alerts boost, show enhanced stats
-            if ($candidateProfile && $candidateProfile->has_job_alerts_boost) {
-                $jobAlerts['has_boost'] = true;
-                $jobAlerts['boost_expires_at'] = $candidateProfile->job_alerts_boost_expires_at;
-            } else {
-                $jobAlerts['has_boost'] = false;
+                $jobAlerts = [
+                    'total_alerts' => $userJobAlerts->count(),
+                    'active_alerts' => $userJobAlerts->where('is_active', true)->count(),
+                    'alerts' => $userJobAlerts->map(function ($alert) {
+                        try {
+                            $matchingJobs = $alert->findMatchingJobs(1);
+                            $matchingJobsCount = ($matchingJobs instanceof \Countable || is_array($matchingJobs))
+                                ? count($matchingJobs)
+                                : 0;
+                        } catch (\Throwable $e) {
+                            $matchingJobsCount = 0;
+                        }
+
+                        return [
+                            'job_alert_id' => $alert->job_alert_id,
+                            'name' => $alert->name,
+                            'frequency' => $alert->frequency,
+                            'matching_jobs_count' => $matchingJobsCount,
+                            'last_notified_at' => $alert->last_notified_at,
+                        ];
+                    }),
+                ];
+
+                if ($candidateProfile && $candidateProfile->has_job_alerts_boost) {
+                    $jobAlerts['has_boost'] = true;
+                    $jobAlerts['boost_expires_at'] = $candidateProfile->job_alerts_boost_expires_at;
+                } else {
+                    $jobAlerts['has_boost'] = false;
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Dashboard job_alerts skipped: '.$e->getMessage());
             }
 
             // Advert Posts Management - Posted Ads, Paid Ads, Expiring Ads
