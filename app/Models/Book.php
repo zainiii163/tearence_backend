@@ -145,9 +145,14 @@ class Book extends Model
      */
     public function getCoverImageUrlAttribute()
     {
-        if ($this->cover_image) {
-            return asset('storage/' . $this->cover_image);
+        if (!$this->cover_image) {
+            return asset('placeholder.png');
         }
-        return asset('placeholder.png');
+
+        if (str_starts_with($this->cover_image, 'http://') || str_starts_with($this->cover_image, 'https://')) {
+            return $this->cover_image;
+        }
+
+        return asset('storage/' . ltrim($this->cover_image, '/'));
     }
 }

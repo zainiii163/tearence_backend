@@ -813,16 +813,26 @@ class BookAdvertController extends Controller
     /** Keep only columns that exist on the `books` table */
     private static function filterBookTableAttributes(array $data): array
     {
-        $columns = [
-            'title', 'slug', 'description', 'short_description', 'price', 'currency',
-            'cover_image', 'additional_images', 'book_type', 'genre', 'author_name',
-            'author_id', 'country', 'language', 'format', 'isbn', 'publisher',
-            'publication_date', 'pages', 'age_range', 'series_name', 'edition',
-            'purchase_links', 'trailer_video_url', 'sample_files', 'rating',
-            'views_count', 'saves_count', 'status', 'advert_type', 'expires_at',
-            'user_id', 'verified_author',
+        $deny = [
+            'is_promoted', 'is_featured', 'is_sponsored', 'is_top_category',
+            'upsell_tier', 'upsell_price', 'pricing_plan_id', 'payment_status',
+            'subtitle', 'author_bio', 'author_photo', 'author_photo_url',
+            'author_social_links', 'location_address', 'latitude', 'longitude',
+            'cover_image_url', 'agreed_to_terms', 'verified_author_badge',
+            'upsell_type',
         ];
 
-        return array_intersect_key($data, array_flip($columns));
+        foreach ($deny as $key) {
+            unset($data[$key]);
+        }
+
+        $allowed = [];
+        foreach ($data as $key => $value) {
+            if (Schema::hasColumn('books', $key)) {
+                $allowed[$key] = $value;
+            }
+        }
+
+        return $allowed;
     }
 }
