@@ -3,6 +3,9 @@
 namespace App\Filament\Clusters\DashboardCluster\Pages;
 
 use App\Filament\Clusters\DashboardCluster;
+use App\Filament\Widgets\AffiliateStatsChart;
+use App\Filament\Widgets\BusinessCategoryOverviewChartWidget;
+use App\Filament\Widgets\BusinessDashboardStatsWidget;
 use App\Filament\Widgets\CrossSitePromotionFeedWidget;
 use App\Filament\Widgets\FeaturedAdvertsChartWidget;
 use Filament\Pages\Page;
@@ -24,7 +27,10 @@ class AnalyticsOverview extends Page
     protected function getHeaderWidgets(): array
     {
         return [
+            BusinessDashboardStatsWidget::class,
             CrossSitePromotionFeedWidget::class,
+            BusinessCategoryOverviewChartWidget::class,
+            AffiliateStatsChart::class,
             FeaturedAdvertsChartWidget::class,
         ];
     }

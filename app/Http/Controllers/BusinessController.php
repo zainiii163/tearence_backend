@@ -10,6 +10,7 @@ use App\Models\BusinessStaffInvite;
 use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\StaffManagement;
+use App\Services\BusinessDashboardStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -981,110 +982,21 @@ class BusinessController extends APIController
         $customerId = $user->customer_id;
         $userId = $user->user_id ?? $user->id ?? null;
 
-        $stats = [
-            'listings' => 0,
-            'orders' => 0,
-            'views' => 0,
-            'leads' => 0,
-            'enquiries' => 0,
-            'applications' => 0,
-            'affiliates' => 0,
-            'offers' => 0,
-            'applicants' => 0,
-            'hops' => 0,
-            'products' => 0,
-            'campaigns' => 0,
-            'tickets' => 0,
-            'sales' => 0,
-            'rating' => null,
-            'pledges' => 0,
-            'goal' => 0,
-            'visits' => 0,
-            'donors' => 0,
-            'raised' => 0,
-            'replies' => 0,
-            'bookings' => 0,
-            'interest' => 0,
-            'impressions' => 0,
-            'clicks' => 0,
-        ];
-
         try {
-            if (Schema::hasTable('business_affiliate_offers') && $userId) {
-                $offerQuery = BusinessAffiliateOffer::where('user_id', $userId);
-                $stats['offers'] = (clone $offerQuery)->count();
-                $stats['affiliates'] = $stats['offers'];
-                $offerIds = (clone $offerQuery)->pluck('id');
-                if (Schema::hasTable('affiliate_applications') && $offerIds->isNotEmpty()) {
-                    $stats['applicants'] = AffiliateApplication::whereIn('business_affiliate_offer_id', $offerIds)
-                        ->where('status', 'pending')
-                        ->count();
-                    $stats['applications'] = AffiliateApplication::whereIn('business_affiliate_offer_id', $offerIds)->count();
-                }
-            }
-
-            $business = CustomerBusiness::where('customer_id', $customerId)->first();
-            if ($business) {
-                $profile = is_array($business->category_profile) ? $business->category_profile : [];
-                $stats['views'] = (int) ($profile['views_30d'] ?? $business->views ?? 0);
-                $stats['leads'] = (int) ($profile['leads'] ?? 0);
-                $stats['enquiries'] = (int) ($profile['enquiries'] ?? $stats['leads']);
-                $stats['listings'] = (int) ($profile['listings_count'] ?? 1);
-            }
-
-            // Soft counts from common listing tables when present
-            $listingTables = [
-                'vehicles' => ['vehicle_adverts', 'vehicles'],
-                'property' => ['property_adverts', 'properties'],
-                'jobs' => ['job_adverts', 'jobs'],
-                'buy-sell' => ['buy_sell_adverts'],
-                'services' => ['service_adverts', 'services'],
-                'books' => ['book_adverts'],
-                'software' => ['software_adverts'],
-                'events' => ['event_adverts', 'events'],
-                'funding' => ['funding_campaigns'],
-                'donations' => ['donation_campaigns', 'campaigns'],
-                'classifieds' => ['classified_adverts', 'classifieds'],
-                'images' => ['image_adverts', 'stock_images'],
-                'resorts' => ['resort_adverts', 'travel_adverts'],
-                'investment' => ['investment_adverts'],
-                'stores' => ['store_products', 'customer_store_products'],
-                'adverts' => ['sponsored_adverts', 'featured_adverts'],
-            ];
-
-            if (isset($listingTables[$category])) {
-                foreach ($listingTables[$category] as $table) {
-                    if (!Schema::hasTable($table)) {
-                        continue;
-                    }
-                    $q = DB::table($table);
-                    if (Schema::hasColumn($table, 'customer_id')) {
-                        $stats['listings'] = max($stats['listings'], (int) $q->where('customer_id', $customerId)->count());
-                    } elseif (Schema::hasColumn($table, 'user_id') && $userId) {
-                        $stats['listings'] = max($stats['listings'], (int) $q->where('user_id', $userId)->count());
-                    }
-                    break;
-                }
-            }
-
-            if ($category === 'affiliate') {
-                $stats['listings'] = $stats['offers'];
-            }
-            if ($category === 'stores') {
-                $stats['products'] = $stats['listings'];
-            }
-            if (in_array($category, ['adverts', 'funding', 'donations'], true)) {
-                $stats['campaigns'] = $stats['listings'];
-            }
+            $payload = app(BusinessDashboardStatsService::class)->build($category, $customerId, $userId);
         } catch (\Throwable $e) {
-            // return zeros rather than failing the dashboard shell
+            $payload = [
+                'category' => $category,
+                'stats' => [],
+                'trends' => [],
+                'performance' => [],
+                'recent_listings' => [],
+                'affiliate_summary' => ['offers' => 0, 'pending_applicants' => 0, 'total_applications' => 0],
+                'updated_at' => now()->toIso8601String(),
+            ];
         }
 
-        return $this->successResponse([
-            'category' => $category,
-            'stats' => $stats,
-            'updated_at' => now()->toIso8601String(),
-        ], '', Response::HTTP_OK);
+        return $this->successResponse($payload, '', Response::HTTP_OK);
     }
 
     public function updateMember(Request $request, $id, $memberId)
