@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Helpers\MediaUrlHelper;
 use App\Models\SponsoredAdvert;
 use App\Services\CrossPromotionFeedService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +17,8 @@ use Carbon\Carbon;
 
 class SponsoredAdvertController extends Controller
 {
+    use VerifiesClientPayments;
+
     /**
      * Get sponsored adverts with filtering and search
      */
@@ -880,7 +884,9 @@ class SponsoredAdvertController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'payment_method' => 'required|string',
-            'transaction_id' => 'nullable|string'
+            'transaction_id' => 'nullable|string',
+            'payment_id' => 'nullable|string',
+            'payment_reference' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -909,10 +915,30 @@ class SponsoredAdvertController extends Controller
             ], 404);
         }
 
-        // Update payment status
+        $expected = (float) ($advert->sponsorship_price ?? $advert->price ?? 0);
+        if ($expected < 0.01) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sponsorship amount missing — cannot mark paid without a priced plan.',
+                'defence' => 'payment_verification',
+            ], 422);
+        }
+
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            $expected,
+            'sponsored_advert',
+            $advert->sponsored_advert_id ?? $advert->id,
+            'USD',
+            'transaction_id'
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
         $advert->update([
             'payment_status' => 'paid',
-            'payment_transaction_id' => $request->transaction_id,
+            'payment_transaction_id' => $verified['payment_id'],
             'is_active' => true
         ]);
 

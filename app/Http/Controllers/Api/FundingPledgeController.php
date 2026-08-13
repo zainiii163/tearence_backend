@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\FundingProject;
 use App\Models\FundingPledge;
 use App\Models\FundingReward;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\Validator;
 
 class FundingPledgeController extends Controller
 {
+    use VerifiesClientPayments;
+
     public function store(Request $request, $projectId)
     {
         $project = FundingProject::findOrFail($projectId);
@@ -123,6 +127,17 @@ class FundingPledgeController extends Controller
         }
 
         $payload = $validator->validated();
+
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $pledge->amount,
+            'funding_pledge',
+            $pledge->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+        $payload['payment_id'] = $verified['payment_id'];
 
         DB::transaction(function () use ($pledge, $payload) {
             $pledge->update([

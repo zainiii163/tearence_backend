@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Donation;
 use App\Models\DonationContribution;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +17,8 @@ use Illuminate\Support\Str;
 
 class DonationController extends Controller
 {
+    use VerifiesClientPayments;
+
     private function authUserId(): ?int
     {
         return auth('api')->id();
@@ -410,10 +414,20 @@ class DonationController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($contribution, $request) {
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $contribution->amount,
+            'donation',
+            $contribution->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        DB::transaction(function () use ($contribution, $request, $verified) {
             $contribution->payment_status = 'completed';
             $contribution->payment_method = $request->input('payment_method', 'paypal');
-            $contribution->payment_id = $request->input('payment_id');
+            $contribution->payment_id = $verified['payment_id'];
             $contribution->save();
 
             $donation = Donation::lockForUpdate()->findOrFail($contribution->donation_id);

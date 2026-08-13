@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FileUploadHelper;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Banner;
 use App\Models\CustomerBusiness;
 use App\Models\AdPricingPlan;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Validator;
 
 class BannerController extends APIController
 {
+    use VerifiesClientPayments;
+
     protected $folder;
     protected $fileUpload;
     public function __construct()
@@ -251,6 +254,18 @@ class BannerController extends APIController
                 return $this->errorResponse('Invalid user or customer ID not found', Response::HTTP_UNAUTHORIZED);
             }
 
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                (float) $plan->price,
+                'banner_pricing',
+                $plan->id,
+                'USD',
+                'transaction_id'
+            );
+            if ($verified instanceof \Illuminate\Http\JsonResponse) {
+                return $verified;
+            }
+
             DB::beginTransaction();
 
             // Create revenue tracking record
@@ -259,7 +274,7 @@ class BannerController extends APIController
                 'ad_type' => 'banner',
                 'amount' => $plan->price,
                 'payment_method' => $request->payment_method,
-                'transaction_id' => $request->transaction_id,
+                'transaction_id' => $verified['payment_id'],
                 'status' => 'paid',
                 'description' => "Banner ad payment - {$plan->name}"
             ]);

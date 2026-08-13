@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Service;
 use App\Models\ServiceOrder;
 use App\Models\ServicePackage;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\DB;
 
 class ServiceOrderController extends Controller
 {
+    use VerifiesClientPayments;
+
     public function index(Request $request): JsonResponse
     {
         $query = ServiceOrder::with(['service', 'buyer', 'seller', 'package']);
@@ -160,9 +163,19 @@ class ServiceOrderController extends Controller
             'payment_method' => 'required|in:paypal,stripe',
         ]);
 
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $order->total_price,
+            'service_order',
+            $order->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
         $order->payment_status = 'paid';
         $order->payment_method = $request->payment_method;
-        $order->payment_id = $request->payment_id;
+        $order->payment_id = $verified['payment_id'];
         $order->paid_at = now();
         $order->save();
 

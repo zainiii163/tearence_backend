@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Vehicle;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +14,8 @@ use Illuminate\Validation\Rule;
 
 class VehiclesAdvertController extends Controller
 {
+    use VerifiesClientPayments;
+
     /**
      * Display a listing of vehicle adverts with filters.
      */
@@ -647,6 +651,8 @@ class VehiclesAdvertController extends Controller
         $validator = Validator::make($request->all(), [
             'payment_method' => ['required', 'string'],
             'transaction_id' => ['required', 'string'],
+            'payment_id' => ['nullable', 'string'],
+            'payment_reference' => ['nullable', 'string'],
         ]);
 
         if ($validator->fails()) {
@@ -668,12 +674,36 @@ class VehiclesAdvertController extends Controller
             ], 404);
         }
 
-        // Update promotion dates
+        $expected = (float) ($vehicle->promotion_price
+            ?? $vehicle->pricingPlan?->price
+            ?? 0);
+        if ($expected < 0.01) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Promotion amount missing — cannot activate without a paid plan.',
+                'defence' => 'payment_verification',
+            ], 422);
+        }
+
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            $expected,
+            'vehicle_advert',
+            $vehicle->id,
+            'USD',
+            'transaction_id'
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
         $vehicle->update([
             'promotion_start' => now(),
             'promotion_end' => now()->addDays(30),
             'status' => 'active',
             'approved_at' => now(),
+            'payment_transaction_id' => $verified['payment_id'],
+            'paid_at' => now(),
         ]);
 
         return response()->json([

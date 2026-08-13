@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BuySellAdvert;
 use App\Models\BuySellCategory;
 use App\Models\BuySellSavedAdvert;
@@ -22,6 +23,8 @@ use Illuminate\Validation\Rule;
 
 class BuySellController extends Controller
 {
+    use VerifiesClientPayments;
+
     public function index(Request $request): JsonResponse
     {
         $query = BuySellAdvert::with(['category', 'subcategory', 'user'])
@@ -1098,7 +1101,17 @@ class BuySellController extends Controller
             'payment_method' => 'required|in:paypal,stripe',
         ]);
 
-        $purchase->markPaid($request->payment_method, $request->payment_id);
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $purchase->price,
+            'buy_sell',
+            $purchase->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $purchase->markPaid($request->payment_method, $verified['payment_id']);
 
         return response()->json([
             'success' => true,

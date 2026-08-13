@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\APIController;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\JobUpsell;
 use App\Models\Listing;
 use App\Models\RevenueTracking;
@@ -14,6 +15,8 @@ use Srmklive\PayPal\Services\PayPal as PayPalClient;
 
 class JobUpsellController extends APIController
 {
+    use VerifiesClientPayments;
+
     public function __construct()
     {
         $this->middleware('auth:api');
@@ -153,8 +156,20 @@ class JobUpsellController extends APIController
                 ->where('customer_id', $customer_id)
                 ->firstOrFail();
 
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                (float) $upsell->price,
+                'job_upsell',
+                $upsell->job_upsell_id ?? $upsell->id,
+                'USD',
+                'payment_transaction_id'
+            );
+            if ($verified instanceof \Illuminate\Http\JsonResponse) {
+                return $verified;
+            }
+
             // Update upsell
-            $upsell->payment_transaction_id = $request->payment_transaction_id;
+            $upsell->payment_transaction_id = $verified['payment_id'];
             $upsell->payment_status = 'completed';
             $upsell->payment_details = [
                 'payment_method' => $request->payment_method,

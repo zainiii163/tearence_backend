@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BusinessTool;
 use App\Models\BusinessToolPurchase;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 
 class BusinessToolController extends Controller
 {
+    use VerifiesClientPayments;
     public function index(Request $request): JsonResponse
     {
         try {
@@ -148,11 +150,36 @@ class BusinessToolController extends Controller
         }
 
         if ($purchase->status !== 'paid') {
+            $expected = (float) ($purchase->amount ?? 0);
+            if ($expected < 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Purchase amount missing — cannot unlock without a paid order.',
+                    'defence' => 'payment_verification',
+                ], 422);
+            }
+
+            $request->validate([
+                'payment_id' => 'nullable|string|max:191',
+                'payment_reference' => 'nullable|string|max:191',
+                'payment_method' => 'nullable|string|max:50',
+            ]);
+
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                $expected,
+                'business_tool',
+                $purchase->id
+            );
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+
             $purchase->update([
                 'status' => 'paid',
                 'paid_at' => now(),
-                'payment_reference' => $request->input('payment_reference', $purchase->payment_reference),
-                'payment_method' => $request->input('payment_method', $purchase->payment_method),
+                'payment_reference' => $verified['payment_id'],
+                'payment_method' => $request->input('payment_method', $purchase->payment_method ?: 'paypal'),
             ]);
             BusinessTool::where('id', $purchase->tool_id)->increment('purchases_count');
         }
@@ -178,5 +205,5 @@ class BusinessToolController extends Controller
             ->get();
 
         return response()->json(['success' => true, 'data' => $items]);
-    }
+     }
 }

@@ -27,19 +27,20 @@ class BooksMarketplaceDemoSeeder extends Seeder
 
         $userId = $owner?->user_id ?? $owner?->id ?? 1;
 
+        // Real portrait book covers (Open Library) — not library/stack stock photos
         $covers = [
-            'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1476275466078-4007374efbbe?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1456513080080-7e9d0f6f3b0b?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1463320726281-696a485928c7?auto=format&fit=crop&w=600&q=80',
-            'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=600&q=80',
+            'https://covers.openlibrary.org/b/id/8228691-L.jpg',
+            'https://covers.openlibrary.org/b/id/10521270-L.jpg',
+            'https://covers.openlibrary.org/b/id/8739161-L.jpg',
+            'https://covers.openlibrary.org/b/id/8231990-L.jpg',
+            'https://covers.openlibrary.org/b/id/12645114-L.jpg',
+            'https://covers.openlibrary.org/b/id/9251996-L.jpg',
+            'https://covers.openlibrary.org/b/id/10523338-L.jpg',
+            'https://covers.openlibrary.org/b/id/12818062-L.jpg',
+            'https://covers.openlibrary.org/b/id/7222246-L.jpg',
+            'https://covers.openlibrary.org/b/id/10482540-L.jpg',
+            'https://covers.openlibrary.org/b/id/8314784-L.jpg',
+            'https://covers.openlibrary.org/b/id/9879636-L.jpg',
         ];
 
         $books = [

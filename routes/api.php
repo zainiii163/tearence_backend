@@ -775,7 +775,7 @@ Route::group([
 
         Route::get('/pricing-plans', [AffiliateController::class, 'getPricingPlans']);
 
-        Route::post('/payment', [AffiliateController::class, 'processPayment']);
+        Route::post('/payment', [AffiliateController::class, 'processPayment'])->middleware('throttle:payments');
 
         Route::get('/my-affiliate', [AffiliateController::class, 'myAffiliate']);
 
@@ -849,7 +849,7 @@ Route::group([
 
             Route::post('/{id}/save', [VehiclesAdvertController::class, 'saveVehicle']);
 
-            Route::post('/{id}/payment', [VehiclesAdvertController::class, 'processPayment']);
+            Route::post('/{id}/payment', [VehiclesAdvertController::class, 'processPayment'])->middleware('throttle:payments');
 
         });
 
@@ -888,9 +888,10 @@ Route::group([
             Route::post('/upload', [ImagesAdvertController::class, 'uploadImage']);
             Route::post('/upload-multiple', [ImagesAdvertController::class, 'uploadMultipleImages']);
             Route::post('/{id}/purchase', [ImagesAdvertController::class, 'purchase'])->whereNumber('id');
-            Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment'])->whereNumber('id');
+            Route::post('/{id}/payment', [ImagesAdvertController::class, 'processPayment'])->whereNumber('id')->middleware('throttle:payments');
             Route::post('/purchases/{purchaseId}/confirm-payment', [ImagesAdvertController::class, 'confirmPurchasePayment'])
-                ->whereNumber('purchaseId');
+                ->whereNumber('purchaseId')
+                ->middleware('throttle:payments');
             Route::post('/{id}/save', [ImagesAdvertController::class, 'saveImage']);
         });
 
@@ -947,7 +948,7 @@ Route::group([
         Route::get('/', [BannerController::class, 'index']);
 
         Route::middleware('jwt.auth')->group(function () {
-            Route::post('/payment', [BannerController::class, 'processPayment']);
+            Route::post('/payment', [BannerController::class, 'processPayment'])->middleware('throttle:payments');
 
             Route::get('/my-banner', [BannerController::class, 'myBanner']);
 
@@ -1016,7 +1017,7 @@ Route::group([
 
         Route::post('/', [JobUpsellController::class, 'store']);
 
-        Route::post('/{id}/complete-payment', [JobUpsellController::class, 'completePayment']);
+        Route::post('/{id}/complete-payment', [JobUpsellController::class, 'completePayment'])->middleware('throttle:payments');
 
         Route::get('/listing/{listingId}', [JobUpsellController::class, 'getByListing']);
 
@@ -1032,7 +1033,7 @@ Route::group([
 
         Route::post('/', [CandidateUpsellController::class, 'store']);
 
-        Route::post('/{id}/complete-payment', [CandidateUpsellController::class, 'completePayment']);
+        Route::post('/{id}/complete-payment', [CandidateUpsellController::class, 'completePayment'])->middleware('throttle:payments');
 
         Route::get('/profile/{profileId}', [CandidateUpsellController::class, 'getByProfile']);
 
@@ -1295,7 +1296,7 @@ Route::group([
 
         Route::post('/', [ServiceOrderController::class, 'store']);
 
-        Route::post('/{order}/confirm-payment', [ServiceOrderController::class, 'confirmPayment']);
+        Route::post('/{order}/confirm-payment', [ServiceOrderController::class, 'confirmPayment'])->middleware('throttle:payments');
 
         Route::get('/{order}', [ServiceOrderController::class, 'show']);
 
@@ -1523,7 +1524,6 @@ Route::group([
         Route::get('/user-posts/{id}', [ApiAffiliateController::class, 'userPost']);
         Route::get('/links', [ApiAffiliateController::class, 'affiliateLinks']);
         Route::get('/upsell-plans', [ApiAffiliateController::class, 'upsellPlans']);
-        Route::get('/search', [ApiAffiliateController::class, 'search']);
         Route::post('/track-click', [ApiAffiliateController::class, 'trackClick']);
 
         // Authenticated routes
@@ -1549,10 +1549,15 @@ Route::group([
             Route::get('/my-business-offers', [ApiAffiliateController::class, 'myBusinessOffers']);
             Route::get('/my-user-posts', [ApiAffiliateController::class, 'myUserPosts']);
             Route::get('/business-offers/{offerId}/applications', [ApiAffiliateController::class, 'offerApplications']);
+            Route::get('/business-offers/{offerId}/conversions', [ApiAffiliateController::class, 'offerConversions']);
             Route::post('/applications/{applicationId}/approve', [ApiAffiliateController::class, 'approveApplication']);
             Route::post('/applications/{applicationId}/reject', [ApiAffiliateController::class, 'rejectApplication']);
             Route::post('/conversions', [ApiAffiliateController::class, 'recordConversion']);
+            Route::get('/my-earnings', [ApiAffiliateController::class, 'myEarnings']);
         });
+
+        // External merchant postback (shared secret; no JWT required)
+        Route::post('/conversions/postback', [ApiAffiliateController::class, 'recordConversion']);
 
         Route::get('/plans', [App\Http\Controllers\Api\AffiliateUpsellController::class, 'getPlans']);
 
@@ -1619,7 +1624,7 @@ Route::group([
 
         Route::group(['middleware' => 'jwt.auth'], function () {
             Route::post('/orders', [\App\Http\Controllers\Api\StoreOrderController::class, 'createOrder']);
-            Route::post('/orders/{orderId}/confirm', [\App\Http\Controllers\Api\StoreOrderController::class, 'confirmPayment']);
+            Route::post('/orders/{orderId}/confirm', [\App\Http\Controllers\Api\StoreOrderController::class, 'confirmPayment'])->middleware('throttle:payments');
         });
 
     });
@@ -2061,7 +2066,8 @@ Route::group([
             Route::get('/my-banners', [BannerAdController::class, 'myBanners']);
             Route::post('/{id}/purchase', [BannerAdController::class, 'purchase'])->whereNumber('id');
             Route::post('/purchases/{purchaseId}/confirm-payment', [BannerAdController::class, 'confirmPayment'])
-                ->whereNumber('purchaseId');
+                ->whereNumber('purchaseId')
+                ->middleware('throttle:payments');
         });
 
         // Paid file download (token) — forces attachment, not browser display
@@ -2297,9 +2303,10 @@ Route::group([
             Route::post('/{id}/purchase', [BookAdvertController::class, 'purchase'])->whereNumber('id');
 
             Route::post('/purchases/{purchaseId}/confirm-payment', [BookAdvertController::class, 'confirmPurchasePayment'])
-                ->whereNumber('purchaseId');
+                ->whereNumber('purchaseId')
+                ->middleware('throttle:payments');
 
-            Route::post('/{book}/payment', [BookAdvertController::class, 'processPayment']);
+            Route::post('/{book}/payment', [BookAdvertController::class, 'processPayment'])->middleware('throttle:payments');
 
         });
 
@@ -2308,7 +2315,7 @@ Route::group([
 
 
     // PayPal Orders v2 (server-side create/capture — client-side actions.order is deprecated)
-    Route::group(['prefix' => 'paypal'], function () {
+    Route::group(['prefix' => 'paypal', 'middleware' => ['throttle:payments']], function () {
         Route::get('/config', [PayPalOrderController::class, 'clientConfig']);
         Route::post('/orders', [PayPalOrderController::class, 'create'])->middleware('jwt.auth');
         Route::post('/orders/{orderId}/capture', [PayPalOrderController::class, 'capture'])
@@ -2327,7 +2334,7 @@ Route::group([
         Route::get('/my-sales', [BusinessTemplateController::class, 'mySales'])->middleware('jwt.auth');
         Route::post('/purchase', [BusinessTemplateController::class, 'purchase'])->middleware('jwt.auth');
         Route::post('/purchases/{id}/confirm-payment', [BusinessTemplateController::class, 'confirmPayment'])
-            ->middleware('jwt.auth')
+            ->middleware(['jwt.auth', 'throttle:payments'])
             ->whereNumber('id');
         Route::post('/quote-request', [BusinessTemplateController::class, 'requestQuote'])->middleware('jwt.auth');
         Route::get('/{slug}', [BusinessTemplateController::class, 'show']);
@@ -2346,7 +2353,7 @@ Route::group([
         Route::get('/my-purchases', [\App\Http\Controllers\Api\BusinessToolController::class, 'myPurchases'])->middleware('jwt.auth');
         Route::post('/purchase', [\App\Http\Controllers\Api\BusinessToolController::class, 'purchase'])->middleware('jwt.auth');
         Route::post('/purchases/{id}/confirm-payment', [\App\Http\Controllers\Api\BusinessToolController::class, 'confirmPayment'])
-            ->middleware('jwt.auth')
+            ->middleware(['jwt.auth', 'throttle:payments'])
             ->whereNumber('id');
         Route::get('/{slug}', [\App\Http\Controllers\Api\BusinessToolController::class, 'show']);
     });
@@ -2401,7 +2408,8 @@ Route::group([
             Route::get('/my-purchases', [BuySellController::class, 'myPurchases']);
             Route::get('/my-sales', [BuySellController::class, 'mySales']);
             Route::post('/purchases/{purchaseId}/confirm-payment', [BuySellController::class, 'confirmPayment'])
-                ->whereNumber('purchaseId');
+                ->whereNumber('purchaseId')
+                ->middleware('throttle:payments');
         });
 
         Route::get('/{slug}', [BuySellController::class, 'show']);
@@ -2815,7 +2823,7 @@ Route::group([
             Route::put('/{id}', [SponsoredAdvertController::class, 'update']);
             Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
             Route::post('/{id}/save', [SponsoredAdvertController::class, 'saveAdvert']);
-            Route::post('/{id}/payment', [SponsoredAdvertController::class, 'processPayment']);
+            Route::post('/{id}/payment', [SponsoredAdvertController::class, 'processPayment'])->middleware('throttle:payments');
         });
     });
 
@@ -2926,7 +2934,7 @@ Route::group([
 
         Route::get('/{id}', [PropertyUpsellController::class, 'show']);
 
-        Route::post('/{id}/complete-payment', [PropertyUpsellController::class, 'completePayment']);
+        Route::post('/{id}/complete-payment', [PropertyUpsellController::class, 'completePayment'])->middleware('throttle:payments');
 
         Route::post('/{id}/cancel', [PropertyUpsellController::class, 'cancel']);
 
@@ -3094,7 +3102,7 @@ Route::group([
 
         Route::post('/{projectId}', [FundingPledgeController::class, 'store']);
 
-        Route::post('/{pledgeId}/confirm-payment', [FundingPledgeController::class, 'confirmPayment']);
+        Route::post('/{pledgeId}/confirm-payment', [FundingPledgeController::class, 'confirmPayment'])->middleware('throttle:payments');
 
         Route::get('/{pledgeId}', [FundingPledgeController::class, 'show']);
 
@@ -3157,7 +3165,8 @@ Route::group([
             Route::post('/{id}/donate', [DonationController::class, 'startDonate'])->whereNumber('id');
 
             Route::post('/contributions/{contributionId}/confirm-payment', [DonationController::class, 'confirmDonate'])
-                ->whereNumber('contributionId');
+                ->whereNumber('contributionId')
+                ->middleware('throttle:payments');
 
         });
 

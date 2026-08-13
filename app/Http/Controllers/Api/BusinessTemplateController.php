@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BusinessTemplate;
 use App\Models\TemplatePurchase;
 use App\Models\TemplateSetting;
@@ -18,6 +19,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BusinessTemplateController extends Controller
 {
+    use VerifiesClientPayments;
+
     protected function hasPremiumColumns(): bool
     {
         return Schema::hasTable('business_templates')
@@ -663,7 +666,17 @@ class BusinessTemplateController extends Controller
             'payment_method' => 'required|in:paypal,stripe',
         ]);
 
-        $purchase->payment_id = $request->payment_id;
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $purchase->price_paid,
+            'business_template',
+            $purchase->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $purchase->payment_id = $verified['payment_id'];
         $purchase->paid_at = now();
         $purchase->markCompleted($request->payment_method);
 

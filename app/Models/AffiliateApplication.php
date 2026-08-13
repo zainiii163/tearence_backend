@@ -46,6 +46,11 @@ class AffiliateApplication extends Model
         return $this->hasMany(AffiliateHopClick::class);
     }
 
+    public function hopConversions(): HasMany
+    {
+        return $this->hasMany(AffiliateHopConversion::class);
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', 'pending');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Http\Requests\PropertyUpsellStoreRequest;
 use App\Http\Resources\PropertyUpsellCollection;
 use App\Http\Resources\PropertyUpsellResource;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 
 class PropertyUpsellController extends Controller
 {
+    use VerifiesClientPayments;
+
     public function index(Request $request): PropertyUpsellCollection
     {
         $upsells = PropertyUpsell::with(['property', 'user'])
@@ -116,11 +119,23 @@ class PropertyUpsellController extends Controller
             'transaction_id' => 'required|string',
         ]);
 
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $upsell->price,
+            'property_upsell',
+            $upsell->id,
+            'USD',
+            'transaction_id'
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
         try {
             $upsell->update([
                 'payment_status' => 'paid',
                 'payment_method' => $request->payment_method,
-                'transaction_id' => $request->transaction_id,
+                'transaction_id' => $verified['payment_id'],
                 'paid_at' => now(),
                 'status' => 'active',
                 'starts_at' => now(),

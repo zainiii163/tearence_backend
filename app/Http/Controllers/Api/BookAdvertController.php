@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
 use App\Models\Book;
@@ -18,6 +19,8 @@ use Illuminate\Support\Str;
 
 class BookAdvertController extends Controller
 {
+    use VerifiesClientPayments;
+
     /**
      * Display a listing of books with filters and search.
      */
@@ -630,7 +633,17 @@ class BookAdvertController extends Controller
             'payment_method' => 'nullable|string|max:50',
         ]);
 
-        $purchase->payment_id = $request->input('payment_id');
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $purchase->price_paid,
+            'book_advert',
+            $purchase->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $purchase->payment_id = $verified['payment_id'];
         $purchase->markCompleted($request->input('payment_method', 'paypal'));
 
         return response()->json([
@@ -720,13 +733,38 @@ class BookAdvertController extends Controller
 
         $request->validate([
             'payment_method' => 'required|string',
-            'transaction_id' => 'required|string'
+            'transaction_id' => 'required|string',
+            'payment_id' => 'nullable|string',
+            'payment_reference' => 'nullable|string',
         ]);
 
         try {
+            $expected = (float) ($book->upsell_price
+                ?? optional(AdPricingPlan::find($book->pricing_plan_id))->price
+                ?? 0);
+            if ($expected < 0.01) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Listing plan amount missing — cannot mark paid without a priced tier.',
+                    'defence' => 'payment_verification',
+                ], 422);
+            }
+
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                $expected,
+                'book_listing',
+                $book->id,
+                'USD',
+                'transaction_id'
+            );
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+
             $book->update([
                 'payment_status' => 'paid',
-                'payment_transaction_id' => $request->input('transaction_id'),
+                'payment_transaction_id' => $verified['payment_id'],
                 'paid_at' => now(),
                 'expires_at' => now()->addDays(30) // 30 days visibility
             ]);

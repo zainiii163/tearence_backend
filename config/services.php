@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'affiliate' => [
+        // External merchant conversion postback: header X-WWA-Affiliate-Secret
+        'postback_secret' => env('AFFILIATE_POSTBACK_SECRET'),
+    ],
+
 ];

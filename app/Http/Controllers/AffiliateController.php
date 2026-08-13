@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\FileUploadHelper;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Affiliate;
 use App\Models\AdPricingPlan;
 use App\Models\RevenueTracking;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Validator;
 
 class AffiliateController extends APIController
 {
+    use VerifiesClientPayments;
+
     protected $folder;
     protected $fileUpload;
     public function __construct()
@@ -246,6 +249,18 @@ class AffiliateController extends APIController
                 return $this->errorResponse('Invalid user or customer ID not found', Response::HTTP_UNAUTHORIZED);
             }
 
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                (float) $plan->price,
+                'affiliate_pricing',
+                $plan->id,
+                'USD',
+                'transaction_id'
+            );
+            if ($verified instanceof \Illuminate\Http\JsonResponse) {
+                return $verified;
+            }
+
             DB::beginTransaction();
 
             // Create revenue tracking record
@@ -254,7 +269,7 @@ class AffiliateController extends APIController
                 'ad_type' => 'affiliate',
                 'amount' => $plan->price,
                 'payment_method' => $request->payment_method,
-                'transaction_id' => $request->transaction_id,
+                'transaction_id' => $verified['payment_id'],
                 'status' => 'paid',
                 'description' => "Affiliate ad payment - {$plan->name}"
             ]);

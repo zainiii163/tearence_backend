@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BannerAd;
 use App\Models\BannerCategory;
 use App\Models\BannerPurchase;
@@ -19,6 +20,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class BannerAdController extends Controller
 {
+    use VerifiesClientPayments;
+
     /**
      * Display a listing of banner ads.
      */
@@ -672,7 +675,17 @@ class BannerAdController extends Controller
             'payment_method' => 'required|in:paypal,stripe',
         ]);
 
-        $purchase->payment_id = $request->payment_id;
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $purchase->price_paid,
+            'banner_ad',
+            $purchase->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $purchase->payment_id = $verified['payment_id'];
         $purchase->markCompleted($request->payment_method);
 
         return response()->json([

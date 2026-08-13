@@ -10,9 +10,12 @@ use App\Models\BusinessAffiliateOffer;
 use App\Models\UserAffiliatePost;
 use App\Models\AffiliateUpsellPlan;
 use App\Models\AffiliateApplication;
+use App\Models\AffiliateHopClick;
+use App\Models\AffiliateHopConversion;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -44,10 +47,36 @@ class AffiliateController extends Controller
      */
     public function businessOffers(Request $request): JsonResponse
     {
-        $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory']);
-        
-        // Show ALL offers (both active/approved AND pending) to everyone
-        // Filters only apply to the result set
+        $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory'])
+            ->withCount([
+                'applications as approved_promoters_count' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+                'applications as converting_promoters_count' => function ($q) {
+                    $q->where('status', 'approved')->where('conversions_count', '>', 0);
+                },
+            ])
+            ->withSum([
+                'applications as promoters_earnings_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'earnings_total')
+            ->withSum([
+                'applications as promoters_conversions_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'conversions_count')
+            ->withSum([
+                'applications as promoters_clicks_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'clicks_count');
+
+        // ClickBank marketplace mode: only live approved programs
+        if ($request->boolean('marketplace')) {
+            $query->active();
+        }
+
         if ($request->category_id) {
             $query->where('affiliate_category_id', $request->category_id);
         }
@@ -63,21 +92,70 @@ class AffiliateController extends Controller
         if ($request->max_commission) {
             $query->where('commission_rate', '<=', $request->max_commission);
         }
-
-        // Sort
-        $sort = $request->sort ?? 'created_at';
-        $order = $request->order ?? 'desc';
-        
-        if (in_array($sort, ['created_at', 'views', 'clicks', 'commission_rate'])) {
-            $query->orderBy($sort, $order);
+        if ($request->filled('q')) {
+            $q = '%' . $request->q . '%';
+            $query->where(function ($w) use ($q) {
+                $w->where('product_service_title', 'like', $q)
+                    ->orWhere('business_name', 'like', $q)
+                    ->orWhere('description', 'like', $q)
+                    ->orWhere('tagline', 'like', $q);
+            });
         }
 
-        $offers = $query->paginate($request->per_page ?? 12);
+        $sort = $request->sort ?? 'gravity';
+        $order = strtolower((string) ($request->order ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sort === 'gravity') {
+            $query->orderBy('converting_promoters_count', $order)->orderBy('clicks', 'desc');
+        } elseif ($sort === 'commission_rate' || $sort === 'commission') {
+            $query->orderBy('commission_rate', $order);
+        } elseif (in_array($sort, ['created_at', 'views', 'clicks'], true)) {
+            $query->orderBy($sort, $order);
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $offers = $query->paginate($request->per_page ?? 24);
+
+        $offers->getCollection()->transform(function (BusinessAffiliateOffer $offer) {
+            return $this->appendMarketplaceStats($offer);
+        });
 
         return response()->json([
             'success' => true,
             'data' => $offers,
         ]);
+    }
+
+    /**
+     * ClickBank-style marketplace metrics for one offer.
+     */
+    private function appendMarketplaceStats(BusinessAffiliateOffer $offer): BusinessAffiliateOffer
+    {
+        $clicks = (int) ($offer->promoters_clicks_sum ?? 0) ?: (int) ($offer->clicks ?? 0);
+        $conversions = (int) ($offer->promoters_conversions_sum ?? 0);
+        $earnings = (float) ($offer->promoters_earnings_sum ?? 0);
+        $gravity = (int) ($offer->converting_promoters_count ?? 0);
+        $avgSale = $conversions > 0 ? round($earnings / $conversions, 2) : 0.0;
+        $epc = $clicks > 0 ? round($earnings / $clicks, 2) : 0.0;
+        $initialPct = $offer->commission_type === 'percentage'
+            ? (float) $offer->commission_rate
+            : null;
+
+        $offer->setAttribute('marketplace_stats', [
+            'gravity' => $gravity,
+            'avg_earnings_per_sale' => $avgSale,
+            'avg_percent_per_sale' => $initialPct,
+            'epc' => $epc,
+            'conversion_rate' => $clicks > 0 ? round(($conversions / $clicks) * 100, 2) : 0,
+            'approved_promoters' => (int) ($offer->approved_promoters_count ?? 0),
+            'cookie_days' => (int) ($offer->cookie_duration ?: 30),
+            'commission_label' => $offer->commission_type === 'fixed'
+                ? '$' . number_format((float) $offer->commission_rate, 2)
+                : rtrim(rtrim(number_format((float) $offer->commission_rate, 2), '0'), '.') . '%',
+        ]);
+
+        return $offer;
     }
 
     /**
@@ -195,12 +273,37 @@ class AffiliateController extends Controller
     public function businessOffer(string $id): JsonResponse
     {
         $offer = BusinessAffiliateOffer::with(['user', 'affiliateCategory', 'analytics'])
+            ->withCount([
+                'applications as approved_promoters_count' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+                'applications as converting_promoters_count' => function ($q) {
+                    $q->where('status', 'approved')->where('conversions_count', '>', 0);
+                },
+            ])
+            ->withSum([
+                'applications as promoters_earnings_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'earnings_total')
+            ->withSum([
+                'applications as promoters_conversions_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'conversions_count')
+            ->withSum([
+                'applications as promoters_clicks_sum' => function ($q) {
+                    $q->where('status', 'approved');
+                },
+            ], 'clicks_count')
             ->findOrFail($id);
 
         // Increment views
         $offer->incrementViews();
+        $this->appendMarketplaceStats($offer);
 
         $payload = $offer->toArray();
+        $payload['marketplace_stats'] = $offer->marketplace_stats;
         $payload['my_application'] = null;
         if (Auth::check()) {
             $payload['my_application'] = AffiliateApplication::where('business_affiliate_offer_id', $offer->id)
@@ -634,13 +737,22 @@ class AffiliateController extends Controller
 
     /**
      * Record a conversion/sale attributed via hop cookie or tracking code (merchant callback).
+     * Ahrefs model: unique link → cookie window → later purchase → commission ledger.
+     *
+     * Auth: JWT merchant (dashboard "Report sale"), or X-WWA-Affiliate-Secret matching
+     * config('services.affiliate.postback_secret') / AFFILIATE_POSTBACK_SECRET for external IPN.
      */
     public function recordConversion(Request $request): JsonResponse
     {
+        if (!$this->canRecordConversion($request)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
         $validator = Validator::make($request->all(), [
-            'tracking_code' => 'nullable|string',
+            'tracking_code' => 'nullable|string|max:64',
             'amount' => 'nullable|numeric|min:0',
             'order_id' => 'nullable|string|max:120',
+            'offer_id' => 'nullable|integer',
         ]);
 
         if ($validator->fails()) {
@@ -651,6 +763,7 @@ class AffiliateController extends Controller
             ], 422);
         }
 
+        $fromCookie = !$request->filled('tracking_code') && (bool) $request->cookie('wwa_aff');
         $code = $request->input('tracking_code') ?: $request->cookie('wwa_aff');
         if (!$code) {
             return response()->json(['success' => false, 'message' => 'No affiliate attribution found'], 422);
@@ -666,18 +779,107 @@ class AffiliateController extends Controller
         }
 
         $offer = $application->businessAffiliateOffer;
-        $saleAmount = (float) ($request->input('amount') ?: 0);
-        $commission = 0.0;
-        if ($offer) {
-            if ($offer->commission_type === 'percentage') {
-                $commission = round($saleAmount * ((float) $offer->commission_rate / 100), 2);
-            } else {
-                $commission = (float) $offer->commission_rate;
+        if (!$offer) {
+            return response()->json(['success' => false, 'message' => 'Offer missing for this affiliate link'], 404);
+        }
+
+        if ($request->filled('offer_id') && (int) $request->input('offer_id') !== (int) $offer->id) {
+            return response()->json(['success' => false, 'message' => 'Tracking code does not match offer'], 422);
+        }
+
+        // Merchant JWT may only report sales for their own offers
+        if (Auth::check() && !$this->hasValidPostbackSecret($request)) {
+            if ((int) $offer->user_id !== (int) Auth::id()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized for this offer'], 403);
             }
         }
 
-        $application->increment('conversions_count');
-        $application->increment('earnings_total', $commission);
+        $cookieDays = max(1, (int) ($offer->cookie_duration ?: 30));
+        $lastClick = AffiliateHopClick::query()
+            ->where('affiliate_application_id', $application->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$lastClick) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hop click found for this affiliate link — visitor must click the unique link first',
+            ], 422);
+        }
+
+        if ($lastClick->created_at->lt(now()->subDays($cookieDays))) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cookie window expired ({$cookieDays} day(s)). Sale cannot be attributed.",
+                'data' => [
+                    'cookie_duration_days' => $cookieDays,
+                    'last_click_at' => $lastClick->created_at?->toIso8601String(),
+                ],
+            ], 422);
+        }
+
+        $orderId = $request->filled('order_id') ? trim((string) $request->input('order_id')) : null;
+        if ($orderId === '') {
+            $orderId = null;
+        }
+
+        if ($orderId !== null) {
+            $dup = AffiliateHopConversion::query()
+                ->where('business_affiliate_offer_id', $offer->id)
+                ->where('order_id', $orderId)
+                ->exists();
+            if ($dup) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order_id was already recorded for this offer',
+                ], 422);
+            }
+        }
+
+        $saleAmount = (float) ($request->input('amount') ?: 0);
+        $commissionType = $offer->commission_type ?: 'percentage';
+        $commissionRate = (float) $offer->commission_rate;
+        $commission = 0.0;
+        if ($commissionType === 'percentage') {
+            $commission = round($saleAmount * ($commissionRate / 100), 2);
+        } else {
+            $commission = round($commissionRate, 2);
+        }
+
+        $conversion = null;
+        DB::transaction(function () use (
+            $application,
+            $offer,
+            $code,
+            $orderId,
+            $saleAmount,
+            $commission,
+            $commissionType,
+            $commissionRate,
+            $fromCookie,
+            $lastClick,
+            &$conversion
+        ) {
+            $conversion = AffiliateHopConversion::create([
+                'affiliate_application_id' => $application->id,
+                'business_affiliate_offer_id' => $offer->id,
+                'tracking_code' => $code,
+                'order_id' => $orderId,
+                'sale_amount' => $saleAmount,
+                'commission_amount' => $commission,
+                'commission_type' => $commissionType,
+                'commission_rate' => $commissionRate,
+                'status' => 'confirmed',
+                'attributed_via' => $fromCookie ? 'cookie' : 'code',
+                'meta' => [
+                    'last_click_id' => $lastClick->id,
+                    'last_click_at' => $lastClick->created_at?->toIso8601String(),
+                ],
+            ]);
+
+            $application->increment('conversions_count');
+            $application->increment('earnings_total', $commission);
+        });
 
         return response()->json([
             'success' => true,
@@ -685,9 +887,93 @@ class AffiliateController extends Controller
             'data' => [
                 'tracking_code' => $code,
                 'commission' => $commission,
+                'sale_amount' => $saleAmount,
+                'cookie_duration_days' => $cookieDays,
+                'attributed_via' => $fromCookie ? 'cookie' : 'code',
+                'conversion' => $conversion,
                 'application' => $application->fresh(),
+                'postback_hint' => 'External merchants may send X-WWA-Affiliate-Secret + tracking_code|cookie, amount, order_id',
             ],
         ]);
+    }
+
+    /**
+     * Promoter: clicks, conversions, earnings + recent ledger rows.
+     */
+    public function myEarnings(Request $request): JsonResponse
+    {
+        $userId = Auth::id();
+        $apps = AffiliateApplication::query()
+            ->where('user_id', $userId)
+            ->where('status', 'approved')
+            ->with(['businessAffiliateOffer:id,product_service_title,business_name,cookie_duration,commission_type,commission_rate'])
+            ->get();
+
+        $appIds = $apps->pluck('id');
+
+        $conversions = AffiliateHopConversion::query()
+            ->whereIn('affiliate_application_id', $appIds)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'totals' => [
+                    'programs' => $apps->count(),
+                    'clicks' => (int) $apps->sum('clicks_count'),
+                    'conversions' => (int) $apps->sum('conversions_count'),
+                    'earnings' => round((float) $apps->sum('earnings_total'), 2),
+                ],
+                'applications' => $apps,
+                'recent_conversions' => $conversions,
+            ],
+        ]);
+    }
+
+    /**
+     * Merchant: conversions for one of their offers.
+     */
+    public function offerConversions(Request $request, string $offerId): JsonResponse
+    {
+        $offer = BusinessAffiliateOffer::findOrFail($offerId);
+        if ((int) $offer->user_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $rows = AffiliateHopConversion::query()
+            ->where('business_affiliate_offer_id', $offer->id)
+            ->with(['application:id,user_id,tracking_code,status'])
+            ->orderByDesc('id')
+            ->paginate(min(50, max(1, (int) $request->get('per_page', 20))));
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+        ]);
+    }
+
+    private function hasValidPostbackSecret(Request $request): bool
+    {
+        $secret = config('services.affiliate.postback_secret')
+            ?: env('AFFILIATE_POSTBACK_SECRET');
+        if (!$secret) {
+            return false;
+        }
+        $header = $request->header('X-WWA-Affiliate-Secret')
+            ?: $request->header('X-Affiliate-Secret');
+
+        return is_string($header) && hash_equals((string) $secret, $header);
+    }
+
+    private function canRecordConversion(Request $request): bool
+    {
+        if ($this->hasValidPostbackSecret($request)) {
+            return true;
+        }
+
+        return Auth::check();
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\StoreOrder;
 use App\Models\StoreProduct;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Schema;
 
 class StoreOrderController extends Controller
 {
+    use VerifiesClientPayments;
+
     /** Demo catalogue for the Worldwide Adverts example storefront. */
     public static function demoProducts(): array
     {
@@ -229,9 +232,19 @@ class StoreOrderController extends Controller
             'payment_method' => 'required|in:paypal,stripe',
         ]);
 
+        $verified = $this->verifyClientPaymentOrFail(
+            $request,
+            (float) $order->amount,
+            'store_order',
+            $order->id
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
         $order->payment_status = 'paid';
         $order->payment_method = $request->input('payment_method');
-        $order->payment_id = $request->input('payment_id');
+        $order->payment_id = $verified['payment_id'];
         $order->save();
 
         return response()->json([

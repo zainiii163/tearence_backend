@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\ImagesAdvert;
 use App\Models\ImageAdvertPurchase;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +16,8 @@ use Illuminate\Validation\Rule;
 
 class ImagesAdvertController extends Controller
 {
+    use VerifiesClientPayments;
+
     public function index(Request $request)
     {
         $query = ImagesAdvert::with(['user'])
@@ -945,7 +949,17 @@ class ImagesAdvertController extends Controller
         $image = ImagesAdvert::find($purchase->image_id);
 
         if ($purchase->payment_status !== 'completed') {
-            $purchase->payment_id = $request->input('payment_id');
+            $verified = $this->verifyClientPaymentOrFail(
+                $request,
+                (float) $purchase->price_paid,
+                'image_advert',
+                $purchase->id
+            );
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+
+            $purchase->payment_id = $verified['payment_id'];
             $purchase->markCompleted($request->input('payment_method', 'paypal'));
             if ($image) {
                 $image->increment('downloads_count');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\PaymentVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -95,7 +96,7 @@ class PayPalOrderController extends Controller
 
         if ($this->useMock()) {
             $orderId = 'MOCK-'.strtoupper(Str::random(12));
-            Cache::put('paypal_mock_order:'.$orderId, [
+            $payload = [
                 'amount' => $amount,
                 'currency' => $currency,
                 'description' => $description,
@@ -103,7 +104,14 @@ class PayPalOrderController extends Controller
                 'upsell_id' => $validated['upsell_id'] ?? null,
                 'user_id' => auth('api')->id(),
                 'created_at' => now()->toIso8601String(),
-            ], now()->addHour());
+            ];
+            Cache::put('paypal_mock_order:'.$orderId, $payload, now()->addHour());
+            app(PaymentVerificationService::class)->rememberPendingOrder(
+                $orderId,
+                (float) $amount,
+                $currency,
+                $payload
+            );
 
             Log::info('PayPal sandbox mock order created', ['order_id' => $orderId]);
 
@@ -143,6 +151,17 @@ class PayPalOrderController extends Controller
             ]);
 
             if (! empty($response['id'])) {
+                app(PaymentVerificationService::class)->rememberPendingOrder(
+                    (string) $response['id'],
+                    (float) $amount,
+                    $currency,
+                    [
+                        'upsell_type' => $validated['upsell_type'] ?? null,
+                        'upsell_id' => $validated['upsell_id'] ?? null,
+                        'user_id' => auth('api')->id(),
+                    ]
+                );
+
                 return response()->json([
                     'success' => true,
                     'id' => $response['id'],
@@ -195,13 +214,15 @@ class PayPalOrderController extends Controller
                 ], 422);
             }
 
-            $cached = Cache::pull('paypal_mock_order:'.$orderId);
+            $cached = Cache::get('paypal_mock_order:'.$orderId)
+                ?: app(PaymentVerificationService::class)->getPendingOrder($orderId);
             if (! $cached) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Mock order expired or not found. Create a new payment.',
                 ], 404);
             }
+            Cache::forget('paypal_mock_order:'.$orderId);
 
             $details = [
                 'id' => $orderId,
@@ -212,7 +233,7 @@ class PayPalOrderController extends Controller
                         'currency_code' => $cached['currency'],
                         'value' => $cached['amount'],
                     ],
-                    'description' => $cached['description'],
+                    'description' => $cached['description'] ?? '',
                     'custom_id' => trim(($cached['upsell_type'] ?? '').':'.($cached['upsell_id'] ?? ''), ':'),
                 ]],
                 'payer' => [
@@ -220,6 +241,14 @@ class PayPalOrderController extends Controller
                     'name' => ['given_name' => 'Sandbox', 'surname' => 'Buyer'],
                 ],
             ];
+
+            app(PaymentVerificationService::class)->rememberCompletedOrder($orderId, [
+                'status' => 'COMPLETED',
+                'amount' => (float) $cached['amount'],
+                'currency' => (string) $cached['currency'],
+                'provider' => 'mock',
+                'details' => $details,
+            ]);
 
             Log::info('PayPal sandbox mock order captured', ['order_id' => $orderId]);
 
@@ -246,6 +275,19 @@ class PayPalOrderController extends Controller
 
             $status = $response['status'] ?? null;
             if ($status === 'COMPLETED' || ! empty($response['id'])) {
+                $unit = $response['purchase_units'][0] ?? [];
+                $amountNode = $unit['payments']['captures'][0]['amount']
+                    ?? $unit['amount']
+                    ?? [];
+                $pending = app(PaymentVerificationService::class)->getPendingOrder($orderId);
+                app(PaymentVerificationService::class)->rememberCompletedOrder($orderId, [
+                    'status' => $status === 'COMPLETED' ? 'COMPLETED' : (string) $status,
+                    'amount' => (float) ($amountNode['value'] ?? $pending['amount'] ?? 0),
+                    'currency' => (string) ($amountNode['currency_code'] ?? $pending['currency'] ?? 'USD'),
+                    'provider' => 'paypal',
+                    'details' => $response,
+                ]);
+
                 return response()->json([
                     'success' => true,
                     'id' => $response['id'] ?? $orderId,
