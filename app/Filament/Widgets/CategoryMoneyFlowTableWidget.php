@@ -22,7 +22,7 @@ class CategoryMoneyFlowTableWidget extends BaseWidget
     {
         $query = Schema::hasTable('category_money_flows')
             ? CategoryMoneyFlow::query()
-                ->selectRaw('MIN(id) as id, category_key, SUM(CASE WHEN bucket = "platform" THEN platform_amount ELSE 0 END) as our_money, SUM(CASE WHEN bucket = "seller_payout" THEN seller_amount ELSE 0 END) as seller_payouts, SUM(CASE WHEN bucket = "other" THEN gross_amount ELSE 0 END) as other_monies, SUM(gross_amount) as gross, COUNT(*) as transactions')
+                ->selectRaw("MIN(id) as id, category_key, SUM(CASE WHEN bucket = 'platform' THEN platform_amount ELSE 0 END) as our_money, SUM(CASE WHEN bucket = 'seller_payout' THEN seller_amount ELSE 0 END) as seller_payouts, SUM(CASE WHEN bucket = 'other' THEN gross_amount ELSE 0 END) as other_monies, SUM(gross_amount) as gross, COUNT(*) as transactions")
                 ->groupBy('category_key')
                 ->orderByDesc(DB::raw('our_money'))
             : CategoryMoneyFlow::query()->whereRaw('1 = 0');

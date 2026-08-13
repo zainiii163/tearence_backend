@@ -233,7 +233,7 @@ class BannerController extends APIController
     {
         $validator = Validator::make($request->all(), [
             'pricing_plan_id' => 'required|exists:ad_pricing_plans,id',
-            'payment_method' => 'required|in:paypal,stripe,bank_transfer',
+            'payment_method' => 'required|in:paypal,stripe,crypto,bank_transfer',
             'transaction_id' => 'required|string'
         ]);
 

@@ -196,17 +196,28 @@ class PaymentVerificationService
      */
     private function fetchProviderPayment(string $paymentId): array
     {
-        // Prefer completed capture cache (set by PayPalOrderController::capture)
-        $completed = Cache::get($this->completedKey($paymentId));
+        // Prefer completed capture cache (PayPal or crypto)
+        $completed = Cache::get($this->completedKey($paymentId))
+            ?: Cache::get('crypto_completed_order:'.$paymentId);
         if (is_array($completed) && ! empty($completed['status'])) {
             return [
                 'status' => (string) $completed['status'],
                 'amount' => (float) ($completed['amount'] ?? 0),
                 'currency' => (string) ($completed['currency'] ?? 'USD'),
-                'provider' => (string) ($completed['provider'] ?? (str_starts_with($paymentId, 'MOCK-') ? 'mock' : 'paypal')),
-                'source' => 'cache_completed',
+                'provider' => (string) ($completed['provider'] ?? $this->guessProvider($paymentId)),
+                'source' => (string) ($completed['source'] ?? 'cache_completed'),
                 'captured' => true,
             ];
+        }
+
+        // Crypto mock must be confirmed first
+        if (str_starts_with($paymentId, 'CRYPTO-MOCK-')) {
+            throw new RuntimeException('Crypto mock payment was not confirmed. Complete crypto checkout first.');
+        }
+
+        // Live NOWPayments — refresh if still open
+        if (str_starts_with($paymentId, 'NP-')) {
+            return $this->fetchNowPaymentsPayment($paymentId);
         }
 
         // Pending create cache (mock not yet captured — reject)
@@ -269,6 +280,68 @@ class PaymentVerificationService
                 'error' => $e->getMessage(),
             ]);
             throw new RuntimeException('Unable to verify payment with PayPal. Try again or contact support.');
+        }
+    }
+
+    private function guessProvider(string $paymentId): string
+    {
+        if (str_starts_with($paymentId, 'CRYPTO-MOCK-')) {
+            return 'crypto_mock';
+        }
+        if (str_starts_with($paymentId, 'NP-')) {
+            return 'nowpayments';
+        }
+        if (str_starts_with($paymentId, 'MOCK-')) {
+            return 'mock';
+        }
+
+        return 'paypal';
+    }
+
+    /**
+     * @return array{status:string,amount:float,currency:string,provider:string,source:string,captured?:bool}
+     */
+    private function fetchNowPaymentsPayment(string $ledgerId): array
+    {
+        $providerId = str_starts_with($ledgerId, 'NP-') ? substr($ledgerId, 3) : $ledgerId;
+        try {
+            $remote = app(NowPaymentsClient::class)->getPayment($providerId);
+            $statusRaw = strtolower((string) ($remote['payment_status'] ?? ''));
+            $finished = in_array($statusRaw, ['finished', 'confirmed'], true);
+            $amount = (float) ($remote['price_amount'] ?? 0);
+            $currency = strtoupper((string) ($remote['price_currency'] ?? 'USD'));
+            if ($amount <= 0 && ($pending = $this->getPendingOrder($ledgerId))) {
+                $amount = (float) $pending['amount'];
+                $currency = (string) ($pending['currency'] ?? $currency);
+            }
+
+            if ($finished) {
+                $this->rememberCompletedOrder($ledgerId, [
+                    'status' => 'COMPLETED',
+                    'amount' => $amount,
+                    'currency' => $currency,
+                    'provider' => 'nowpayments',
+                    'source' => 'nowpayments_get_payment',
+                    'captured' => true,
+                ]);
+            }
+
+            return [
+                'status' => $finished ? 'COMPLETED' : strtoupper($statusRaw ?: 'WAITING'),
+                'amount' => $amount,
+                'currency' => $currency,
+                'provider' => 'nowpayments',
+                'source' => 'nowpayments_get_payment',
+                'captured' => $finished,
+            ];
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::error('Payment defence: NOWPayments lookup failed', [
+                'payment_id' => $ledgerId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new RuntimeException('Unable to verify crypto payment. Wait for confirmation or contact support.');
         }
     }
 

@@ -294,7 +294,7 @@ class JobUpsellController extends Controller
         }
 
         $request->validate([
-            'payment_method' => 'required|string|in:stripe,paypal,bank_transfer',
+            'payment_method' => 'required|string|in:paypal,stripe,crypto,bank_transfer',
             'transaction_id' => 'nullable|string|max:255',
         ]);
 

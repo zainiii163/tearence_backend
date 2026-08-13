@@ -8,124 +8,175 @@ use Illuminate\Support\Collection;
 
 class PromoPricingService
 {
-    /** Global Clive matrix — used when DB empty or offline */
+    /**
+     * Launch promotional matrix (editable in Filament → Promo Pricing Plans).
+     * Free 3d · Paid $10/1w · Promoted $20/1w · Featured $30/1w · Sponsored $40/1w
+     */
     public const FALLBACK_PLANS = [
         [
-            'slug' => 'sponsored',
+            'slug' => 'free',
             'vertical' => 'all',
-            'name' => 'Sponsored',
-            'tier' => 'sponsored',
-            'price_usd' => 100.00,
-            'duration_days' => 30,
-            'description' => 'Maximum visibility for 1 month',
-            'features' => ['Homepage placement', 'Category top', 'Social promotion', 'Sponsored badge'],
+            'name' => 'Free Ad',
+            'tier' => 'free',
+            'price_usd' => 0.00,
+            'duration_days' => 3,
+            'description' => 'Basic listing — runs for 3 days',
+            'features' => ['Standard search listing', '3 days live', 'Free badge'],
             'is_popular' => false,
-            'sort_order' => 1,
+            'sort_order' => 0,
         ],
         [
-            'slug' => 'featured',
+            'slug' => 'paid',
             'vertical' => 'all',
-            'name' => 'Featured',
-            'tier' => 'featured',
-            'price_usd' => 30.00,
-            'duration_days' => 14,
-            'description' => 'Top of category for 2 weeks',
-            'features' => ['Top of category', 'Featured badge', 'Priority search'],
-            'is_popular' => true,
-            'sort_order' => 2,
-        ],
-        [
-            'slug' => 'promoted',
-            'vertical' => 'all',
-            'name' => 'Promoted',
-            'tier' => 'promoted',
-            'price_usd' => 50.00,
-            'duration_days' => 21,
-            'description' => 'Highlighted promotion for 3 weeks',
-            'features' => ['Highlighted card', 'Above standard', 'Promoted badge'],
-            'is_popular' => false,
-            'sort_order' => 3,
-        ],
-        [
-            'slug' => 'paid_1w',
-            'vertical' => 'all',
-            'name' => 'Paid Advert — 1 Week',
+            'name' => 'Paid Advert',
             'tier' => 'paid',
             'price_usd' => 10.00,
             'duration_days' => 7,
             'description' => 'Paid listing for 1 week',
-            'features' => ['Search priority', 'Paid badge'],
+            'features' => ['Search priority', 'Paid badge', '1 week live'],
+            'is_popular' => false,
+            'sort_order' => 1,
+        ],
+        [
+            'slug' => 'promoted',
+            'vertical' => 'all',
+            'name' => 'Promoted Ad',
+            'tier' => 'promoted',
+            'price_usd' => 20.00,
+            'duration_days' => 7,
+            'description' => 'Highlighted promotion for 1 week',
+            'features' => ['Highlighted card', 'Above standard', 'Promoted badge', '1 week live'],
+            'is_popular' => true,
+            'sort_order' => 2,
+        ],
+        [
+            'slug' => 'featured',
+            'vertical' => 'all',
+            'name' => 'Featured Ad',
+            'tier' => 'featured',
+            'price_usd' => 30.00,
+            'duration_days' => 7,
+            'description' => 'Top of category for 1 week',
+            'features' => ['Top of category', 'Featured badge', 'Priority search', '1 week live'],
+            'is_popular' => false,
+            'sort_order' => 3,
+        ],
+        [
+            'slug' => 'sponsored',
+            'vertical' => 'all',
+            'name' => 'Sponsored Ad',
+            'tier' => 'sponsored',
+            'price_usd' => 40.00,
+            'duration_days' => 7,
+            'description' => 'Maximum visibility for 1 week',
+            'features' => ['Homepage placement', 'Category top', 'Sponsored badge', '1 week live'],
             'is_popular' => false,
             'sort_order' => 4,
         ],
+        // Affiliate site-advertising cookie / hop-link packages
         [
-            'slug' => 'paid_2w',
-            'vertical' => 'all',
-            'name' => 'Paid Advert — 2 Weeks',
-            'tier' => 'paid',
-            'price_usd' => 15.00,
-            'duration_days' => 14,
-            'description' => 'Paid listing for 2 weeks',
-            'features' => ['Search priority', 'Paid badge'],
-            'is_popular' => false,
-            'sort_order' => 5,
+            'slug' => 'cookie_30',
+            'vertical' => 'affiliates',
+            'name' => 'Affiliate Cookie — 30 Days',
+            'tier' => 'cookie',
+            'price_usd' => 20.00,
+            'duration_days' => 30,
+            'description' => 'Promotional affiliate hop / cookie window — 30 days',
+            'features' => ['30-day cookie', 'Hop links on WWA', 'Marketplace listing'],
+            'is_popular' => true,
+            'sort_order' => 10,
         ],
         [
-            'slug' => 'paid_4w',
-            'vertical' => 'all',
-            'name' => 'Paid Advert — 4 Weeks',
-            'tier' => 'paid',
-            'price_usd' => 20.00,
-            'duration_days' => 28,
-            'description' => 'Paid listing for 4 weeks',
-            'features' => ['Search priority', 'Paid badge'],
+            'slug' => 'cookie_60',
+            'vertical' => 'affiliates',
+            'name' => 'Affiliate Cookie — 60 Days',
+            'tier' => 'cookie',
+            'price_usd' => 30.00,
+            'duration_days' => 60,
+            'description' => 'Promotional affiliate hop / cookie window — 60 days',
+            'features' => ['60-day cookie', 'Hop links on WWA', 'Marketplace listing'],
             'is_popular' => false,
-            'sort_order' => 6,
+            'sort_order' => 11,
+        ],
+        [
+            'slug' => 'cookie_90',
+            'vertical' => 'affiliates',
+            'name' => 'Affiliate Cookie — 90 Days',
+            'tier' => 'cookie',
+            'price_usd' => 40.00,
+            'duration_days' => 90,
+            'description' => 'Promotional affiliate hop / cookie window — 90 days',
+            'features' => ['90-day cookie', 'Hop links on WWA', 'Marketplace listing'],
+            'is_popular' => false,
+            'sort_order' => 12,
         ],
     ];
 
     /**
-     * Classic listing upsell matrix used on property / services / jobs forms historically.
-     * Seeded per-vertical so Filament can edit them independently.
+     * Per-vertical listing tiers (same launch promo — Filament can override per marketplace).
      */
     public const LISTING_VERTICAL_DEFAULTS = [
-        'promoted' => [
-            'name' => 'Promoted Listing',
-            'tier' => 'promoted',
-            'price_usd' => 29.00,
-            'duration_days' => 60,
-            'description' => 'Enhanced visibility with promoted badge',
-            'features' => ['Enhanced visibility', 'Promoted badge', 'Highlighted card', '60 days active'],
+        'free' => [
+            'name' => 'Free Ad',
+            'tier' => 'free',
+            'price_usd' => 0.00,
+            'duration_days' => 3,
+            'description' => 'Basic listing — runs for 3 days',
+            'features' => ['Standard search listing', '3 days live', 'Free badge'],
+            'is_popular' => false,
+            'sort_order' => 0,
+        ],
+        'paid' => [
+            'name' => 'Paid Advert',
+            'tier' => 'paid',
+            'price_usd' => 10.00,
+            'duration_days' => 7,
+            'description' => 'Paid listing for 1 week',
+            'features' => ['Search priority', 'Paid badge', '1 week live'],
             'is_popular' => false,
             'sort_order' => 1,
         ],
-        'featured' => [
-            'name' => 'Featured Listing',
-            'tier' => 'featured',
-            'price_usd' => 79.00,
-            'duration_days' => 90,
-            'description' => 'Top of category with larger card',
-            'features' => ['Top of category', 'Larger display card', '90 days active', 'Weekly email feature'],
+        'promoted' => [
+            'name' => 'Promoted Ad',
+            'tier' => 'promoted',
+            'price_usd' => 20.00,
+            'duration_days' => 7,
+            'description' => 'Highlighted promotion for 1 week',
+            'features' => ['Highlighted card', 'Above standard', 'Promoted badge', '1 week live'],
             'is_popular' => true,
             'sort_order' => 2,
         ],
-        'sponsored' => [
-            'name' => 'Sponsored Listing',
-            'tier' => 'sponsored',
-            'price_usd' => 199.00,
-            'duration_days' => 180,
-            'description' => 'Homepage placement and social promotion',
-            'features' => ['Homepage placement', 'Homepage slider', '180 days active', 'Social media promotion'],
+        'featured' => [
+            'name' => 'Featured Ad',
+            'tier' => 'featured',
+            'price_usd' => 30.00,
+            'duration_days' => 7,
+            'description' => 'Top of category for 1 week',
+            'features' => ['Top of category', 'Featured badge', 'Priority search', '1 week live'],
             'is_popular' => false,
             'sort_order' => 3,
+        ],
+        'sponsored' => [
+            'name' => 'Sponsored Ad',
+            'tier' => 'sponsored',
+            'price_usd' => 40.00,
+            'duration_days' => 7,
+            'description' => 'Maximum visibility for 1 week',
+            'features' => ['Homepage placement', 'Category top', 'Sponsored badge', '1 week live'],
+            'is_popular' => false,
+            'sort_order' => 4,
         ],
     ];
 
     public const LISTING_VERTICALS = [
-        'property', 'buysell', 'services', 'jobs', 'events', 'vehicles', 'books', 'funding', 'resorts', 'images',
+        'property', 'buysell', 'services', 'jobs', 'events', 'vehicles', 'books', 'funding', 'resorts', 'images', 'affiliates', 'banners',
     ];
 
-    public const DEFAULT_FREE_DURATION_DAYS = 30;
+    /** Free ads run this many days unless a Filament “free” plan overrides */
+    public const DEFAULT_FREE_DURATION_DAYS = 3;
+
+    public const LISTING_TIER_KEYS = ['free', 'paid', 'promoted', 'featured', 'sponsored'];
+
 
     public function allActivePlans(?string $vertical = null, bool $listingTiersOnly = false): Collection
     {
@@ -144,7 +195,9 @@ class PromoPricingService
             }
 
             if ($listingTiersOnly) {
-                $plans = $plans->filter(fn ($p) => in_array($p->tier, ['promoted', 'featured', 'sponsored'], true))->values();
+                $plans = $plans->filter(
+                    fn ($p) => in_array($p->tier, self::LISTING_TIER_KEYS, true)
+                )->values();
             }
 
             if ($plans->isNotEmpty()) {
@@ -178,6 +231,16 @@ class PromoPricingService
 
     protected function fallbackPlans(?string $vertical, bool $listingTiersOnly): Collection
     {
+        if ($vertical === 'affiliates' && ! $listingTiersOnly) {
+            $cookie = collect(self::FALLBACK_PLANS)
+                ->filter(fn ($p) => ($p['tier'] ?? '') === 'cookie')
+                ->map(fn ($p) => (object) $p)
+                ->values();
+            if ($cookie->isNotEmpty()) {
+                return $cookie;
+            }
+        }
+
         if ($vertical && in_array($vertical, self::LISTING_VERTICALS, true)) {
             $plans = collect(self::LISTING_VERTICAL_DEFAULTS)->map(function ($p, $slug) use ($vertical) {
                 return (object) array_merge($p, [
@@ -186,15 +249,33 @@ class PromoPricingService
                 ]);
             })->values();
 
-            return $listingTiersOnly ? $plans : $plans;
+            if ($listingTiersOnly) {
+                $plans = $plans->filter(
+                    fn ($p) => in_array($p->tier, self::LISTING_TIER_KEYS, true)
+                )->values();
+            }
+
+            return $plans;
         }
 
         $plans = collect(self::FALLBACK_PLANS)->map(fn ($p) => (object) $p);
         if ($listingTiersOnly) {
-            $plans = $plans->filter(fn ($p) => in_array($p->tier, ['promoted', 'featured', 'sponsored'], true))->values();
+            $plans = $plans->filter(
+                fn ($p) => in_array($p->tier, self::LISTING_TIER_KEYS, true)
+            )->values();
+        } elseif ($vertical === 'affiliates') {
+            $plans = $plans->filter(fn ($p) => ($p->tier ?? '') === 'cookie')->values();
         }
 
         return $plans;
+    }
+
+    /** Affiliate promotional cookie packages (30/60/90). */
+    public function affiliateCookiePackages(): Collection
+    {
+        return $this->allActivePlans('affiliates', false)
+            ->filter(fn ($p) => ($p->tier ?? '') === 'cookie')
+            ->values();
     }
 
     public function findBySlug(string $slug, ?string $vertical = null): ?object

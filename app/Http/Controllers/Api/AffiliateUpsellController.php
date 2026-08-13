@@ -69,7 +69,7 @@ class AffiliateUpsellController extends APIController
         $validator = Validator::make($request->all(), [
             'affiliate_post_id' => 'required|exists:affiliate_posts,id',
             'upsell_plan_id' => 'required|exists:affiliate_upsell_plans,id',
-            'payment_method' => 'required|in:paypal,stripe,bank_transfer',
+            'payment_method' => 'required|in:paypal,stripe,crypto,bank_transfer',
             'transaction_id' => 'required|string|max:100',
         ]);
 

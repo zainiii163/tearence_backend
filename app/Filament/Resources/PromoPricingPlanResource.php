@@ -37,14 +37,21 @@ class PromoPricingPlanResource extends Resource
                 ->helperText('Unique per vertical, e.g. promoted / featured / sponsored'),
             Forms\Components\Select::make('tier')
                 ->options([
+                    'free' => 'Free',
                     'paid' => 'Paid',
                     'promoted' => 'Promoted',
                     'featured' => 'Featured',
                     'sponsored' => 'Sponsored',
+                    'cookie' => 'Affiliate cookie / hop package',
                 ])
-                ->required(),
+                ->required()
+                ->helperText('Change price & duration here — frontend loads from API.'),
             Forms\Components\TextInput::make('price_usd')->numeric()->required()->prefix('$')->step(0.01),
-            Forms\Components\TextInput::make('duration_days')->numeric()->required()->suffix('days'),
+            Forms\Components\TextInput::make('duration_days')
+                ->numeric()
+                ->required()
+                ->suffix('days')
+                ->helperText('Free ads default 3 days; paid/promo/featured/sponsored default 7; cookie packages 30/60/90.'),
             Forms\Components\Textarea::make('description')->columnSpanFull(),
             Forms\Components\TagsInput::make('features')
                 ->helperText('Shown as bullet points on the post form'),
@@ -78,10 +85,12 @@ class PromoPricingPlanResource extends Resource
                     ->options(PromoPricingPlan::VERTICALS),
                 Tables\Filters\SelectFilter::make('tier')
                     ->options([
+                        'free' => 'Free',
                         'paid' => 'Paid',
                         'promoted' => 'Promoted',
                         'featured' => 'Featured',
                         'sponsored' => 'Sponsored',
+                        'cookie' => 'Cookie package',
                     ]),
             ])
             ->actions([

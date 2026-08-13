@@ -9,6 +9,9 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Launch promotional advert pricing — editable afterward in Filament → Promo Pricing Plans.
+ */
 class PromoPricingPlanSeeder extends Seeder
 {
     public function run(): void
@@ -16,7 +19,7 @@ class PromoPricingPlanSeeder extends Seeder
         $hasVertical = Schema::hasColumn('promo_pricing_plans', 'vertical');
         $hasPopular = Schema::hasColumn('promo_pricing_plans', 'is_popular');
 
-        // Global Clive matrix
+        // Global matrix (free / paid / promoted / featured / sponsored + affiliate cookies)
         foreach (PromoPricingService::FALLBACK_PLANS as $plan) {
             $attrs = [
                 'name' => $plan['name'],
@@ -42,7 +45,21 @@ class PromoPricingPlanSeeder extends Seeder
             PromoPricingPlan::updateOrCreate($keys, array_merge($attrs, ['slug' => $plan['slug']]));
         }
 
-        // Per-vertical listing tiers (editable in Filament — used by post forms)
+        // Retire old multi-week paid variants from previous matrix
+        if ($hasVertical) {
+            PromoPricingPlan::whereIn('slug', ['paid_1w', 'paid_2w', 'paid_4w'])
+                ->update(['is_active' => false]);
+        } else {
+            PromoPricingPlan::whereIn('slug', ['paid_1w', 'paid_2w', 'paid_4w'])
+                ->update(['is_active' => false]);
+        }
+
+        // Ensure canonical "paid" slug is active (replaces paid_1w)
+        if ($hasVertical) {
+            PromoPricingPlan::where('vertical', 'all')->where('slug', 'paid')->update(['is_active' => true]);
+        }
+
+        // Per-vertical listing tiers
         if ($hasVertical) {
             foreach (PromoPricingService::LISTING_VERTICALS as $vertical) {
                 foreach (PromoPricingService::LISTING_VERTICAL_DEFAULTS as $slug => $plan) {
@@ -64,12 +81,12 @@ class PromoPricingPlanSeeder extends Seeder
             }
         }
 
-        // Align affiliate upsell plans to Clive matrix (USD durations)
+        // Align affiliate upsell plans to launch promo (1 week packages)
         if (Schema::hasTable('affiliate_upsell_plans')) {
             $affiliateMap = [
-                'promoted' => ['price' => 50.00, 'duration_days' => 21, 'duration_type' => 'weekly', 'duration_value' => 3],
-                'featured' => ['price' => 30.00, 'duration_days' => 14, 'duration_type' => 'weekly', 'duration_value' => 2],
-                'sponsored' => ['price' => 100.00, 'duration_days' => 30, 'duration_type' => 'monthly', 'duration_value' => 1],
+                'promoted' => ['price' => 20.00, 'duration_days' => 7, 'duration_type' => 'weekly', 'duration_value' => 1],
+                'featured' => ['price' => 30.00, 'duration_days' => 7, 'duration_type' => 'weekly', 'duration_value' => 1],
+                'sponsored' => ['price' => 40.00, 'duration_days' => 7, 'duration_type' => 'weekly', 'duration_value' => 1],
             ];
 
             foreach ($affiliateMap as $slug => $data) {
@@ -100,17 +117,17 @@ class PromoPricingPlanSeeder extends Seeder
         );
 
         PromoRewardCode::updateOrCreate(
-            ['code' => 'CLIVE20'],
+            ['code' => 'LAUNCH20'],
             [
                 'type' => 'fixed',
-                'value' => 20,
+                'value' => 5,
                 'max_uses' => 500,
                 'uses_count' => 0,
                 'valid_from' => now()->subDay(),
                 'valid_until' => now()->addYear(),
-                'applies_to' => ['sponsored', 'featured', 'promoted'],
+                'applies_to' => ['paid', 'promoted', 'featured', 'sponsored', 'cookie'],
                 'is_active' => true,
-                'description' => '$20 off sponsored/featured/promoted',
+                'description' => '$5 off launch promo packages',
             ]
         );
     }

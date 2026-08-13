@@ -60,6 +60,19 @@ class PromoController extends Controller
             'data' => $plans,
             'vertical' => $vertical,
             'default_free_duration_days' => PromoPricingService::DEFAULT_FREE_DURATION_DAYS,
+            'matrix' => [
+                'free' => ['days' => 3, 'usd' => 0],
+                'paid' => ['days' => 7, 'usd' => 10],
+                'promoted' => ['days' => 7, 'usd' => 20],
+                'featured' => ['days' => 7, 'usd' => 30],
+                'sponsored' => ['days' => 7, 'usd' => 40],
+                'affiliate_cookies' => [
+                    ['days' => 30, 'usd' => 20],
+                    ['days' => 60, 'usd' => 30],
+                    ['days' => 90, 'usd' => 40],
+                ],
+                'note' => 'Editable in Filament → Promo Pricing Plans. Values above are launch defaults only.',
+            ],
         ]);
     }
 
@@ -67,7 +80,7 @@ class PromoController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'code' => 'required|string|max:64',
-            'tier' => 'nullable|string|in:paid,promoted,featured,sponsored',
+            'tier' => 'nullable|string|in:free,paid,promoted,featured,sponsored,cookie',
             'plan_slug' => 'nullable|string',
             'original_price' => 'nullable|numeric|min:0',
         ]);
