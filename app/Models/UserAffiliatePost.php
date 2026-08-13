@@ -202,33 +202,51 @@ class UserAffiliatePost extends Model
     }
 
     /**
-     * Increment views count.
+     * Increment views count (safe for unique daily analytics row).
      */
     public function incrementViews(): void
     {
         $this->increment('views');
-        
-        // Also track in analytics
-        $this->analytics()->create([
-            'date' => now()->toDateString(),
-            'views' => 1,
-            'unique_views' => 1,
-        ]);
+
+        try {
+            $row = $this->analytics()->firstOrCreate(
+                ['date' => now()->toDateString()],
+                [
+                    'views' => 0,
+                    'unique_views' => 0,
+                    'clicks' => 0,
+                    'unique_clicks' => 0,
+                ]
+            );
+            $row->increment('views');
+            $row->increment('unique_views');
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**
-     * Increment clicks count.
+     * Increment clicks count (safe for unique daily analytics row).
      */
     public function incrementClicks(): void
     {
         $this->increment('clicks');
-        
-        // Also track in analytics
-        $this->analytics()->create([
-            'date' => now()->toDateString(),
-            'clicks' => 1,
-            'unique_clicks' => 1,
-        ]);
+
+        try {
+            $row = $this->analytics()->firstOrCreate(
+                ['date' => now()->toDateString()],
+                [
+                    'views' => 0,
+                    'unique_views' => 0,
+                    'clicks' => 0,
+                    'unique_clicks' => 0,
+                ]
+            );
+            $row->increment('clicks');
+            $row->increment('unique_clicks');
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

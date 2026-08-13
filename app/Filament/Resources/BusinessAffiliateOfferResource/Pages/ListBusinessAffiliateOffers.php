@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\BusinessAffiliateOfferResource\Pages;
 
 use App\Filament\Resources\BusinessAffiliateOfferResource;
+use App\Filament\Widgets\AffiliateOverviewWidget;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
@@ -14,6 +15,13 @@ class ListBusinessAffiliateOffers extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            AffiliateOverviewWidget::class,
         ];
     }
 }

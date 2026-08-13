@@ -3,12 +3,13 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AffiliateApplication;
-use App\Models\AffiliateConversion;
+use App\Models\AffiliateHopConversion;
+use App\Models\AffiliatePayout;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
 /**
- * Clive: affiliate payouts belong under Dashboard (not a half-finished affiliates dump).
+ * Dashboard cluster: affiliate payouts & hop earnings overview.
  */
 class AffiliatePayoutsOverviewWidget extends BaseWidget
 {
@@ -20,44 +21,55 @@ class AffiliatePayoutsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingCommission = 0.0;
-        $confirmedCommission = 0.0;
+        $pendingPayouts = 0.0;
+        $paidPayouts = 0.0;
+        $hopCommission = 0.0;
         $pendingApps = 0;
         $approvedApps = 0;
 
         try {
-            $pendingCommission = (float) AffiliateConversion::pending()->sum('commission_amount');
-            $confirmedCommission = (float) AffiliateConversion::confirmed()->sum('commission_amount');
-        } catch (\Throwable $e) {
-            // table may be empty / missing in some envs
+            $pendingPayouts = (float) AffiliatePayout::query()
+                ->whereIn('status', ['pending', 'processing'])
+                ->sum('amount');
+            $paidPayouts = (float) AffiliatePayout::query()
+                ->where('status', 'paid')
+                ->sum('amount');
+        } catch (\Throwable) {
+            // migration may not have run
+        }
+
+        try {
+            $hopCommission = (float) AffiliateHopConversion::query()->sum('commission_amount');
+        } catch (\Throwable) {
+            // ignore
         }
 
         try {
             $pendingApps = AffiliateApplication::pending()->count();
             $approvedApps = AffiliateApplication::approved()->count();
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             // ignore
         }
 
         return [
-            Stat::make('Pending payouts', '$' . number_format($pendingCommission, 2))
-                ->description('Commission awaiting confirmation')
+            Stat::make('Pending payouts', '$' . number_format($pendingPayouts, 2))
+                ->description('Affiliate payout requests awaiting payment')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('warning'),
 
-            Stat::make('Confirmed commissions', '$' . number_format($confirmedCommission, 2))
-                ->description('Ready / paid commissions')
-                ->descriptionIcon('heroicon-m-banknotes')
+            Stat::make('Paid out', '$' . number_format($paidPayouts, 2))
+                ->description('Completed payout requests')
+                ->descriptionIcon('heroicon-m-check-badge')
                 ->color('success'),
 
-            Stat::make('Pending applications', number_format($pendingApps))
-                ->description('Affiliate applications to review')
-                ->descriptionIcon('heroicon-m-inbox')
+            Stat::make('Hop commissions', '$' . number_format($hopCommission, 2))
+                ->description('Total recorded hop-link commissions')
+                ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color('info'),
 
-            Stat::make('Approved affiliates', number_format($approvedApps))
-                ->description('Active approved applications')
-                ->descriptionIcon('heroicon-m-check-badge')
+            Stat::make('Pending applications', number_format($pendingApps))
+                ->description(number_format($approvedApps) . ' approved promoters')
+                ->descriptionIcon('heroicon-m-inbox')
                 ->color('primary'),
         ];
     }

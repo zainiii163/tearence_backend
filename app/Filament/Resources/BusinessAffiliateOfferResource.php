@@ -121,12 +121,10 @@ class BusinessAffiliateOfferResource extends Resource
                             ->required()
                             ->maxLength(255),
 
-                        Forms\Components\Repeater::make('promotional_assets')
-                            ->schema([
-                                Forms\Components\TextInput::make('asset')
-                                    ->label('Asset URL')
-                                    ->url(),
-                            ])
+                        Forms\Components\TagsInput::make('promotional_assets')
+                            ->label('Promotional creatives (URLs)')
+                            ->placeholder('Paste banner or image URL and press Enter')
+                            ->helperText('Shown in the public offer creatives library for affiliates.')
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('business_email')
@@ -238,6 +236,12 @@ class BusinessAffiliateOfferResource extends Resource
                 Tables\Columns\IconColumn::make('is_sponsored')
                     ->boolean()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('cookie_duration')
+                    ->label('Cookie')
+                    ->suffix('d')
+                    ->sortable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('views')
                     ->numeric()

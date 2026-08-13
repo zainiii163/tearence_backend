@@ -21,7 +21,7 @@ class AffiliateUpsellPlanResource extends Resource
 
     protected static ?string $navigationGroup = 'Affiliates Hub';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {

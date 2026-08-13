@@ -12,6 +12,7 @@ use App\Models\AffiliateUpsellPlan;
 use App\Models\AffiliateApplication;
 use App\Models\AffiliateHopClick;
 use App\Models\AffiliateHopConversion;
+use App\Models\AffiliatePayout;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -272,49 +273,72 @@ class AffiliateController extends Controller
      */
     public function businessOffer(string $id): JsonResponse
     {
-        $offer = BusinessAffiliateOffer::with(['user', 'affiliateCategory', 'analytics'])
-            ->withCount([
-                'applications as approved_promoters_count' => function ($q) {
-                    $q->where('status', 'approved');
-                },
-                'applications as converting_promoters_count' => function ($q) {
-                    $q->where('status', 'approved')->where('conversions_count', '>', 0);
-                },
-            ])
-            ->withSum([
-                'applications as promoters_earnings_sum' => function ($q) {
-                    $q->where('status', 'approved');
-                },
-            ], 'earnings_total')
-            ->withSum([
-                'applications as promoters_conversions_sum' => function ($q) {
-                    $q->where('status', 'approved');
-                },
-            ], 'conversions_count')
-            ->withSum([
-                'applications as promoters_clicks_sum' => function ($q) {
-                    $q->where('status', 'approved');
-                },
-            ], 'clicks_count')
-            ->findOrFail($id);
+        try {
+            $offer = BusinessAffiliateOffer::with(['user', 'affiliateCategory'])
+                ->withCount([
+                    'applications as approved_promoters_count' => function ($q) {
+                        $q->where('status', 'approved');
+                    },
+                    'applications as converting_promoters_count' => function ($q) {
+                        $q->where('status', 'approved')->where('conversions_count', '>', 0);
+                    },
+                ])
+                ->withSum([
+                    'applications as promoters_earnings_sum' => function ($q) {
+                        $q->where('status', 'approved');
+                    },
+                ], 'earnings_total')
+                ->withSum([
+                    'applications as promoters_conversions_sum' => function ($q) {
+                        $q->where('status', 'approved');
+                    },
+                ], 'conversions_count')
+                ->withSum([
+                    'applications as promoters_clicks_sum' => function ($q) {
+                        $q->where('status', 'approved');
+                    },
+                ], 'clicks_count')
+                ->findOrFail($id);
 
-        // Increment views
-        $offer->incrementViews();
-        $this->appendMarketplaceStats($offer);
+            // Increment views without failing the response if analytics is unavailable
+            try {
+                $offer->incrementViews();
+            } catch (\Throwable $e) {
+                report($e);
+            }
 
-        $payload = $offer->toArray();
-        $payload['marketplace_stats'] = $offer->marketplace_stats;
-        $payload['my_application'] = null;
-        if (Auth::check()) {
-            $payload['my_application'] = AffiliateApplication::where('business_affiliate_offer_id', $offer->id)
-                ->where('user_id', Auth::id())
-                ->first();
+            $this->appendMarketplaceStats($offer);
+
+            $payload = $offer->toArray();
+            $payload['marketplace_stats'] = $offer->getAttribute('marketplace_stats');
+            $payload['my_application'] = null;
+
+            $userId = Auth::id();
+            if ($userId) {
+                $payload['my_application'] = AffiliateApplication::query()
+                    ->where('business_affiliate_offer_id', $offer->id)
+                    ->where('user_id', $userId)
+                    ->first();
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $payload,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Offer not found',
+            ], 404);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load offer',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => $payload,
-        ]);
     }
 
     /**
@@ -495,16 +519,6 @@ class AffiliateController extends Controller
             ->all();
         $websiteUrl = $request->input('website_url');
 
-        if (empty($websiteUrl) && count($socialLinks) === 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Share a website or at least one social media link to be considered.',
-                'errors' => [
-                    'social_media_links' => ['At least one social link or website is required.'],
-                ],
-            ], 422);
-        }
-
         $offer = BusinessAffiliateOffer::findOrFail($offerId);
 
         // Check if user already applied
@@ -525,14 +539,19 @@ class AffiliateController extends Controller
             }
 
             if ($existingApplication->status === 'pending') {
+                // Instant hop-link marketplace: auto-approve pending joins
+                $existingApplication->update(['status' => 'approved', 'joined_at' => now()]);
+                $existingApplication->ensureTrackingCode();
+                $existingApplication->refresh();
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Your join application is still pending review',
+                    'message' => 'You are now promoting this offer — hop link ready',
                     'data' => $existingApplication->load('businessAffiliateOffer.affiliateCategory'),
                 ]);
             }
 
-            // Rejected / withdrawn — allow re-apply with fresh socials
+            // Rejected / withdrawn — allow re-apply and auto-approve for hop link
             $existingApplication->update([
                 'message' => $request->message,
                 'promotion_methods' => $request->promotion_methods,
@@ -540,16 +559,18 @@ class AffiliateController extends Controller
                 'website_url' => $websiteUrl,
                 'social_media_links' => $socialLinks,
                 'estimated_monthly_visitors' => $request->estimated_monthly_visitors,
-                'status' => 'pending',
+                'status' => 'approved',
                 'rejection_reason' => null,
-                'reviewed_at' => null,
+                'reviewed_at' => now(),
                 'reviewed_by' => null,
-                'approval_notes' => null,
+                'approval_notes' => 'Auto-approved marketplace join',
+                'joined_at' => now(),
             ]);
+            $existingApplication->ensureTrackingCode();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Join application re-submitted for review.',
+                'message' => 'You are now promoting this offer — hop link ready',
                 'data' => $existingApplication->fresh()->load('businessAffiliateOffer.affiliateCategory'),
             ]);
         }
@@ -563,17 +584,20 @@ class AffiliateController extends Controller
             'website_url' => $websiteUrl,
             'social_media_links' => $socialLinks,
             'estimated_monthly_visitors' => $request->estimated_monthly_visitors,
-            // Promoters share socials to be considered; merchant approves → hop link minted
-            'status' => 'pending',
+            // ClickBank-style: approve immediately and mint hop link
+            'status' => 'approved',
+            'joined_at' => now(),
+            'approval_notes' => 'Auto-approved marketplace join',
         ]);
+        $application->ensureTrackingCode();
 
         // Increment applications count
         $offer->increment('applications');
 
         return response()->json([
             'success' => true,
-            'message' => 'Join application submitted. The business will review your social channels.',
-            'data' => $application->load('businessAffiliateOffer.affiliateCategory'),
+            'message' => 'You are now promoting this offer — hop link ready',
+            'data' => $application->fresh()->load('businessAffiliateOffer.affiliateCategory'),
         ], 201);
     }
 
@@ -898,7 +922,7 @@ class AffiliateController extends Controller
     }
 
     /**
-     * Promoter: clicks, conversions, earnings + recent ledger rows.
+     * Promoter: clicks, conversions, earnings + recent ledger rows + payouts.
      */
     public function myEarnings(Request $request): JsonResponse
     {
@@ -917,6 +941,17 @@ class AffiliateController extends Controller
             ->limit(50)
             ->get();
 
+        $payouts = AffiliatePayout::query()
+            ->forUser($userId)
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        $earnings = round((float) $apps->sum('earnings_total'), 2);
+        $pendingPayouts = round((float) $payouts->whereIn('status', ['pending', 'processing'])->sum('amount'), 2);
+        $paid = round((float) $payouts->where('status', 'paid')->sum('amount'), 2);
+        $available = max(0, round($earnings - $pendingPayouts - $paid, 2));
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -924,12 +959,92 @@ class AffiliateController extends Controller
                     'programs' => $apps->count(),
                     'clicks' => (int) $apps->sum('clicks_count'),
                     'conversions' => (int) $apps->sum('conversions_count'),
-                    'earnings' => round((float) $apps->sum('earnings_total'), 2),
+                    'earnings' => $earnings,
+                    'pending' => $pendingPayouts,
+                    'paid' => $paid,
+                    'available' => $available,
                 ],
                 'applications' => $apps,
                 'recent_conversions' => $conversions,
+                'payouts' => $payouts,
             ],
         ]);
+    }
+
+    /**
+     * List payout history for the authenticated promoter.
+     */
+    public function myPayouts(Request $request): JsonResponse
+    {
+        $rows = AffiliatePayout::query()
+            ->forUser(Auth::id())
+            ->orderByDesc('id')
+            ->paginate(min(50, max(1, (int) $request->get('per_page', 20))));
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+        ]);
+    }
+
+    /**
+     * Request a payout from available affiliate balance.
+     */
+    public function requestPayout(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:25',
+            'method' => 'nullable|string|max:50',
+            'payout_details' => 'nullable|string|max:255',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $userId = Auth::id();
+        $amount = round((float) $request->input('amount'), 2);
+
+        $earned = (float) AffiliateApplication::query()
+            ->where('user_id', $userId)
+            ->where('status', 'approved')
+            ->sum('earnings_total');
+
+        $reserved = (float) AffiliatePayout::query()
+            ->forUser($userId)
+            ->whereIn('status', ['pending', 'processing', 'paid'])
+            ->sum('amount');
+
+        $available = max(0, round($earned - $reserved, 2));
+
+        if ($amount > $available) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Amount exceeds available balance',
+                'data' => ['available' => $available],
+            ], 422);
+        }
+
+        $payout = AffiliatePayout::create([
+            'user_id' => $userId,
+            'amount' => $amount,
+            'method' => $request->input('method', 'paypal'),
+            'payout_details' => $request->input('payout_details'),
+            'notes' => $request->input('notes'),
+            'status' => 'pending',
+            'reference' => 'AFF-' . strtoupper(Str::random(8)),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payout request submitted',
+            'data' => $payout,
+        ], 201);
     }
 
     /**

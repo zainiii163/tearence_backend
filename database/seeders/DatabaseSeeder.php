@@ -88,6 +88,10 @@ class DatabaseSeeder extends Seeder
             // One demo business user per homepage category dashboard
             BusinessCategoryDashboardUserSeeder::class,
 
+            // Affiliate marketplace (ClickBank-style programs)
+            AffiliateSystemSeeder::class,
+            AffiliateMarketplaceOffersSeeder::class,
+
             // Revenue tracking (must be last)
             RevenueTrackingSeeder::class,
         ]);

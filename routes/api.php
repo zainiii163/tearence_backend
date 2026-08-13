@@ -1554,6 +1554,8 @@ Route::group([
             Route::post('/applications/{applicationId}/reject', [ApiAffiliateController::class, 'rejectApplication']);
             Route::post('/conversions', [ApiAffiliateController::class, 'recordConversion']);
             Route::get('/my-earnings', [ApiAffiliateController::class, 'myEarnings']);
+            Route::get('/payouts', [ApiAffiliateController::class, 'myPayouts']);
+            Route::post('/payout-requests', [ApiAffiliateController::class, 'requestPayout']);
         });
 
         // External merchant postback (shared secret; no JWT required)
