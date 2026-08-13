@@ -1550,6 +1550,7 @@ Route::group([
             Route::get('/my-user-posts', [ApiAffiliateController::class, 'myUserPosts']);
             Route::get('/business-offers/{offerId}/applications', [ApiAffiliateController::class, 'offerApplications']);
             Route::get('/business-offers/{offerId}/conversions', [ApiAffiliateController::class, 'offerConversions']);
+            Route::post('/business-offers/{offerId}/rotate-postback-token', [ApiAffiliateController::class, 'rotateOfferPostbackToken']);
             Route::post('/applications/{applicationId}/approve', [ApiAffiliateController::class, 'approveApplication']);
             Route::post('/applications/{applicationId}/reject', [ApiAffiliateController::class, 'rejectApplication']);
             Route::post('/conversions', [ApiAffiliateController::class, 'recordConversion']);

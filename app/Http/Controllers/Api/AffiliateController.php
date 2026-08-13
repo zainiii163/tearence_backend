@@ -420,10 +420,13 @@ class AffiliateController extends Controller
             'verification_document' => $request->verification_document,
         ]);
 
+        $offer->load('affiliateCategory');
+        $offer->makeVisible('postback_token');
+
         return response()->json([
             'success' => true,
             'message' => 'Business affiliate offer created successfully',
-            'data' => $offer->load('affiliateCategory'),
+            'data' => $offer,
         ], 201);
     }
 
@@ -676,9 +679,40 @@ class AffiliateController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate((int) $request->input('per_page', 20));
 
+        $offers->getCollection()->transform(function (BusinessAffiliateOffer $offer) {
+            $offer->ensurePostbackToken();
+            $offer->makeVisible(['postback_token']);
+            $offer->setAttribute(
+                'postback_url',
+                url('/api/v1/affiliates/conversions/postback')
+            );
+
+            return $offer;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $offers,
+        ]);
+    }
+
+    /**
+     * Merchant: rotate postback token for one of their offers.
+     */
+    public function rotateOfferPostbackToken(string $offerId): JsonResponse
+    {
+        $offer = BusinessAffiliateOffer::where('user_id', Auth::id())->findOrFail($offerId);
+        $token = $offer->rotatePostbackToken();
+        $offer->makeVisible('postback_token');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Postback token rotated',
+            'data' => [
+                'id' => $offer->id,
+                'postback_token' => $token,
+                'postback_url' => url('/api/v1/affiliates/conversions/postback'),
+            ],
         ]);
     }
 
@@ -811,11 +845,19 @@ class AffiliateController extends Controller
             return response()->json(['success' => false, 'message' => 'Tracking code does not match offer'], 422);
         }
 
+        $usingPlatformSecret = $this->hasValidPostbackSecret($request);
+        $usingOfferToken = $this->hasValidOfferPostbackToken($request, $offer);
+        $isMerchantOwner = Auth::check() && (int) $offer->user_id === (int) Auth::id();
+
         // Merchant JWT may only report sales for their own offers
-        if (Auth::check() && !$this->hasValidPostbackSecret($request)) {
-            if ((int) $offer->user_id !== (int) Auth::id()) {
+        if (Auth::check() && !$usingPlatformSecret && !$usingOfferToken) {
+            if (!$isMerchantOwner) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized for this offer'], 403);
             }
+        }
+
+        if (!$usingPlatformSecret && !$usingOfferToken && !$isMerchantOwner) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $cookieDays = max(1, (int) ($offer->cookie_duration ?: 30));
@@ -824,22 +866,26 @@ class AffiliateController extends Controller
             ->orderByDesc('id')
             ->first();
 
-        if (!$lastClick) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No hop click found for this affiliate link — visitor must click the unique link first',
-            ], 422);
-        }
+        // Merchant dashboard "Report sale" can attest without a hop click.
+        // External postbacks still require a hop within the cookie window.
+        if (!$isMerchantOwner || $usingPlatformSecret || $usingOfferToken) {
+            if (!$lastClick) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hop click found for this affiliate link — visitor must click the unique link first',
+                ], 422);
+            }
 
-        if ($lastClick->created_at->lt(now()->subDays($cookieDays))) {
-            return response()->json([
-                'success' => false,
-                'message' => "Cookie window expired ({$cookieDays} day(s)). Sale cannot be attributed.",
-                'data' => [
-                    'cookie_duration_days' => $cookieDays,
-                    'last_click_at' => $lastClick->created_at?->toIso8601String(),
-                ],
-            ], 422);
+            if ($lastClick->created_at->lt(now()->subDays($cookieDays))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cookie window expired ({$cookieDays} day(s)). Sale cannot be attributed.",
+                    'data' => [
+                        'cookie_duration_days' => $cookieDays,
+                        'last_click_at' => $lastClick->created_at?->toIso8601String(),
+                    ],
+                ], 422);
+            }
         }
 
         $orderId = $request->filled('order_id') ? trim((string) $request->input('order_id')) : null;
@@ -894,10 +940,11 @@ class AffiliateController extends Controller
                 'commission_type' => $commissionType,
                 'commission_rate' => $commissionRate,
                 'status' => 'confirmed',
-                'attributed_via' => $fromCookie ? 'cookie' : 'code',
+                'attributed_via' => $fromCookie ? 'cookie' : ($lastClick ? 'code' : 'merchant_report'),
                 'meta' => [
-                    'last_click_id' => $lastClick->id,
-                    'last_click_at' => $lastClick->created_at?->toIso8601String(),
+                    'last_click_id' => $lastClick?->id,
+                    'last_click_at' => $lastClick?->created_at?->toIso8601String(),
+                    'reported_by_user_id' => Auth::id(),
                 ],
             ]);
 
@@ -913,10 +960,10 @@ class AffiliateController extends Controller
                 'commission' => $commission,
                 'sale_amount' => $saleAmount,
                 'cookie_duration_days' => $cookieDays,
-                'attributed_via' => $fromCookie ? 'cookie' : 'code',
+                'attributed_via' => $fromCookie ? 'cookie' : ($lastClick ? 'code' : 'merchant_report'),
                 'conversion' => $conversion,
                 'application' => $application->fresh(),
-                'postback_hint' => 'External merchants may send X-WWA-Affiliate-Secret + tracking_code|cookie, amount, order_id',
+                'postback_hint' => 'POST /api/v1/affiliates/conversions/postback with X-WWA-Postback-Token (per offer) or X-WWA-Affiliate-Secret, plus tracking_code, amount, order_id',
             ],
         ]);
     }
@@ -1082,9 +1129,32 @@ class AffiliateController extends Controller
         return is_string($header) && hash_equals((string) $secret, $header);
     }
 
+    private function offerPostbackTokenFromRequest(Request $request): ?string
+    {
+        $token = $request->header('X-WWA-Postback-Token')
+            ?: $request->header('X-Affiliate-Postback-Token')
+            ?: $request->input('postback_token');
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    private function hasValidOfferPostbackToken(Request $request, BusinessAffiliateOffer $offer): bool
+    {
+        $token = $this->offerPostbackTokenFromRequest($request);
+        if (!$token || empty($offer->postback_token)) {
+            return false;
+        }
+
+        return hash_equals((string) $offer->postback_token, $token);
+    }
+
     private function canRecordConversion(Request $request): bool
     {
         if ($this->hasValidPostbackSecret($request)) {
+            return true;
+        }
+
+        if ($this->offerPostbackTokenFromRequest($request)) {
             return true;
         }
 

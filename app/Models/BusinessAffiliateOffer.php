@@ -8,12 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Str;
 
 class BusinessAffiliateOffer extends Model
 {
     use HasFactory;
 
     protected $guarded = [];
+
+    /** Never expose on public marketplace payloads */
+    protected $hidden = [
+        'postback_token',
+    ];
 
     protected $casts = [
         'allowed_traffic_types' => 'array',
@@ -26,6 +32,31 @@ class BusinessAffiliateOffer extends Model
         'expires_at' => 'datetime',
         'is_active' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $offer) {
+            if (empty($offer->postback_token)) {
+                $offer->postback_token = Str::random(40);
+            }
+        });
+    }
+
+    public function ensurePostbackToken(): string
+    {
+        if (empty($this->postback_token)) {
+            $this->forceFill(['postback_token' => Str::random(40)])->save();
+        }
+
+        return (string) $this->postback_token;
+    }
+
+    public function rotatePostbackToken(): string
+    {
+        $this->forceFill(['postback_token' => Str::random(40)])->save();
+
+        return (string) $this->postback_token;
+    }
 
     /**
      * Get the user that created the offer.
