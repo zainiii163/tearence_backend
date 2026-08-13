@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\APIController;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\JobUpsell;
 use App\Models\Listing;
@@ -16,6 +17,7 @@ use Srmklive\PayPal\Services\PayPal as PayPalClient;
 class JobUpsellController extends APIController
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     public function __construct()
     {
@@ -134,7 +136,7 @@ class JobUpsellController extends APIController
     {
         $validator = Validator::make($request->all(), [
             'payment_transaction_id' => 'required|string',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         if ($validator->fails()) {
@@ -201,6 +203,18 @@ class JobUpsellController extends APIController
             $revenue->payment_status = 'completed';
             $revenue->payment_date = now();
             $revenue->save();
+
+            $this->recordPlatformFeeMoneyFlow(
+                'job_upsell',
+                (float) $upsell->price,
+                'advert',
+                'job_upsell',
+                $upsell->job_upsell_id ?? $upsell->id,
+                $verified['payment_id'],
+                is_numeric($customer_id) ? (int) $customer_id : null,
+                'USD',
+                'Job listing upsell ('.$upsell->upsell_type.')'
+            );
 
             DB::commit();
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\StoreOrder;
 use App\Models\StoreProduct;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 class StoreOrderController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     /** Demo catalogue for the Worldwide Adverts example storefront. */
     public static function demoProducts(): array
@@ -229,7 +231,7 @@ class StoreOrderController extends Controller
 
         $request->validate([
             'payment_id' => 'required|string|max:191',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         $verified = $this->verifyClientPaymentOrFail(
@@ -246,6 +248,20 @@ class StoreOrderController extends Controller
         $order->payment_method = $request->input('payment_method');
         $order->payment_id = $verified['payment_id'];
         $order->save();
+
+        $this->recordMarketplaceSaleMoneyFlow(
+            'store_order',
+            (float) $order->amount,
+            (float) $order->platform_fee,
+            (float) $order->seller_amount,
+            'store_order',
+            $order->id,
+            $verified['payment_id'],
+            (int) $buyerId,
+            $order->seller_id ? (int) $order->seller_id : null,
+            'USD',
+            'Store order payment'
+        );
 
         return response()->json([
             'success' => true,

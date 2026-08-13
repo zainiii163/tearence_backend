@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Donation;
 use App\Models\DonationContribution;
@@ -18,6 +19,7 @@ use Illuminate\Support\Str;
 class DonationController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     private function authUserId(): ?int
     {
@@ -435,6 +437,19 @@ class DonationController extends Controller
             $donation->donor_count = (int) $donation->donor_count + 1;
             $donation->save();
         });
+
+        $this->recordOtherMoneyFlow(
+            'donation',
+            (float) $contribution->amount,
+            'donation',
+            'donation_contribution',
+            $contribution->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            null,
+            $contribution->currency ?: 'USD',
+            'Donation contribution (pass-through)'
+        );
 
         $donation = Donation::find($contribution->donation_id);
 

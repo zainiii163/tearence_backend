@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Service;
 use App\Models\ServiceOrder;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 class ServiceOrderController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     public function index(Request $request): JsonResponse
     {
@@ -160,7 +162,7 @@ class ServiceOrderController extends Controller
 
         $request->validate([
             'payment_id' => 'required|string|max:191',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         $verified = $this->verifyClientPaymentOrFail(
@@ -178,6 +180,20 @@ class ServiceOrderController extends Controller
         $order->payment_id = $verified['payment_id'];
         $order->paid_at = now();
         $order->save();
+
+        $this->recordMarketplaceSaleMoneyFlow(
+            'service_order',
+            (float) $order->total_price,
+            (float) ($order->platform_fee ?? 0),
+            (float) ($order->seller_amount ?? 0),
+            'service_order',
+            $order->id,
+            $verified['payment_id'],
+            (int) $order->buyer_id,
+            $order->seller_id ? (int) $order->seller_id : null,
+            'USD',
+            'Service order payment'
+        );
 
         return response()->json([
             'success' => true,

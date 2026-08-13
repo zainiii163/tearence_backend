@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BusinessTool;
 use App\Models\BusinessToolPurchase;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Validator;
 class BusinessToolController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
     public function index(Request $request): JsonResponse
     {
         try {
@@ -182,6 +184,18 @@ class BusinessToolController extends Controller
                 'payment_method' => $request->input('payment_method', $purchase->payment_method ?: 'paypal'),
             ]);
             BusinessTool::where('id', $purchase->tool_id)->increment('purchases_count');
+
+            $this->recordPlatformFeeMoneyFlow(
+                'business_tool',
+                (float) ($purchase->amount ?? $expected),
+                'product',
+                'business_tool_purchase',
+                $purchase->id,
+                $verified['payment_id'],
+                (int) $customerId,
+                'USD',
+                'Business tool purchase'
+            );
         }
 
         return response()->json([

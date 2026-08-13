@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BannerAd;
 use App\Models\BannerCategory;
@@ -21,6 +22,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class BannerAdController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     /**
      * Display a listing of banner ads.
@@ -672,7 +674,7 @@ class BannerAdController extends Controller
 
         $request->validate([
             'payment_id' => 'required|string|max:191',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         $verified = $this->verifyClientPaymentOrFail(
@@ -687,6 +689,18 @@ class BannerAdController extends Controller
 
         $purchase->payment_id = $verified['payment_id'];
         $purchase->markCompleted($request->payment_method);
+
+        $this->recordPlatformFeeMoneyFlow(
+            'banner_ad',
+            (float) $purchase->price_paid,
+            'product',
+            'banner_purchase',
+            $purchase->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            'USD',
+            'Banner ad product purchase'
+        );
 
         return response()->json([
             'success' => true,

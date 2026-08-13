@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BusinessTemplate;
 use App\Models\TemplatePurchase;
@@ -20,6 +21,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class BusinessTemplateController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     protected function hasPremiumColumns(): bool
     {
@@ -663,7 +665,7 @@ class BusinessTemplateController extends Controller
 
         $request->validate([
             'payment_id' => 'required|string|max:191',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         $verified = $this->verifyClientPaymentOrFail(
@@ -679,6 +681,20 @@ class BusinessTemplateController extends Controller
         $purchase->payment_id = $verified['payment_id'];
         $purchase->paid_at = now();
         $purchase->markCompleted($request->payment_method);
+
+        $this->recordMarketplaceSaleMoneyFlow(
+            'business_template',
+            (float) $purchase->price_paid,
+            (float) ($purchase->platform_fee ?? 0),
+            (float) ($purchase->seller_amount ?? 0),
+            'template_purchase',
+            $purchase->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            $purchase->seller_id ? (int) $purchase->seller_id : null,
+            'USD',
+            'Business template purchase'
+        );
 
         return response()->json([
             'success' => true,

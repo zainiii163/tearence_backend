@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\PlatformFeeHelper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Http\Requests\StoreBookRequest;
 use App\Http\Requests\UpdateBookRequest;
@@ -20,6 +22,7 @@ use Illuminate\Support\Str;
 class BookAdvertController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     /**
      * Display a listing of books with filters and search.
@@ -645,6 +648,29 @@ class BookAdvertController extends Controller
 
         $purchase->payment_id = $verified['payment_id'];
         $purchase->markCompleted($request->input('payment_method', 'paypal'));
+
+        $gross = (float) $purchase->price_paid;
+        $platformFee = (float) ($purchase->platform_fee ?? 0);
+        $sellerAmount = (float) ($purchase->seller_amount ?? 0);
+        if ($platformFee < 0.01 && $sellerAmount < 0.01 && $gross >= 0.01) {
+            $split = PlatformFeeHelper::split($gross);
+            $platformFee = $split['platform_fee'];
+            $sellerAmount = $split['seller_amount'];
+        }
+
+        $this->recordMarketplaceSaleMoneyFlow(
+            'book_advert',
+            $gross,
+            $platformFee,
+            $sellerAmount,
+            'book_advert_purchase',
+            $purchase->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            $book?->user_id ? (int) $book->user_id : null,
+            $purchase->currency ?: 'USD',
+            'Book purchase'
+        );
 
         return response()->json([
             'success' => true,

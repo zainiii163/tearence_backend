@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\FundingProject;
 use App\Models\FundingPledge;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Validator;
 class FundingPledgeController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     public function store(Request $request, $projectId)
     {
@@ -159,6 +161,19 @@ class FundingPledgeController extends Controller
                 $project->update(['status' => 'funded']);
             }
         });
+
+        $this->recordOtherMoneyFlow(
+            'funding_pledge',
+            (float) $pledge->amount,
+            'funding',
+            'funding_pledge',
+            $pledge->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            null,
+            'USD',
+            'Funding pledge (pass-through)'
+        );
 
         return response()->json([
             'success' => true,

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BuySellAdvert;
 use App\Models\BuySellCategory;
@@ -24,6 +25,7 @@ use Illuminate\Validation\Rule;
 class BuySellController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     public function index(Request $request): JsonResponse
     {
@@ -1098,7 +1100,7 @@ class BuySellController extends Controller
 
         $request->validate([
             'payment_id' => 'required|string|max:191',
-            'payment_method' => 'required|in:paypal,stripe',
+            'payment_method' => 'required|in:paypal,stripe,crypto',
         ]);
 
         $verified = $this->verifyClientPaymentOrFail(
@@ -1112,6 +1114,20 @@ class BuySellController extends Controller
         }
 
         $purchase->markPaid($request->payment_method, $verified['payment_id']);
+
+        $this->recordMarketplaceSaleMoneyFlow(
+            'buy_sell',
+            (float) $purchase->price,
+            (float) ($purchase->platform_fee ?? 0),
+            (float) ($purchase->seller_amount ?? 0),
+            'buy_sell_purchase',
+            $purchase->id,
+            $verified['payment_id'],
+            Auth::id() ? (int) Auth::id() : null,
+            $purchase->seller_id ? (int) $purchase->seller_id : null,
+            'USD',
+            'Buy & Sell purchase'
+        );
 
         return response()->json([
             'success' => true,

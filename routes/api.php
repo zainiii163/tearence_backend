@@ -172,6 +172,7 @@ use App\Http\Controllers\Api\BuySellUploadController;
 
 use App\Http\Controllers\Api\BusinessTemplateController;
 use App\Http\Controllers\Api\PayPalOrderController;
+use App\Http\Controllers\Api\CryptoPaymentController;
 use App\Http\Controllers\Api\CustomerKycController;
 
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
@@ -1771,6 +1772,12 @@ Route::group([
 
     });
 
+    // Clive: per-category money flow (Our money / Seller payouts / Other)
+    Route::group(['prefix' => 'admin/category-money', 'middleware' => ['jwt.auth', 'admin']], function () {
+        Route::get('/summary', [\App\Http\Controllers\Api\Admin\CategoryMoneyFlowController::class, 'summary']);
+        Route::get('/ledger', [\App\Http\Controllers\Api\Admin\CategoryMoneyFlowController::class, 'index']);
+    });
+
 
 
     // Maintenance Control Panel (Admin Only)
@@ -2324,6 +2331,19 @@ Route::group([
         Route::post('/orders/{orderId}/capture', [PayPalOrderController::class, 'capture'])
             ->middleware('jwt.auth')
             ->where('orderId', '[A-Z0-9-]+');
+    });
+
+    // Site-wide crypto checkout (all products via PaymentProcessor)
+    Route::group(['prefix' => 'crypto', 'middleware' => ['throttle:payments']], function () {
+        Route::get('/config', [CryptoPaymentController::class, 'clientConfig']);
+        Route::post('/invoices', [CryptoPaymentController::class, 'createInvoice'])->middleware('jwt.auth');
+        Route::get('/invoices/{paymentId}', [CryptoPaymentController::class, 'status'])
+            ->middleware('jwt.auth')
+            ->where('paymentId', '[A-Za-z0-9_-]+');
+        Route::post('/invoices/{paymentId}/confirm-mock', [CryptoPaymentController::class, 'confirmMock'])
+            ->middleware('jwt.auth')
+            ->where('paymentId', '[A-Za-z0-9_-]+');
+        Route::post('/webhook', [CryptoPaymentController::class, 'webhook']);
     });
 
     // Business templates for sale (pitch decks, grants, plans)

@@ -81,6 +81,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Clusters\DashboardCluster\Pages\SalesDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\MarketingDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\FinancialDashboard::class,
+                \App\Filament\Clusters\DashboardCluster\Pages\CategoryMoneyFlowDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\SocialDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\HrDashboard::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\AffiliatePayouts::class,
