@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('slug')->unique();
             $table->string('name');
-            $table->enum('tier', ['paid', 'promoted', 'featured', 'sponsored']);
+            $table->enum('tier', ['free', 'paid', 'promoted', 'featured', 'sponsored', 'cookie']);
             $table->decimal('price_usd', 10, 2);
             $table->unsignedInteger('duration_days');
             $table->text('description')->nullable();
