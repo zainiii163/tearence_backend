@@ -7,6 +7,7 @@
 .env
 .env.backup
 .env.production
+.env.local
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
@@ -16,6 +17,14 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Hostinger / malware-scanner bait — never deploy these
+/public/phpinfo.php
+/public/test.php
+/public/proxy.php
+/public/info.php
+/tmp_*.php
+/storage/pending_migrations.txt
 
 WWA-backend-New_main.zip
 *.zip

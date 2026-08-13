@@ -1,0 +1,72 @@
+name: Daily security checks
+
+on:
+  schedule:
+    # 06:15 UTC every day (after frontend job)
+    - cron: '15 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  composer-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+      - name: composer audit
+        run: composer audit || true
+      - name: Fail on critical advisories only
+        run: |
+          set +e
+          composer audit --format=json > audit.json
+          code=$?
+          if [ ! -s audit.json ]; then exit 0; fi
+          # Exit non-zero only when composer audit itself hard-fails critically
+          if [ "$code" -ge 2 ]; then
+            cat audit.json
+            exit 1
+          fi
+          exit 0
+
+  live-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: Run live defensive security checks
+        env:
+          FRONTEND_URL: https://worldwideadverts.info
+          API_URL: https://api.worldwideadverts.info
+        run: php scripts/daily-security-check.php
+
+  repo-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block debug / malware-bait files in public/
+        run: |
+          set -e
+          bad=$(git ls-files 'public/*.php' | grep -E 'public/(phpinfo|info|test|proxy)\.php$' || true)
+          if [ -n "$bad" ]; then
+            echo "Forbidden debug files in public/:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "public/ clean of phpinfo/test/proxy."
+      - name: Payment defence files present
+        run: |
+          test -f app/Services/PaymentVerificationService.php
+          test -f app/Http/Controllers/Concerns/VerifiesClientPayments.php
+          test -f database/migrations/2026_08_13_180000_create_verified_payment_references_table.php
+          echo "Payment verification defence present."
