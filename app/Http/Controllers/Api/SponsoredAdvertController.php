@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Concerns\VerifiesClientPayments;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use App\Helpers\MediaUrlHelper;
 use App\Models\SponsoredAdvert;
 use App\Services\CrossPromotionFeedService;
@@ -17,7 +17,7 @@ use Carbon\Carbon;
 
 class SponsoredAdvertController extends Controller
 {
-    use VerifiesClientPayments;
+    use EnforcesListingPromoPayment;
 
     /**
      * Get sponsored adverts with filtering and search
@@ -254,7 +254,6 @@ class SponsoredAdvertController extends Controller
         $data['slug'] = SponsoredAdvert::createUniqueSlug($request->title);
         $data['currency'] = $data['currency'] ?? 'GBP';
         $data['verified_seller'] = $data['verified_seller'] ?? false;
-        $data['is_active'] = true;
 
         // Map field names to match existing table
         if (isset($data['sponsored_tier'])) {
@@ -270,15 +269,14 @@ class SponsoredAdvertController extends Controller
             unset($data['contact_name']);
         }
 
-        // Set promotion dates based on tier
-        $tierDurations = [
-            'basic' => 30,
-            'plus' => 60,
-            'premium' => 90
-        ];
-        $duration = $tierDurations[$data['sponsorship_tier']] ?? 30;
+        $tierKey = $this->resolveCanonicalPromoTier($data['sponsorship_tier'] ?? 'basic', 'sponsored');
+        $promoAmount = $this->resolvePromoAmountForTier($tierKey);
+        $duration = $this->resolvePromoDurationDays($tierKey);
+        $data['sponsorship_price'] = $promoAmount;
         $data['sponsorship_start_date'] = now();
         $data['sponsorship_end_date'] = now()->addDays($duration);
+        $data['payment_status'] = 'pending';
+        $data['is_active'] = false;
 
         // Debug: Log what we're receiving
         \Log::info('Image upload debug', [
@@ -329,11 +327,36 @@ class SponsoredAdvertController extends Controller
 
         $advert = SponsoredAdvert::create($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Sponsored advert created successfully',
-            'data' => $advert
-        ], 201);
+        if ($this->requestHasPaymentReference($request)) {
+            $verified = $this->verifyPromoPayment(
+                $request,
+                $promoAmount,
+                'sponsored_advert',
+                $advert->sponsored_advert_id ?? $advert->id
+            );
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+            $advert->update([
+                'payment_status' => 'paid',
+                'payment_transaction_id' => $verified['payment_id'] ?? null,
+                'is_active' => true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'message' => 'Sponsored advert created and activated',
+                'data' => $advert->fresh(),
+            ], 201);
+        }
+
+        return $this->paymentRequiredListingResponse(
+            $advert,
+            $promoAmount,
+            'sponsored',
+            'Payment required to activate this sponsored advert.'
+        );
     }
 
     /**
@@ -551,6 +574,15 @@ class SponsoredAdvertController extends Controller
             ? (bool) $request->boolean('is_active')
             : $request->status === 'active';
 
+        if ($isActive && ($advert->payment_status ?? 'pending') !== 'paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Clear the invoice first. Pending ads cannot go live until payment is confirmed.',
+                'payment_required' => true,
+                'amount' => (float) ($advert->sponsorship_price ?? 0),
+            ], 422);
+        }
+
         $advert->update(['is_active' => $isActive]);
 
         return response()->json([
@@ -583,6 +615,7 @@ class SponsoredAdvertController extends Controller
             'additional_images' => $advert->additional_images,
             'logo' => $advert->logo,
             'sponsorship_tier' => $advert->sponsorship_tier,
+            'sponsorship_price' => $advert->sponsorship_price,
             'payment_status' => $advert->payment_status,
             'is_active' => (bool) $advert->is_active,
             'status' => $advert->status,

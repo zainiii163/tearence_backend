@@ -61,20 +61,82 @@ class NowPaymentsClient
         return $this->request('GET', '/payment/'.$paymentId);
     }
 
+    public function payoutsConfigured(): bool
+    {
+        $email = trim((string) config('crypto.nowpayments.email'));
+        $password = (string) config('crypto.nowpayments.password');
+
+        return $this->configured() && $email !== '' && $password !== '';
+    }
+
+    /**
+     * JWT used by NOWPayments mass-payout endpoints.
+     */
+    public function authToken(): string
+    {
+        $email = trim((string) config('crypto.nowpayments.email'));
+        $password = (string) config('crypto.nowpayments.password');
+        if ($email === '' || $password === '') {
+            throw new RuntimeException('NOWPayments payout email/password are not configured.');
+        }
+
+        $json = $this->request('POST', '/auth', [
+            'email' => $email,
+            'password' => $password,
+        ]);
+
+        $token = (string) ($json['token'] ?? '');
+        if ($token === '') {
+            throw new RuntimeException('NOWPayments did not return a payout auth token.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * @param  array<int, array<string,mixed>>  $withdrawals
+     */
+    public function createPayout(array $withdrawals, ?string $ipnCallbackUrl = null): array
+    {
+        $body = ['withdrawals' => array_values($withdrawals)];
+        if ($ipnCallbackUrl) {
+            $body['ipn_callback_url'] = $ipnCallbackUrl;
+        }
+
+        return $this->request('POST', '/payout', $body, true);
+    }
+
+    public function verifyPayout(string $batchId, string $code): array
+    {
+        return $this->request('POST', '/payout/'.$batchId.'/verify', [
+            'verification_code' => $code,
+        ], true);
+    }
+
+    public function getPayout(string $payoutId): array
+    {
+        return $this->request('GET', '/payout/'.$payoutId, [], true);
+    }
+
     /**
      * @return array<string,mixed>
      */
-    private function request(string $method, string $path, array $body = []): array
+    private function request(string $method, string $path, array $body = [], bool $withJwt = false): array
     {
         if (! $this->configured()) {
             throw new RuntimeException('NOWPayments API key is not configured.');
         }
 
         try {
-            $http = Http::withHeaders([
+            $headers = [
                 'x-api-key' => $this->apiKey(),
                 'Accept' => 'application/json',
-            ])->timeout(25);
+            ];
+            if ($withJwt) {
+                $headers['Authorization'] = 'Bearer '.$this->authToken();
+            }
+
+            $http = Http::withHeaders($headers)->timeout(25);
 
             $url = $this->baseUrl().$path;
             $response = strtoupper($method) === 'GET'

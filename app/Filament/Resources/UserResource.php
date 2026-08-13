@@ -207,6 +207,23 @@ class UserResource extends Resource
                             ->maxLength(120),
                     ])
                     ->columns(2),
+                Forms\Components\Section::make('Crypto payout wallet')
+                    ->description('External receiving wallet. WWA does not hold user crypto balances.')
+                    ->schema([
+                        Forms\Components\Select::make('crypto_network')
+                            ->options([
+                                'trc20' => 'USDT → TRC20',
+                                'erc20' => 'USDT → ERC20',
+                                'polygon' => 'USDC → Polygon',
+                            ]),
+                        Forms\Components\TextInput::make('crypto_wallet_address')
+                            ->label('Wallet address')
+                            ->maxLength(191),
+                        Forms\Components\DateTimePicker::make('crypto_wallet_verified_at')
+                            ->label('Verified at'),
+                    ])
+                    ->columns(2)
+                    ->collapsible(),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->maxLength(64)

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
+use App\Helpers\PlatformFeeHelper;
 use App\Models\ImagesAdvert;
 use App\Models\ImageAdvertPurchase;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +19,7 @@ use Illuminate\Validation\Rule;
 class ImagesAdvertController extends Controller
 {
     use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
 
     public function index(Request $request)
     {
@@ -901,31 +904,49 @@ class ImagesAdvertController extends Controller
             ->first();
 
         if (!$pending) {
+            $fee = PlatformFeeHelper::split($price);
             $pending = ImageAdvertPurchase::create([
                 'customer_id' => $customerId,
                 'image_id' => $image->id,
+                'seller_id' => $image->user_id ?? null,
                 'license_type' => $licenseType,
                 'price_paid' => $price,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
                 'currency' => $currency,
                 'payment_status' => 'pending',
             ]);
         } else {
+            $fee = PlatformFeeHelper::split($price);
             $pending->update([
                 'license_type' => $licenseType,
                 'price_paid' => $price,
+                'seller_id' => $image->user_id ?? $pending->seller_id,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
                 'currency' => $currency,
             ]);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Order created. Complete PayPal to unlock download.',
+            'message' => 'Order created. Complete PayPal or crypto to unlock download.',
             'data' => [
                 'purchase_id' => $pending->id,
                 'payment_status' => 'pending',
                 'amount' => (float) $pending->price_paid,
                 'currency' => $pending->currency,
                 'title' => $image->title,
+                'platform_fee' => (float) ($pending->platform_fee ?? 0),
+                'seller_amount' => (float) ($pending->seller_amount ?? 0),
+                'money_flow' => [
+                    'buyer_pays' => (float) $pending->price_paid,
+                    'platform_fee' => (float) ($pending->platform_fee ?? 0),
+                    'seller_receives' => (float) ($pending->seller_amount ?? 0),
+                    'note' => 'You pay WWA. Seller receives their share after the platform fee.',
+                ],
             ],
         ], 201);
     }
@@ -964,6 +985,31 @@ class ImagesAdvertController extends Controller
             if ($image) {
                 $image->increment('downloads_count');
             }
+
+            $gross = (float) $purchase->price_paid;
+            $split = PlatformFeeHelper::split($gross);
+            $platformFee = (float) ($purchase->platform_fee ?? $split['platform_fee']);
+            $sellerAmount = (float) ($purchase->seller_amount ?? $split['seller_amount']);
+            $purchase->forceFill([
+                'seller_id' => $purchase->seller_id ?: ($image->user_id ?? null),
+                'fee_percent' => $split['fee_percent'],
+                'platform_fee' => $platformFee,
+                'seller_amount' => $sellerAmount,
+            ])->save();
+
+            $this->recordMarketplaceSaleMoneyFlow(
+                'image_advert',
+                $gross,
+                $platformFee,
+                $sellerAmount,
+                'image_advert_purchase',
+                $purchase->id,
+                $verified['payment_id'],
+                Auth::id() ? (int) Auth::id() : null,
+                $purchase->seller_id ? (int) $purchase->seller_id : null,
+                $purchase->currency ?: 'USD',
+                'Image purchase'
+            );
         }
 
         return response()->json([
@@ -977,6 +1023,14 @@ class ImagesAdvertController extends Controller
                     ? url('/api/v1/images-adverts/'.$image->id.'/download?token='.$purchase->download_token)
                     : null,
                 'amount' => (float) $purchase->price_paid,
+                'platform_fee' => (float) ($purchase->platform_fee ?? 0),
+                'seller_amount' => (float) ($purchase->seller_amount ?? 0),
+                'money_flow' => [
+                    'buyer_pays' => (float) $purchase->price_paid,
+                    'platform_fee' => (float) ($purchase->platform_fee ?? 0),
+                    'seller_receives' => (float) ($purchase->seller_amount ?? 0),
+                    'note' => 'Payment received by Worldwide Adverts. Seller share is credited for payout.',
+                ],
             ],
         ]);
     }

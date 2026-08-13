@@ -66,4 +66,14 @@ class ListingPaymentGuard
     {
         return (int) PromoPricingService::DEFAULT_FREE_DURATION_DAYS;
     }
+
+    /**
+     * True when the selected promo matrix tier requires checkout (≥ $10).
+     */
+    public static function tierRequiresPayment(?string $tier): bool
+    {
+        $tier = self::normalizeTier($tier);
+
+        return ! in_array($tier, ['free', ''], true);
+    }
 }

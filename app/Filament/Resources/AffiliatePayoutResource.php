@@ -4,12 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AffiliatePayoutResource\Pages;
 use App\Models\AffiliatePayout;
+use App\Services\CryptoPayoutService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Throwable;
 
 class AffiliatePayoutResource extends Resource
 {
@@ -20,6 +22,8 @@ class AffiliatePayoutResource extends Resource
     protected static ?string $modelLabel = 'Payout request';
 
     protected static ?string $pluralModelLabel = 'Payout requests';
+
+    protected static ?string $slug = 'affiliate-payouts';
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 
@@ -49,12 +53,34 @@ class AffiliatePayoutResource extends Resource
                         Forms\Components\Select::make('method')
                             ->options([
                                 'paypal' => 'PayPal',
+                                'crypto' => 'Crypto (USDT / USDC)',
                                 'bank' => 'Bank transfer',
                                 'wise' => 'Wise',
                                 'other' => 'Other',
                             ])
                             ->required()
-                            ->default('paypal'),
+                            ->default('paypal')
+                            ->live(),
+
+                        Forms\Components\Select::make('crypto_network')
+                            ->label('Crypto network')
+                            ->options([
+                                'trc20' => 'USDT → TRC20',
+                                'erc20' => 'USDT → ERC20',
+                                'polygon' => 'USDC → Polygon',
+                            ])
+                            ->visible(fn (Forms\Get $get) => $get('method') === 'crypto'),
+
+                        Forms\Components\TextInput::make('crypto_address')
+                            ->label('Wallet address')
+                            ->helperText('Address and network must match. Wrong-network sends can be permanently lost.')
+                            ->maxLength(191)
+                            ->visible(fn (Forms\Get $get) => $get('method') === 'crypto'),
+
+                        Forms\Components\TextInput::make('crypto_currency')
+                            ->label('Currency')
+                            ->maxLength(16)
+                            ->visible(fn (Forms\Get $get) => $get('method') === 'crypto'),
 
                         Forms\Components\TextInput::make('payout_details')
                             ->label('Payout details')
@@ -70,6 +96,16 @@ class AffiliatePayoutResource extends Resource
                             ])
                             ->required()
                             ->default('pending'),
+
+                        Forms\Components\TextInput::make('provider_payout_id')
+                            ->label('Provider payout ID')
+                            ->maxLength(191)
+                            ->visible(fn (Forms\Get $get) => $get('method') === 'crypto'),
+
+                        Forms\Components\TextInput::make('tx_hash')
+                            ->label('Transaction hash')
+                            ->maxLength(191)
+                            ->visible(fn (Forms\Get $get) => $get('method') === 'crypto'),
 
                         Forms\Components\TextInput::make('reference')
                             ->maxLength(100),
@@ -99,8 +135,8 @@ class AffiliatePayoutResource extends Resource
                     ->searchable(['first_name', 'last_name', 'email'])
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('user.email')
-                    ->label('Email')
+                Tables\Columns\TextColumn::make('customer.email')
+                    ->label('Customer email')
                     ->toggleable()
                     ->copyable(),
 
@@ -111,6 +147,16 @@ class AffiliatePayoutResource extends Resource
                 Tables\Columns\TextColumn::make('method')
                     ->badge()
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('crypto_network')
+                    ->label('Network')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('crypto_address')
+                    ->label('Wallet')
+                    ->limit(18)
+                    ->copyable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('payout_details')
                     ->limit(30)
@@ -124,9 +170,16 @@ class AffiliatePayoutResource extends Resource
                         'danger' => 'rejected',
                     ]),
 
-                Tables\Columns\TextColumn::make('reference')
-                    ->searchable()
-                    ->toggleable(),
+                Tables\Columns\TextColumn::make('tx_hash')
+                    ->label('Tx hash')
+                    ->limit(16)
+                    ->copyable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('provider_payout_id')
+                    ->label('Provider ID')
+                    ->limit(16)
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -148,12 +201,38 @@ class AffiliatePayoutResource extends Resource
                 Tables\Filters\SelectFilter::make('method')
                     ->options([
                         'paypal' => 'PayPal',
+                        'crypto' => 'Crypto',
                         'bank' => 'Bank',
                         'wise' => 'Wise',
                         'other' => 'Other',
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('send_crypto')
+                    ->label('Approve & send crypto')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Send crypto payout via NOWPayments')
+                    ->modalDescription('Wallet address and network must match. Sending on the wrong network can result in permanent loss. WWA ledger stays pending → processing → paid.')
+                    ->visible(fn (AffiliatePayout $record) => $record->method === 'crypto' && in_array($record->status, ['pending', 'processing'], true) && empty($record->provider_payout_id))
+                    ->action(function (AffiliatePayout $record) {
+                        try {
+                            $updated = app(CryptoPayoutService::class)->approveAndSend($record);
+                            Notification::make()
+                                ->title($updated->status === 'paid' ? 'Crypto payout sent' : 'Crypto payout submitted')
+                                ->body('Provider ID: '.($updated->provider_payout_id ?: 'n/a').($updated->tx_hash ? ' · Tx: '.$updated->tx_hash : ''))
+                                ->success()
+                                ->send();
+                        } catch (Throwable $e) {
+                            Notification::make()
+                                ->title('Crypto payout failed')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
                 Tables\Actions\Action::make('mark_processing')
                     ->label('Processing')
                     ->icon('heroicon-o-arrow-path')

@@ -2,13 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AffiliatePayout extends Model
+class SellerMarketplacePayout extends Model
 {
-    use HasFactory;
+    protected $table = 'seller_marketplace_payouts';
 
     protected $guarded = [];
 

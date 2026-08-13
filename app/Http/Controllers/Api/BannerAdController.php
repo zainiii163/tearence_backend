@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BannerAd;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class BannerAdController extends Controller
 {
     use VerifiesClientPayments;
+    use EnforcesListingPromoPayment;
     use RecordsCategoryMoneyFlow;
 
     /**
@@ -211,9 +213,18 @@ class BannerAdController extends Controller
 
         try {
             $bannerData = $request->all();
-            // Set default status to 'active' if not provided
-            if (!isset($bannerData['status'])) {
-                $bannerData['status'] = 'active';
+            $tierKey = $this->resolveCanonicalPromoTier($bannerData['promotion_tier'] ?? 'standard', 'banner');
+            $promoAmount = $this->resolvePromoAmountForTier($tierKey);
+            $durationDays = $this->resolvePromoDurationDays($tierKey);
+
+            $bannerData['promotion_price'] = $promoAmount;
+            $bannerData['status'] = 'pending';
+            $bannerData['is_active'] = false;
+            if (empty($bannerData['promotion_start'])) {
+                $bannerData['promotion_start'] = now();
+            }
+            if (empty($bannerData['promotion_end'])) {
+                $bannerData['promotion_end'] = now()->addDays($durationDays);
             }
 
             $bannerAd = BannerAd::create($bannerData);
@@ -224,14 +235,31 @@ class BannerAdController extends Controller
                 $bannerAd->save();
             }
 
-            // Update category banner count
-            $bannerAd->category->updateActiveBannersCount();
+            if ($this->requestHasPaymentReference($request)) {
+                $verified = $this->verifyPromoPayment($request, $promoAmount, 'banner_advert', $bannerAd->id);
+                if ($verified instanceof JsonResponse) {
+                    return $verified;
+                }
+                $bannerAd->update([
+                    'status' => 'active',
+                    'is_active' => true,
+                ]);
+                $bannerAd->category?->updateActiveBannersCount();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Banner ad created successfully',
-                'data' => new BannerAdResource($bannerAd->load(['category', 'user']))
-            ], 201);
+                return response()->json([
+                    'success' => true,
+                    'payment_required' => false,
+                    'message' => 'Banner ad created and activated',
+                    'data' => new BannerAdResource($bannerAd->fresh()->load(['category', 'user'])),
+                ], 201);
+            }
+
+            return $this->paymentRequiredListingResponse(
+                $bannerAd->load(['category', 'user']),
+                $promoAmount,
+                'banner',
+                'Payment required to activate this banner advert.'
+            );
 
         } catch (\Exception $e) {
             return response()->json([
@@ -240,6 +268,50 @@ class BannerAdController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Confirm payment and activate a pending banner listing.
+     */
+    public function completeListingPayment(Request $request, string $id): JsonResponse
+    {
+        $bannerAd = BannerAd::findOrFail($id);
+
+        if (Auth::guard('api')->check()
+            && (int) $bannerAd->user_id !== (int) Auth::guard('api')->id()
+            && ! Auth::user()?->is_admin) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($bannerAd->status === 'active' && $bannerAd->is_active) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already active.',
+                'data' => new BannerAdResource($bannerAd),
+            ]);
+        }
+
+        $tierKey = $this->resolveCanonicalPromoTier($bannerAd->promotion_tier, 'banner');
+        $amount = (float) ($bannerAd->promotion_price ?: $this->resolvePromoAmountForTier($tierKey));
+
+        $verified = $this->verifyPromoPayment($request, $amount, 'banner_advert', $bannerAd->id);
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $bannerAd->update([
+            'status' => 'active',
+            'is_active' => true,
+            'promotion_start' => now(),
+            'promotion_end' => now()->addDays($this->resolvePromoDurationDays($tierKey)),
+        ]);
+        $bannerAd->category?->updateActiveBannersCount();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Banner is now live.',
+            'data' => new BannerAdResource($bannerAd->fresh()->load(['category', 'user'])),
+        ]);
     }
 
     /**

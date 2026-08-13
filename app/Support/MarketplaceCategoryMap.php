@@ -43,6 +43,7 @@ class MarketplaceCategoryMap
             'property_upsell' => 'property',
             'banner_pricing' => 'banners',
             'banner_ad' => 'banners',
+            'listing_package' => 'buy-sell',
             'affiliate_pricing' => 'affiliates',
             'sponsored_advert' => 'sponsored',
             'business_template' => 'templates',

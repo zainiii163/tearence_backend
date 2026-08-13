@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use App\Models\PromotedAdvert;
 use App\Models\PromotedAdvertCategory;
 use App\Models\PromotedAdvertFavorite;
@@ -17,6 +18,7 @@ use Illuminate\Validation\Rule;
 
 class PromotedAdvertController extends Controller
 {
+    use EnforcesListingPromoPayment;
     /**
      * Display a listing of promoted adverts.
      */
@@ -132,28 +134,89 @@ class PromotedAdvertController extends Controller
             ], 422);
         }
 
-        // Set promotion price based on tier
-        $promotionPrices = [
-            'promoted_basic' => 29.99,
-            'promoted_plus' => 59.99,
-            'promoted_premium' => 99.99,
-            'network_wide_boost' => 199.99,
-        ];
-
+        // Set promotion price based on promo matrix (server-side)
         $data = $validator->validated();
-        $data['promotion_price'] = $promotionPrices[$data['promotion_tier']];
+        $tierKey = $this->resolveCanonicalPromoTier($data['promotion_tier'] ?? 'promoted_basic', 'promoted');
+        $promoAmount = $this->resolvePromoAmountForTier($tierKey);
+        $durationDays = $this->resolvePromoDurationDays($tierKey);
+
+        $data['promotion_price'] = $promoAmount;
         $data['user_id'] = Auth::id();
-        $data['status'] = 'active';
-        $data['is_active'] = true;
-        $data['approved_at'] = now();
+        $data['status'] = 'pending';
+        $data['is_active'] = false;
+        $data['approved_at'] = null;
+        $data['promotion_start'] = now();
+        $data['promotion_end'] = now()->addDays($durationDays);
 
         $promotedAdvert = PromotedAdvert::create($data);
 
+        if ($this->requestHasPaymentReference($request)) {
+            $verified = $this->verifyPromoPayment($request, $promoAmount, 'promoted_advert', $promotedAdvert->id);
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+            $promotedAdvert->update([
+                'status' => 'active',
+                'is_active' => true,
+                'approved_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'message' => 'Promoted advert created and activated',
+                'data' => $promotedAdvert->fresh()->load(['category', 'user']),
+            ], 201);
+        }
+
+        return $this->paymentRequiredListingResponse(
+            $promotedAdvert->load(['category', 'user']),
+            $promoAmount,
+            'promoted',
+            'Payment required to activate this promoted advert.'
+        );
+    }
+
+    /**
+     * Confirm payment and activate a pending promoted advert.
+     */
+    public function completePayment(Request $request, string $id): JsonResponse
+    {
+        $promotedAdvert = PromotedAdvert::findOrFail($id);
+
+        if ((int) $promotedAdvert->user_id !== (int) Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if ($promotedAdvert->is_active && $promotedAdvert->status === 'active') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already active.',
+                'data' => $promotedAdvert,
+            ]);
+        }
+
+        $tierKey = $this->resolveCanonicalPromoTier($promotedAdvert->promotion_tier, 'promoted');
+        $amount = (float) ($promotedAdvert->promotion_price ?: $this->resolvePromoAmountForTier($tierKey));
+
+        $verified = $this->verifyPromoPayment($request, $amount, 'promoted_advert', $promotedAdvert->id);
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $promotedAdvert->update([
+            'status' => 'active',
+            'is_active' => true,
+            'approved_at' => now(),
+            'promotion_start' => now(),
+            'promotion_end' => now()->addDays($this->resolvePromoDurationDays($tierKey)),
+        ]);
+
         return response()->json([
             'success' => true,
-            'message' => 'Promoted advert created successfully',
-            'data' => $promotedAdvert->load(['category', 'user']),
-        ], 201);
+            'message' => 'Payment confirmed. Promoted advert is now live.',
+            'data' => $promotedAdvert->fresh()->load(['category', 'user']),
+        ]);
     }
 
     /**

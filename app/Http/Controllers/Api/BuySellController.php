@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
 use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\BuySellAdvert;
@@ -13,6 +14,7 @@ use App\Models\BuySellAdvertReport;
 use App\Models\BuySellPromotionPlan;
 use App\Models\BuySellPurchase;
 use App\Helpers\PlatformFeeHelper;
+use App\Services\ListingPaymentGuard;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +27,7 @@ use Illuminate\Validation\Rule;
 class BuySellController extends Controller
 {
     use VerifiesClientPayments;
+    use EnforcesListingPromoPayment;
     use RecordsCategoryMoneyFlow;
 
     public function index(Request $request): JsonResponse
@@ -260,18 +263,120 @@ class BuySellController extends Controller
             'reason_for_selling' => $data['reason_for_selling'] ?? null,
         ]);
 
+        $tierKey = $this->resolveCanonicalPromoTier($data['promotion_plan'] ?? 'free', 'listing');
+        $promoAmount = $this->resolvePromoAmountForTier($tierKey);
+        $durationDays = $this->resolvePromoDurationDays($tierKey);
+        $data['promotion_plan'] = $tierKey;
+
+        if ($promoAmount >= 10) {
+            // Paid promotion: listing stays pending until payment confirmed
+            $data['status'] = 'pending_payment';
+            $data['promotion_status'] = 'pending';
+            $data['promotion_start_date'] = null;
+            $data['promotion_end_date'] = null;
+        } else {
+            $data['status'] = $data['status'] ?? 'active';
+            $data['promotion_status'] = 'none';
+            $data['promotion_plan'] = 'free';
+            $data['promotion_start_date'] = now();
+            $data['promotion_end_date'] = now()->addDays($durationDays);
+        }
+
         $advert = BuySellAdvert::create($data);
 
         \Log::info('Advert created with images:', ['advert_id' => $advert->id, 'images' => $advert->images]);
 
+        if ($promoAmount >= 10 && $this->requestHasPaymentReference($request)) {
+            $verified = $this->verifyPromoPayment($request, $promoAmount, 'buysell_promotion', $advert->id);
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+            $this->activateBuySellPromotion($advert, $tierKey, $durationDays);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'data' => [
+                    'id' => $advert->id,
+                    'message' => 'Advert created and promotion activated',
+                    'advert' => $advert->fresh()->load(['category', 'subcategory']),
+                ],
+            ], 201);
+        }
+
+        if ($promoAmount >= 10) {
+            return $this->paymentRequiredListingResponse(
+                [
+                    'id' => $advert->id,
+                    'advert' => $advert->load(['category', 'subcategory']),
+                ],
+                $promoAmount,
+                'buysell',
+                'Payment required to activate this paid promotion.'
+            );
+        }
+
         return response()->json([
             'success' => true,
+            'payment_required' => false,
             'data' => [
                 'id' => $advert->id,
                 'message' => 'Advert created successfully',
-                'advert' => $advert->load(['category', 'subcategory'])
-            ]
+                'advert' => $advert->load(['category', 'subcategory']),
+            ],
         ], 201);
+    }
+
+    /**
+     * Activate promotion flags after verified payment.
+     */
+    protected function activateBuySellPromotion(BuySellAdvert $advert, string $tierKey, ?int $durationDays = null): void
+    {
+        $days = $durationDays ?: $this->resolvePromoDurationDays($tierKey);
+        $advert->update([
+            'status' => 'active',
+            'promotion_plan' => $tierKey,
+            'promotion_status' => 'active',
+            'promotion_start_date' => now(),
+            'promotion_end_date' => now()->addDays($days),
+        ]);
+    }
+
+    /**
+     * Confirm payment for a pending paid promotion on create.
+     */
+    public function confirmPromotion(Request $request, $id): JsonResponse
+    {
+        $advert = BuySellAdvert::findOrFail($id);
+
+        if ((int) $advert->user_id !== (int) Auth::id() && ! Auth::user()?->is_admin) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $tierKey = $this->resolveCanonicalPromoTier($advert->promotion_plan ?: $request->input('promotion_plan'), 'listing');
+        if ($tierKey === 'free') {
+            $advert->update(['status' => 'active', 'promotion_status' => 'none']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Free listing activated.',
+                'data' => $advert->fresh(),
+            ]);
+        }
+
+        $amount = $this->resolvePromoAmountForTier($tierKey);
+        $verified = $this->verifyPromoPayment($request, $amount, 'buysell_promotion', $advert->id);
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $this->activateBuySellPromotion($advert, $tierKey);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Your advert is live with promotion.',
+            'data' => $advert->fresh()->load(['category', 'subcategory']),
+        ]);
     }
 
     public function update(Request $request, $id): JsonResponse
@@ -682,34 +787,76 @@ class BuySellController extends Controller
         if ($advert->user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Unauthorized',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'plan_id' => 'required|uuid|exists:buysell_promotion_plans,id',
+            'plan_id' => 'nullable|string|max:80',
+            'promotion_plan' => 'nullable|string|max:50',
             'payment_method' => 'required|string',
-            'payment_intent_id' => 'required|string',
+            'payment_id' => 'nullable|string',
+            'payment_intent_id' => 'nullable|string',
+            'transaction_id' => 'nullable|string',
+            'duration' => 'nullable|integer|min:1|max:365',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $plan = BuySellPromotionPlan::findOrFail($request->plan_id);
+        $planId = (string) ($request->input('plan_id') ?: $request->input('promotion_plan') ?: '');
+        $tierKey = $this->resolveCanonicalPromoTier($planId, 'listing');
 
-        // TODO: Process payment
-        // TODO: Update advert promotion status
+        // Legacy UUID plans from buysell_promotion_plans
+        $plan = null;
+        if (preg_match('/^[0-9a-f-]{36}$/i', $planId)) {
+            $plan = BuySellPromotionPlan::find($planId);
+            if ($plan) {
+                $tierKey = $this->resolveCanonicalPromoTier($plan->slug ?? $plan->name ?? 'promoted', 'listing');
+            }
+        }
+
+        if ($tierKey === 'free') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select a paid promotion plan.',
+            ], 422);
+        }
+
+        $amount = $plan
+            ? ListingPaymentGuard::assertPaidAmount($plan->price ?? $this->resolvePromoAmountForTier($tierKey))
+            : $this->resolvePromoAmountForTier($tierKey);
+        $durationDays = $plan
+            ? (int) ($plan->duration_days ?: $this->resolvePromoDurationDays($tierKey))
+            : $this->resolvePromoDurationDays($tierKey);
+
+        if (! $this->requestHasPaymentReference($request)) {
+            return response()->json([
+                'success' => false,
+                'payment_required' => true,
+                'amount' => $amount,
+                'message' => 'Payment required to purchase this promotion.',
+            ], 422);
+        }
+
+        $verified = $this->verifyPromoPayment($request, $amount, 'buysell_promotion', $advert->id);
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $this->activateBuySellPromotion($advert, $tierKey, $durationDays);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'message' => 'Promotion purchased successfully',
-                'promotion_end_date' => now()->addDays($plan->duration_days)
-            ]
+                'promotion_end_date' => $advert->fresh()->promotion_end_date,
+                'advert' => $advert->fresh(),
+            ],
         ]);
     }
 

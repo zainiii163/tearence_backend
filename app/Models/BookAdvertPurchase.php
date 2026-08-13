@@ -14,6 +14,9 @@ class BookAdvertPurchase extends Model
 
     protected $casts = [
         'price_paid' => 'decimal:2',
+        'fee_percent' => 'decimal:2',
+        'platform_fee' => 'decimal:2',
+        'seller_amount' => 'decimal:2',
         'download_token_expires_at' => 'datetime',
     ];
 

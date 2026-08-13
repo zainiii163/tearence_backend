@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Helpers\FileUploadHelper;
 use App\Http\Controllers\APIController;
+use App\Http\Controllers\Concerns\RecordsCategoryMoneyFlow;
+use App\Http\Controllers\Concerns\VerifiesClientPayments;
 use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Currency;
@@ -11,6 +13,7 @@ use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\CustomerStore;
 use App\Models\Listing;
+use App\Models\Package;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -21,6 +24,8 @@ use Illuminate\Support\Str;
 
 class ListingController extends APIController
 {
+    use VerifiesClientPayments;
+    use RecordsCategoryMoneyFlow;
     /**
      * Create a new ListingController instance.
      *
@@ -586,6 +591,32 @@ class ListingController extends APIController
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
         }
 
+        $package = null;
+        $packagePrice = 0.0;
+        if ($request->filled('package_id')) {
+            $package = Package::query()->find($request->package_id);
+            if (!$package) {
+                return $this->errorResponse('Invalid listing package selected', Response::HTTP_BAD_REQUEST);
+            }
+            $packagePrice = (float) ($package->price ?? 0);
+        }
+
+        // Paid package selected in the post form → seller must complete verified payment
+        $verifiedPayment = null;
+        if ($packagePrice >= 0.01) {
+            $verifiedPayment = $this->verifyClientPaymentOrFail(
+                $request,
+                $packagePrice,
+                'listing_package',
+                (string) $package->package_id,
+                'USD',
+                'transaction_id'
+            );
+            if ($verifiedPayment instanceof \Illuminate\Http\JsonResponse) {
+                return $verifiedPayment;
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -617,21 +648,43 @@ class ListingController extends APIController
             $ad->contact_phone = $request->contact_phone;
             $ad->venue_website = $request->venue_website;
             
-            // Posting options
-            $ad->is_paid = $request->boolean('is_paid', false);
-            $ad->is_promoted = $request->boolean('is_promoted', false);
-            $ad->is_sponsored = $request->boolean('is_sponsored', false);
+            // Posting options — prefer package selection over client-only flags when package exists
+            $days = 7;
+            if ($package) {
+                $days = (int) ($package->listing_days ?? $package->duration_days ?? $package->promo_days ?? 7);
+            }
+            if ($days < 1) {
+                $days = 7;
+            }
+            $expiresAt = now()->addDays($days);
+
+            $fromPackagePaid = $packagePrice >= 0.01;
+            $fromPackagePromoted = $package && strtolower((string) ($package->promo_show_promoted_area ?? '')) === 'yes';
+            $fromPackageSponsored = $package && (
+                strtolower((string) ($package->promo_sign ?? '')) === 'yes'
+                || stripos((string) ($package->title ?? ''), 'sponsor') !== false
+            );
+
+            $ad->is_paid = $fromPackagePaid || $request->boolean('is_paid', false);
+            $ad->is_promoted = $fromPackagePromoted || $request->boolean('is_promoted', false);
+            $ad->is_sponsored = $fromPackageSponsored || $request->boolean('is_sponsored', false);
             $ad->is_business = $request->boolean('is_business', false);
             $ad->is_store = $request->boolean('is_store', false);
             
             // Expiry dates for posting options
-            if ($request->has('paid_expires_at')) {
+            if ($ad->is_paid) {
+                $ad->paid_expires_at = $request->input('paid_expires_at') ?: $expiresAt;
+            } elseif ($request->has('paid_expires_at')) {
                 $ad->paid_expires_at = $request->paid_expires_at;
             }
-            if ($request->has('promoted_expires_at')) {
+            if ($ad->is_promoted) {
+                $ad->promoted_expires_at = $request->input('promoted_expires_at') ?: $expiresAt;
+            } elseif ($request->has('promoted_expires_at')) {
                 $ad->promoted_expires_at = $request->promoted_expires_at;
             }
-            if ($request->has('sponsored_expires_at')) {
+            if ($ad->is_sponsored) {
+                $ad->sponsored_expires_at = $request->input('sponsored_expires_at') ?: $expiresAt;
+            } elseif ($request->has('sponsored_expires_at')) {
                 $ad->sponsored_expires_at = $request->sponsored_expires_at;
             }
             if ($request->has('business_expires_at')) {
@@ -692,6 +745,20 @@ class ListingController extends APIController
 
 
             DB::commit();
+
+            if ($verifiedPayment && $packagePrice >= 0.01) {
+                $this->recordPlatformFeeMoneyFlow(
+                    'listing_package',
+                    $packagePrice,
+                    'listing_fee',
+                    'listing',
+                    (string) ($ad->listing_id ?? $ad->id ?? ''),
+                    $verifiedPayment['payment_id'] ?? null,
+                    auth('api')->id() ?: auth()->id(),
+                    'USD',
+                    'Listing package: '.($package->title ?? $package->package_id)
+                );
+            }
             
             $responseData = [
                 'listing' => $ad,

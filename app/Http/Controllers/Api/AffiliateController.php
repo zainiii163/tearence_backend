@@ -13,6 +13,7 @@ use App\Models\AffiliateApplication;
 use App\Models\AffiliateHopClick;
 use App\Models\AffiliateHopConversion;
 use App\Models\AffiliatePayout;
+use App\Support\CryptoRails;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -1156,6 +1157,9 @@ class AffiliateController extends Controller
             'method' => 'nullable|string|max:50',
             'payout_details' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:500',
+            'crypto_network' => 'nullable|string|in:trc20,erc20,polygon',
+            'crypto_address' => 'nullable|string|max:191',
+            'crypto_currency' => 'nullable|string|max:16',
         ]);
 
         if ($validator->fails()) {
@@ -1189,14 +1193,44 @@ class AffiliateController extends Controller
             ], 422);
         }
 
+        $method = strtolower((string) $request->input('method', 'paypal'));
+        $cryptoNetwork = strtolower((string) $request->input('crypto_network', ''));
+        $cryptoAddress = trim((string) $request->input('crypto_address', ''));
+        $cryptoCurrency = $request->input('crypto_currency');
+
+        if ($method === 'crypto') {
+            $customer = Auth::user();
+            if ($cryptoAddress === '' && $customer && ! empty($customer->crypto_wallet_address)) {
+                $cryptoAddress = (string) $customer->crypto_wallet_address;
+                $cryptoNetwork = $cryptoNetwork ?: (string) ($customer->crypto_network ?: 'trc20');
+            }
+            if ($cryptoNetwork === '') {
+                $cryptoNetwork = 'trc20';
+            }
+            $check = CryptoRails::validateAddress($cryptoAddress, $cryptoNetwork);
+            if (! $check['ok']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $check['message'],
+                ], 422);
+            }
+            $cryptoAddress = $check['address'];
+            $meta = CryptoRails::network($cryptoNetwork);
+            $cryptoCurrency = $cryptoCurrency ?: ($meta['currency'] ?? 'USDT');
+        }
+
         $payout = AffiliatePayout::create([
             'user_id' => $userId,
             'amount' => $amount,
-            'method' => $request->input('method', 'paypal'),
-            'payout_details' => $request->input('payout_details'),
+            'method' => $method,
+            'payout_details' => $request->input('payout_details')
+                ?: ($method === 'crypto' ? ($cryptoNetwork.' · '.$cryptoAddress) : null),
             'notes' => $request->input('notes'),
             'status' => 'pending',
             'reference' => 'AFF-' . strtoupper(Str::random(8)),
+            'crypto_network' => $method === 'crypto' ? $cryptoNetwork : null,
+            'crypto_address' => $method === 'crypto' ? $cryptoAddress : null,
+            'crypto_currency' => $method === 'crypto' ? $cryptoCurrency : null,
         ]);
 
         return response()->json([

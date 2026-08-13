@@ -430,6 +430,22 @@ class CustomerController extends APIController
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
 
+        if ($request->filled('crypto_wallet_address') && $request->filled('crypto_network') && ! $request->has('first_name')) {
+            $network = strtolower((string) $request->input('crypto_network'));
+            $check = \App\Support\CryptoRails::validateAddress(
+                (string) $request->input('crypto_wallet_address'),
+                $network
+            );
+            if (! $check['ok']) {
+                return $this->errorResponse($check['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $customer->crypto_wallet_address = $check['address'];
+            $customer->crypto_network = $network;
+            $customer->save();
+
+            return $this->successResponse($customer, 'Crypto wallet saved', Response::HTTP_OK);
+        }
+
         $requestData = $request->all();
 
         // location

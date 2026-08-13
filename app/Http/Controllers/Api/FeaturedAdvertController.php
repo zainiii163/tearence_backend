@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use App\Models\FeaturedAdvert;
 use App\Models\Listing;
 use App\Models\Category;
@@ -18,6 +19,8 @@ use Illuminate\Validation\Rule;
 
 class FeaturedAdvertController extends Controller
 {
+    use EnforcesListingPromoPayment;
+
     /**
      * Cross-category featured feed (vehicles, property, buy-sell, dedicated featured, etc.)
      */
@@ -181,26 +184,25 @@ class FeaturedAdvertController extends Controller
             ->first();
         $countryId = $country ? $country->country_id : null;
 
-        // Clive matrix via PromoPricingService
-        $promo = app(\App\Services\PromoPricingService::class);
-        $tierKey = match ($validated['upsell_tier'] ?? '') {
-            FeaturedAdvert::TIER_SPONSORED, 'sponsored' => 'sponsored',
-            FeaturedAdvert::TIER_FEATURED, 'featured' => 'featured',
-            default => 'promoted',
-        };
-        $plan = $promo->findByTier($tierKey);
-        $durationDays = $plan ? (int) $plan->duration_days : $promo->durationForTier($tierKey);
-        $tierPrice = $plan ? (float) $plan->price_usd : $promo->priceForTier($tierKey);
+        // Promo matrix via PromoPricingService — never trust client price
+        $promo = $this->promoPricing();
+        $tierKey = $this->resolveCanonicalPromoTier($validated['upsell_tier'] ?? 'promoted', 'featured');
+        if ($tierKey === 'free') {
+            $tierKey = 'promoted';
+        }
+        $durationDays = $this->resolvePromoDurationDays($tierKey);
+        $tierPrice = $this->resolvePromoAmountForTier($tierKey);
 
         $validated['customer_id'] = $customer->customer_id;
         $validated['category_id'] = $categoryId;
         $validated['country_id']  = $countryId;
         $validated['currency']    = $validated['currency'] ?? 'USD';
-        $validated['upsell_price'] = $validated['upsell_price'] ?? $tierPrice;
+        $validated['upsell_price'] = $tierPrice;
         $validated['starts_at']   = $validated['starts_at']   ?? now();
         $validated['expires_at']  = $validated['expires_at']  ?? now()->addDays($durationDays);
-        $validated['payment_status'] = FeaturedAdvert::PAYMENT_PAID;
-        $validated['is_active'] = true;
+        // Paid promotions stay pending until verified payment
+        $validated['payment_status'] = FeaturedAdvert::PAYMENT_PENDING;
+        $validated['is_active'] = false;
 
         if ($request->filled('promo_code')) {
             $promo->redeemCode($request->promo_code);
@@ -208,11 +210,94 @@ class FeaturedAdvertController extends Controller
 
         $featuredAdvert = FeaturedAdvert::create($validated);
 
+        if ($this->requestHasPaymentReference($request)) {
+            $verified = $this->verifyPromoPayment(
+                $request,
+                $tierPrice,
+                'featured_advert',
+                $featuredAdvert->id,
+                $validated['currency'] ?? 'USD'
+            );
+            if ($verified instanceof JsonResponse) {
+                return $verified;
+            }
+
+            $featuredAdvert->update([
+                'payment_status' => FeaturedAdvert::PAYMENT_PAID,
+                'is_active' => true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'data' => $featuredAdvert->fresh()->load(['listing', 'customer', 'category', 'country']),
+                'message' => 'Featured advert created and activated.',
+            ], 201);
+        }
+
+        return $this->paymentRequiredListingResponse(
+            $featuredAdvert->load(['listing', 'customer', 'category', 'country']),
+            $tierPrice,
+            'featured',
+            'Payment required to activate this featured advert.'
+        );
+    }
+
+    /**
+     * Confirm PayPal/crypto payment and activate a pending featured advert.
+     */
+    public function completePayment(Request $request, string $id): JsonResponse
+    {
+        $customer = Auth::user();
+        if (! $customer) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 401);
+        }
+
+        $featuredAdvert = FeaturedAdvert::findOrFail($id);
+        if ((int) $featuredAdvert->customer_id !== (int) ($customer->customer_id ?? 0)
+            && (int) $featuredAdvert->customer_id !== (int) ($customer->id ?? 0)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        if ($featuredAdvert->payment_status === FeaturedAdvert::PAYMENT_PAID && $featuredAdvert->is_active) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid and active.',
+                'data' => $featuredAdvert,
+            ]);
+        }
+
+        $amount = (float) ($featuredAdvert->upsell_price ?: $this->resolvePromoAmountForTier(
+            $this->resolveCanonicalPromoTier($featuredAdvert->upsell_tier, 'featured')
+        ));
+
+        $verified = $this->verifyPromoPayment(
+            $request,
+            $amount,
+            'featured_advert',
+            $featuredAdvert->id,
+            $featuredAdvert->currency ?: 'USD'
+        );
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $featuredAdvert->update([
+            'payment_status' => FeaturedAdvert::PAYMENT_PAID,
+            'is_active' => true,
+            'starts_at' => now(),
+            'expires_at' => now()->addDays(
+                $this->resolvePromoDurationDays(
+                    $this->resolveCanonicalPromoTier($featuredAdvert->upsell_tier, 'featured')
+                )
+            ),
+        ]);
+
         return response()->json([
             'success' => true,
-            'data' => $featuredAdvert->load(['listing', 'customer', 'category', 'country']),
-            'message' => 'Featured advert created successfully.'
-        ], 201);
+            'message' => 'Payment confirmed. Featured advert is now live.',
+            'data' => $featuredAdvert->fresh()->load(['listing', 'customer', 'category', 'country']),
+        ]);
     }
 
     /**

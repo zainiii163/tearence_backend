@@ -62,6 +62,7 @@ class Customer extends Authenticatable implements JWTSubject
         'notification_prefs' => 'array',
         'kyc_documents' => 'array',
         'kyc_verified_at' => 'datetime',
+        'crypto_wallet_verified_at' => 'datetime',
     ];
 
     public function isKycVerified(): bool

@@ -530,10 +530,14 @@ class BookAdvertController extends Controller
             $purchase = BookAdvertPurchase::create([
                 'customer_id' => $customerId,
                 'book_id' => $book->id,
+                'seller_id' => $book->user_id,
                 'book_slug' => $book->slug,
                 'title' => $book->title,
                 'format' => $format,
                 'price_paid' => 0,
+                'fee_percent' => 0,
+                'platform_fee' => 0,
+                'seller_amount' => 0,
                 'currency' => $currency,
                 'payment_status' => 'completed',
                 'payment_method' => 'free',
@@ -552,9 +556,17 @@ class BookAdvertController extends Controller
                     'download_token' => $purchase->download_token,
                     'download_url' => url('/api/v1/books-adverts/purchases/download/'.$purchase->download_token),
                     'seller_email' => $book->user?->email,
+                    'money_flow' => [
+                        'buyer_pays' => 0,
+                        'platform_fee' => 0,
+                        'seller_receives' => 0,
+                        'note' => 'Free listing — no payment.',
+                    ],
                 ],
             ]);
         }
+
+        $fee = PlatformFeeHelper::split($price);
 
         $pending = BookAdvertPurchase::where('customer_id', $customerId)
             ->where('book_id', $book->id)
@@ -566,10 +578,14 @@ class BookAdvertController extends Controller
             $pending = BookAdvertPurchase::create([
                 'customer_id' => $customerId,
                 'book_id' => $book->id,
+                'seller_id' => $book->user_id,
                 'book_slug' => $book->slug,
                 'title' => $book->title,
                 'format' => $format,
                 'price_paid' => $price,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
                 'currency' => $currency,
                 'payment_status' => 'pending',
             ]);
@@ -577,13 +593,17 @@ class BookAdvertController extends Controller
             $pending->update([
                 'format' => $format,
                 'price_paid' => $price,
+                'seller_id' => $book->user_id,
+                'fee_percent' => $fee['fee_percent'],
+                'platform_fee' => $fee['platform_fee'],
+                'seller_amount' => $fee['seller_amount'],
                 'currency' => $currency,
             ]);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Order created. Complete PayPal payment to finish your purchase.',
+            'message' => 'Order created. Complete PayPal or crypto payment to finish your purchase.',
             'data' => [
                 'purchase_id' => $pending->id,
                 'payment_status' => 'pending',
@@ -592,6 +612,19 @@ class BookAdvertController extends Controller
                 'title' => $pending->title,
                 'format' => $pending->format,
                 'fulfillment' => in_array($pending->format, ['ebook', 'audiobook'], true) ? 'digital' : 'seller',
+                'platform_fee' => (float) $pending->platform_fee,
+                'seller_amount' => (float) $pending->seller_amount,
+                'fee_percent' => (float) $pending->fee_percent,
+                'money_flow' => [
+                    'buyer_pays' => (float) $pending->price_paid,
+                    'platform_fee' => (float) $pending->platform_fee,
+                    'seller_receives' => (float) $pending->seller_amount,
+                    'note' => sprintf(
+                        'You pay WWA. %.0f%% goes to the seller; %.0f%% is the platform fee.',
+                        100 - (float) $pending->fee_percent,
+                        (float) $pending->fee_percent
+                    ),
+                ],
             ],
         ], 201);
     }
@@ -650,13 +683,23 @@ class BookAdvertController extends Controller
         $purchase->markCompleted($request->input('payment_method', 'paypal'));
 
         $gross = (float) $purchase->price_paid;
+        $split = PlatformFeeHelper::split($gross);
         $platformFee = (float) ($purchase->platform_fee ?? 0);
         $sellerAmount = (float) ($purchase->seller_amount ?? 0);
         if ($platformFee < 0.01 && $sellerAmount < 0.01 && $gross >= 0.01) {
-            $split = PlatformFeeHelper::split($gross);
             $platformFee = $split['platform_fee'];
             $sellerAmount = $split['seller_amount'];
         }
+        $purchase->forceFill([
+            'seller_id' => $purchase->seller_id ?: ($book?->user_id),
+            'fee_percent' => $split['fee_percent'],
+            'platform_fee' => $platformFee,
+            'seller_amount' => $sellerAmount,
+        ])->save();
+
+        $sellerId = $purchase->seller_id
+            ? (int) $purchase->seller_id
+            : ($book?->user_id ? (int) $book->user_id : null);
 
         $this->recordMarketplaceSaleMoneyFlow(
             'book_advert',
@@ -667,7 +710,7 @@ class BookAdvertController extends Controller
             $purchase->id,
             $verified['payment_id'],
             Auth::id() ? (int) Auth::id() : null,
-            $book?->user_id ? (int) $book->user_id : null,
+            $sellerId,
             $purchase->currency ?: 'USD',
             'Book purchase'
         );
@@ -686,6 +729,15 @@ class BookAdvertController extends Controller
                 'seller_name' => $book?->author_name,
                 'amount' => (float) $purchase->price_paid,
                 'currency' => $purchase->currency,
+                'platform_fee' => $platformFee,
+                'seller_amount' => $sellerAmount,
+                'fee_percent' => (float) ($purchase->fee_percent ?? $split['fee_percent']),
+                'money_flow' => [
+                    'buyer_pays' => $gross,
+                    'platform_fee' => $platformFee,
+                    'seller_receives' => $sellerAmount,
+                    'note' => 'Payment received by Worldwide Adverts. Seller share is credited to the seller for payout.',
+                ],
             ],
         ]);
     }
@@ -795,10 +847,29 @@ class BookAdvertController extends Controller
                 'expires_at' => now()->addDays(30) // 30 days visibility
             ]);
 
+            // Listing / advert fee → 100% Worldwide Adverts (platform)
+            $this->recordPlatformFeeMoneyFlow(
+                'book_listing',
+                $expected,
+                'listing_fee',
+                'book_listing',
+                $book->id,
+                $verified['payment_id'],
+                Auth::id() ? (int) Auth::id() : null,
+                'USD',
+                'Book listing / promotion fee'
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Payment processed successfully!',
-                'data' => $book->fresh()
+                'data' => $book->fresh(),
+                'money_flow' => [
+                    'buyer_pays' => $expected,
+                    'platform_fee' => $expected,
+                    'seller_receives' => 0,
+                    'note' => 'Listing fees are Worldwide Adverts revenue (not paid to the seller).',
+                ],
             ]);
 
         } catch (\Exception $e) {

@@ -173,6 +173,7 @@ use App\Http\Controllers\Api\BuySellUploadController;
 use App\Http\Controllers\Api\BusinessTemplateController;
 use App\Http\Controllers\Api\PayPalOrderController;
 use App\Http\Controllers\Api\CryptoPaymentController;
+use App\Http\Controllers\Api\SellerMarketplaceController;
 use App\Http\Controllers\Api\CustomerKycController;
 
 use App\Http\Controllers\Api\PromotedAdvertCategoryController;
@@ -2100,6 +2101,10 @@ Route::group([
 
             Route::post('/', [BannerAdController::class, 'store'])->middleware('verified.to.post');
 
+            Route::post('/{id}/complete-payment', [BannerAdController::class, 'completeListingPayment'])
+                ->whereNumber('id')
+                ->middleware('throttle:payments');
+
             Route::put('/{id}', [BannerAdController::class, 'update']);
 
             Route::delete('/{id}', [BannerAdController::class, 'destroy']);
@@ -2222,6 +2227,10 @@ Route::group([
 
             Route::post('/', [PromotedAdvertController::class, 'store'])->middleware('verified.to.post');
 
+            Route::post('/{id}/complete-payment', [PromotedAdvertController::class, 'completePayment'])
+                ->where('id', '^[0-9]+$')
+                ->middleware('throttle:payments');
+
             Route::put('/{id}', [PromotedAdvertController::class, 'update'])->where('id', '^[0-9]+$');
 
             Route::delete('/{id}', [PromotedAdvertController::class, 'destroy'])->where('id', '^[0-9]+$');
@@ -2338,6 +2347,8 @@ Route::group([
     // Site-wide crypto checkout (all products via PaymentProcessor)
     Route::group(['prefix' => 'crypto', 'middleware' => ['throttle:payments']], function () {
         Route::get('/config', [CryptoPaymentController::class, 'clientConfig']);
+        Route::get('/wallet', [CryptoPaymentController::class, 'getWallet'])->middleware('jwt.auth');
+        Route::put('/wallet', [CryptoPaymentController::class, 'saveWallet'])->middleware('jwt.auth');
         Route::post('/invoices', [CryptoPaymentController::class, 'createInvoice'])->middleware('jwt.auth');
         Route::get('/invoices/{paymentId}', [CryptoPaymentController::class, 'status'])
             ->middleware('jwt.auth')
@@ -2346,6 +2357,14 @@ Route::group([
             ->middleware('jwt.auth')
             ->where('paymentId', '[A-Za-z0-9_-]+');
         Route::post('/webhook', [CryptoPaymentController::class, 'webhook']);
+    });
+
+    // Marketplace seller earnings (product sales → 85% seller / 15% platform)
+    Route::group(['prefix' => 'seller', 'middleware' => 'jwt.auth'], function () {
+        Route::get('/earnings', [SellerMarketplaceController::class, 'earnings']);
+        Route::get('/payouts', [SellerMarketplaceController::class, 'payouts']);
+        Route::post('/payouts', [SellerMarketplaceController::class, 'requestPayout'])
+            ->middleware('throttle:payments');
     });
 
     // Business templates for sale (pitch decks, grants, plans)
@@ -2446,6 +2465,12 @@ Route::group([
         Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [BuySellController::class, 'store'])->middleware('verified.to.post');
+
+            Route::post('/{id}/confirm-promotion', [BuySellController::class, 'confirmPromotion'])
+                ->middleware('throttle:payments');
+
+            Route::post('/{id}/promote', [BuySellController::class, 'promoteAdvert'])
+                ->middleware('throttle:payments');
 
             Route::put('/{id}', [BuySellController::class, 'update']);
 
@@ -2849,6 +2874,7 @@ Route::group([
             Route::delete('/{id}', [SponsoredAdvertController::class, 'destroy']);
             Route::post('/{id}/save', [SponsoredAdvertController::class, 'saveAdvert']);
             Route::post('/{id}/payment', [SponsoredAdvertController::class, 'processPayment'])->middleware('throttle:payments');
+            Route::post('/{id}/complete-payment', [SponsoredAdvertController::class, 'processPayment'])->middleware('throttle:payments');
         });
     });
 
@@ -3029,6 +3055,9 @@ Route::group([
         Route::group(['middleware' => 'jwt.auth'], function () {
 
             Route::post('/', [FeaturedAdvertController::class, 'store'])->middleware('verified.to.post');
+
+            Route::post('/{id}/complete-payment', [FeaturedAdvertController::class, 'completePayment'])
+                ->middleware('throttle:payments');
 
             Route::put('/{id}', [FeaturedAdvertController::class, 'update']);
 

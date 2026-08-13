@@ -141,6 +141,9 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'city',
         'country',
         'remember_token',
+        'crypto_wallet_address',
+        'crypto_network',
+        'crypto_wallet_verified_at',
     ];
 
     /**
@@ -174,6 +177,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_view_analytics' => 'boolean',
         'email_verified' => 'boolean',
         'mobile_verified' => 'boolean',
+        'crypto_wallet_verified_at' => 'datetime',
     ];
 
     /**

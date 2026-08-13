@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CryptoPayment;
+use App\Models\Customer;
+use App\Services\CryptoPayoutService;
 use App\Services\NowPaymentsClient;
 use App\Services\PaymentVerificationService;
+use App\Support\CryptoRails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -106,6 +110,24 @@ class CryptoPaymentController extends Controller
                 'pay_amount' => $amount,
             ]), now()->addMinutes((int) config('crypto.invoice_ttl_minutes', 60)));
 
+            $this->persistInvoice([
+                'provider' => 'crypto_mock',
+                'ledger_id' => $paymentId,
+                'provider_invoice_id' => $paymentId,
+                'user_id' => $meta['user_id'],
+                'currency' => $fiat,
+                'pay_currency' => $payCurrency,
+                'network' => CryptoRails::networkForPayCurrency($payCurrency),
+                'amount' => $amount,
+                'pay_amount' => $amount,
+                'pay_address' => 'TMockAddressDoNotSendRealFunds',
+                'status' => 'waiting',
+                'order_id' => $orderId,
+                'upsell_type' => $meta['upsell_type'],
+                'upsell_id' => $meta['upsell_id'],
+                'mock' => true,
+            ]);
+
             app(PaymentVerificationService::class)->rememberPendingOrder(
                 $paymentId,
                 (float) $amount,
@@ -170,6 +192,26 @@ class CryptoPaymentController extends Controller
             // Also index by provider id for webhooks
             Cache::put('crypto_np_map:'.$paymentId, $ledgerId, now()->addDays(2));
 
+            $this->persistInvoice([
+                'provider' => CryptoRails::PROVIDER,
+                'ledger_id' => $ledgerId,
+                'provider_invoice_id' => $paymentId,
+                'user_id' => $meta['user_id'],
+                'currency' => $fiat,
+                'pay_currency' => $created['pay_currency'] ?? $payCurrency,
+                'network' => CryptoRails::networkForPayCurrency($created['pay_currency'] ?? $payCurrency),
+                'amount' => $amount,
+                'pay_amount' => $created['pay_amount'] ?? null,
+                'pay_address' => $created['pay_address'] ?? null,
+                'status' => (string) ($created['payment_status'] ?? 'waiting'),
+                'order_id' => $orderId,
+                'upsell_type' => $meta['upsell_type'],
+                'upsell_id' => $meta['upsell_id'],
+                'invoice_url' => $created['invoice_url'] ?? null,
+                'mock' => false,
+                'raw_provider_json' => $created,
+            ]);
+
             app(PaymentVerificationService::class)->rememberPendingOrder(
                 $ledgerId,
                 (float) $amount,
@@ -191,6 +233,8 @@ class CryptoPaymentController extends Controller
                 'pay_address' => $created['pay_address'] ?? null,
                 'invoice_url' => $created['invoice_url'] ?? null,
                 'order_id' => $orderId,
+                'network' => CryptoRails::networkForPayCurrency($created['pay_currency'] ?? $payCurrency),
+                'provider' => CryptoRails::PROVIDER,
             ]);
         } catch (Throwable $e) {
             return response()->json([
@@ -255,6 +299,8 @@ class CryptoPaymentController extends Controller
                     'payment_status' => $status,
                     'mock' => false,
                     'completed' => in_array($status, ['finished', 'confirmed'], true),
+                    'tx_hash' => CryptoRails::extractTxHash($remote),
+                    'network' => CryptoRails::networkForPayCurrency($remote['pay_currency'] ?? ''),
                     'invoice' => $cached,
                     'provider' => $remote,
                 ]);
@@ -311,26 +357,90 @@ class CryptoPaymentController extends Controller
     }
 
     /**
-     * NOWPayments IPN webhook (no JWT).
+     * Saved receiving wallet (affiliates / sellers). No custody.
      */
+    public function getWallet(Request $request): JsonResponse
+    {
+        $customer = $request->user() ?: auth('api')->user();
+        if (! $customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'crypto_wallet_address' => $customer->crypto_wallet_address,
+                'crypto_network' => $customer->crypto_network,
+                'crypto_wallet_verified_at' => $customer->crypto_wallet_verified_at,
+            ],
+        ]);
+    }
+
+    public function saveWallet(Request $request): JsonResponse
+    {
+        $customer = $request->user() ?: auth('api')->user();
+        if (! $customer instanceof Customer) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'crypto_wallet_address' => 'required|string|max:191',
+            'crypto_network' => 'required|string|in:trc20,erc20,polygon',
+        ]);
+
+        $check = CryptoRails::validateAddress(
+            $validated['crypto_wallet_address'],
+            $validated['crypto_network']
+        );
+        if (! $check['ok']) {
+            return response()->json(['success' => false, 'message' => $check['message']], 422);
+        }
+
+        $customer->crypto_wallet_address = $check['address'];
+        $customer->crypto_network = $validated['crypto_network'];
+        $customer->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Crypto wallet saved',
+            'data' => [
+                'crypto_wallet_address' => $customer->crypto_wallet_address,
+                'crypto_network' => $customer->crypto_network,
+                'crypto_wallet_verified_at' => $customer->crypto_wallet_verified_at,
+            ],
+        ]);
+    }
     public function webhook(Request $request): JsonResponse
     {
         $secret = (string) config('crypto.nowpayments.ipn_secret');
-        if ($secret !== '') {
+        if ($secret === '') {
+            Log::warning('Crypto IPN received but NOWPAYMENTS_IPN_SECRET is empty');
+        } elseif ($secret !== '') {
             $sig = (string) $request->header('x-nowpayments-sig', '');
             $raw = $request->getContent();
             $sorted = $request->all();
             ksort($sorted);
             $expected = hash_hmac('sha512', json_encode($sorted, JSON_UNESCAPED_SLASHES), $secret);
-            // Accept either sorted JSON hmac or raw body hmac (provider variants)
             $alt = hash_hmac('sha512', $raw, $secret);
             if ($sig === '' || (! hash_equals($expected, $sig) && ! hash_equals($alt, $sig))) {
                 Log::warning('Crypto IPN signature mismatch');
+
                 return response()->json(['success' => false, 'message' => 'Invalid signature'], 401);
             }
         }
 
         $payload = $request->all();
+
+        $isPayout = isset($payload['batch_withdrawal_id'])
+            || isset($payload['withdrawal_id'])
+            || (isset($payload['address']) && isset($payload['extra_id']) && ! isset($payload['payment_id']));
+
+        if ($isPayout) {
+            app(CryptoPayoutService::class)->applyProviderStatus($payload);
+
+            return response()->json(['success' => true]);
+        }
+
         $providerId = (string) ($payload['payment_id'] ?? '');
         $status = strtolower((string) ($payload['payment_status'] ?? ''));
 
@@ -338,7 +448,23 @@ class CryptoPaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'Missing payment_id'], 422);
         }
 
-        $ledgerId = Cache::get('crypto_np_map:'.$providerId) ?: 'NP-'.$providerId;
+        $row = CryptoPayment::query()
+            ->where('provider_invoice_id', $providerId)
+            ->orWhere('ledger_id', 'NP-'.$providerId)
+            ->first();
+        $ledgerId = $row?->ledger_id
+            ?: (Cache::get('crypto_np_map:'.$providerId) ?: 'NP-'.$providerId);
+
+        if ($row) {
+            $row->raw_webhook_json = $payload;
+            $row->status = $status ?: $row->status;
+            $row->tx_hash = CryptoRails::extractTxHash($payload) ?: $row->tx_hash;
+            $row->save();
+        }
+
+        if ($row && CryptoRails::isPaidStatus($row->status) && $row->completed_at) {
+            return response()->json(['success' => true, 'idempotent' => true]);
+        }
 
         if (in_array($status, ['finished', 'confirmed'], true)) {
             $this->markCompleted($ledgerId, $payload, false);
@@ -361,17 +487,34 @@ class CryptoPaymentController extends Controller
      */
     private function markCompleted(string $ledgerId, array $remote, bool $mock): array
     {
+        $row = CryptoPayment::query()->where('ledger_id', $ledgerId)->first();
+        if ($row && $row->completed_at) {
+            return [
+                'status' => 'COMPLETED',
+                'amount' => (float) $row->amount,
+                'currency' => $row->currency,
+                'provider' => $row->provider,
+                'source' => 'crypto_idempotent',
+                'captured' => true,
+                'tx_hash' => $row->tx_hash,
+                'mock' => (bool) $row->mock,
+            ];
+        }
+
         $cached = Cache::get('crypto_invoice:'.$ledgerId) ?: [];
         $amount = (float) (
             $remote['price_amount']
             ?? $cached['amount']
+            ?? $row?->amount
             ?? 0
         );
         $currency = strtoupper((string) (
             $remote['price_currency']
             ?? $cached['currency']
+            ?? $row?->currency
             ?? 'USD'
         ));
+        $txHash = CryptoRails::extractTxHash($remote);
 
         $details = [
             'status' => 'COMPLETED',
@@ -380,13 +523,13 @@ class CryptoPaymentController extends Controller
             'provider' => $mock ? 'crypto_mock' : 'nowpayments',
             'source' => $mock ? 'crypto_mock_confirm' : 'crypto_ipn',
             'captured' => true,
-            'pay_currency' => $remote['pay_currency'] ?? ($cached['pay_currency'] ?? null),
-            'pay_amount' => $remote['pay_amount'] ?? ($cached['pay_amount'] ?? null),
-            'tx_hash' => $remote['outcome_hash'] ?? $remote['payment_hash'] ?? null,
+            'pay_currency' => $remote['pay_currency'] ?? ($cached['pay_currency'] ?? $row?->pay_currency),
+            'pay_amount' => $remote['pay_amount'] ?? ($cached['pay_amount'] ?? $row?->pay_amount),
+            'tx_hash' => $txHash,
+            'network' => $row?->network,
             'mock' => $mock,
         ];
 
-        // Share completed cache key namespace with PayPal verifier for one lookup path
         app(PaymentVerificationService::class)->rememberCompletedOrder($ledgerId, $details);
         Cache::put('crypto_completed_order:'.$ledgerId, $details, now()->addHours(48));
 
@@ -395,6 +538,34 @@ class CryptoPaymentController extends Controller
             Cache::put('crypto_invoice:'.$ledgerId, $cached, now()->addDays(2));
         }
 
+        CryptoPayment::query()->updateOrCreate(
+            ['ledger_id' => $ledgerId],
+            [
+                'status' => 'finished',
+                'tx_hash' => $txHash,
+                'completed_at' => now(),
+                'raw_webhook_json' => $remote,
+            ]
+        );
+
         return $details;
+    }
+
+    /**
+     * @param  array<string,mixed>  $attrs
+     */
+    private function persistInvoice(array $attrs): void
+    {
+        try {
+            CryptoPayment::query()->updateOrCreate(
+                ['ledger_id' => $attrs['ledger_id']],
+                $attrs
+            );
+        } catch (Throwable $e) {
+            Log::warning('Could not persist crypto invoice', [
+                'ledger_id' => $attrs['ledger_id'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

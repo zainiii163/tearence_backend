@@ -17,7 +17,7 @@ return [
     /** Preferred pay currencies shown at checkout */
     'pay_currencies' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env('CRYPTO_PAY_CURRENCIES', 'usdttrc20,usdterc20,usdcmatic,btc,eth'))
+        explode(',', (string) env('CRYPTO_PAY_CURRENCIES', 'usdttrc20,usdterc20,usdcmatic'))
     ))),
 
     /** Default stablecoin for auto-convert settlement intent */
@@ -26,6 +26,9 @@ return [
     'nowpayments' => [
         'api_key' => env('NOWPAYMENTS_API_KEY', ''),
         'ipn_secret' => env('NOWPAYMENTS_IPN_SECRET', ''),
+        'email' => env('NOWPAYMENTS_EMAIL', ''),
+        'password' => env('NOWPAYMENTS_PASSWORD', ''),
+        'payout_2fa' => env('NOWPAYMENTS_PAYOUT_2FA', ''),
         'api_url' => env('NOWPAYMENTS_API_URL', 'https://api.nowpayments.io/v1'),
         'sandbox_api_url' => env('NOWPAYMENTS_SANDBOX_API_URL', 'https://api-sandbox.nowpayments.io/v1'),
         'use_sandbox' => filter_var(env('NOWPAYMENTS_SANDBOX', false), FILTER_VALIDATE_BOOLEAN),
