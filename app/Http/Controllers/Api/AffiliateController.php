@@ -373,7 +373,8 @@ class AffiliateController extends Controller
             'region' => 'nullable|string|max:255',
             'commission_type' => 'required|in:percentage,fixed',
             'commission_rate' => 'required|numeric|min:0',
-            'cookie_duration' => 'required|integer|min:1',
+            'cookie_duration' => 'nullable|integer|min:1',
+            'cookie_package_slug' => 'nullable|string|max:64',
             'allowed_traffic_types' => 'nullable|array',
             'allowed_traffic_types.*' => 'in:social_media,email,ppc,blogging,influencer,other',
             'restrictions' => 'nullable|string',
@@ -393,13 +394,33 @@ class AffiliateController extends Controller
             ], 422);
         }
 
-        // Auto-approve for now so business offers go live immediately (default live window: 30 days)
+        $promo = app(\App\Services\PromoPricingService::class);
+        $cookiePackage = null;
+        if ($request->filled('cookie_package_slug')) {
+            $cookiePackage = $promo->findBySlug((string) $request->cookie_package_slug, 'affiliates');
+        }
+        if (! $cookiePackage && $request->filled('cookie_duration')) {
+            $cookiePackage = $promo->affiliateCookiePackages()
+                ->firstWhere('duration_days', (int) $request->cookie_duration);
+        }
+        if (! $cookiePackage) {
+            $cookiePackage = $promo->findBySlug('cookie_30', 'affiliates');
+        }
+
+        $cookieDays = (int) (
+            $cookiePackage->duration_days
+            ?? $request->input('cookie_duration')
+            ?? 30
+        );
+        // Listing live window matches the purchased cookie package (promo offer)
+        $listingDays = $cookieDays;
+
         $offer = BusinessAffiliateOffer::create([
             'user_id' => Auth::id(),
             'status' => 'approved',
             'is_active' => true,
-            'payment_status' => 'paid',
-            'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
+            'payment_status' => ((float) ($cookiePackage->price_usd ?? 0) > 0) ? 'pending' : 'paid',
+            'expires_at' => now()->addDays($listingDays),
             'affiliate_category_id' => $request->affiliate_category_id,
             'business_name' => $request->business_name,
             'product_service_title' => $request->product_service_title,
@@ -409,7 +430,7 @@ class AffiliateController extends Controller
             'region' => $request->region,
             'commission_type' => $request->commission_type,
             'commission_rate' => $request->commission_rate,
-            'cookie_duration' => $request->cookie_duration,
+            'cookie_duration' => $cookieDays,
             'allowed_traffic_types' => $request->allowed_traffic_types,
             'restrictions' => $request->restrictions,
             'join_instructions' => $request->join_instructions,
@@ -427,6 +448,12 @@ class AffiliateController extends Controller
             'success' => true,
             'message' => 'Business affiliate offer created successfully',
             'data' => $offer,
+            'promo' => $cookiePackage ? [
+                'slug' => $cookiePackage->slug ?? null,
+                'price_usd' => (float) ($cookiePackage->price_usd ?? 0),
+                'duration_days' => $cookieDays,
+                'name' => $cookiePackage->name ?? null,
+            ] : null,
         ], 201);
     }
 
@@ -984,6 +1011,10 @@ class AffiliateController extends Controller
 
         $conversions = AffiliateHopConversion::query()
             ->whereIn('affiliate_application_id', $appIds)
+            ->with([
+                'offer:id,product_service_title,business_name,commission_type,commission_rate,cookie_duration',
+                'application:id,tracking_code,user_id',
+            ])
             ->orderByDesc('id')
             ->limit(50)
             ->get();
@@ -998,14 +1029,19 @@ class AffiliateController extends Controller
         $pendingPayouts = round((float) $payouts->whereIn('status', ['pending', 'processing'])->sum('amount'), 2);
         $paid = round((float) $payouts->where('status', 'paid')->sum('amount'), 2);
         $available = max(0, round($earnings - $pendingPayouts - $paid, 2));
+        $salesVolume = round((float) $conversions->sum('sale_amount'), 2);
 
         return response()->json([
             'success' => true,
             'data' => [
+                'role' => 'promoter',
+                'who_is_paid' => 'promoter',
+                'who_pays' => 'business',
                 'totals' => [
                     'programs' => $apps->count(),
                     'clicks' => (int) $apps->sum('clicks_count'),
                     'conversions' => (int) $apps->sum('conversions_count'),
+                    'sales_volume' => $salesVolume,
                     'earnings' => $earnings,
                     'pending' => $pendingPayouts,
                     'paid' => $paid,
@@ -1014,6 +1050,82 @@ class AffiliateController extends Controller
                 'applications' => $apps,
                 'recent_conversions' => $conversions,
                 'payouts' => $payouts,
+            ],
+        ]);
+    }
+
+    /**
+     * Merchant (business): sales via promoter links + commissions owed to promoters.
+     * Clive: business pays the % they offered per sale; promoter is who gets paid.
+     */
+    public function businessMoneySummary(Request $request): JsonResponse
+    {
+        $userId = Auth::id();
+        $offers = BusinessAffiliateOffer::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'product_service_title',
+                'business_name',
+                'commission_type',
+                'commission_rate',
+                'status',
+                'expires_at',
+                'clicks',
+                'views',
+            ]);
+
+        $offerIds = $offers->pluck('id');
+        $conversions = $offerIds->isEmpty()
+            ? collect()
+            : AffiliateHopConversion::query()
+                ->whereIn('business_affiliate_offer_id', $offerIds)
+                ->with([
+                    'offer:id,product_service_title,commission_type,commission_rate',
+                    'application:id,user_id,tracking_code,status',
+                ])
+                ->orderByDesc('id')
+                ->limit(100)
+                ->get();
+
+        $salesVolume = round((float) $conversions->sum('sale_amount'), 2);
+        $commissionsOwed = round((float) $conversions->sum('commission_amount'), 2);
+
+        $byOffer = $offers->map(function ($offer) use ($conversions) {
+            $rows = $conversions->where('business_affiliate_offer_id', $offer->id);
+
+            return [
+                'offer_id' => $offer->id,
+                'title' => $offer->product_service_title,
+                'commission_type' => $offer->commission_type,
+                'commission_rate' => (float) $offer->commission_rate,
+                'status' => $offer->status,
+                'expires_at' => $offer->expires_at,
+                'sales_count' => $rows->count(),
+                'sales_volume' => round((float) $rows->sum('sale_amount'), 2),
+                'commissions_owed' => round((float) $rows->sum('commission_amount'), 2),
+                'clicks' => (int) ($offer->clicks ?? 0),
+                'views' => (int) ($offer->views ?? 0),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'role' => 'business',
+                'who_pays' => 'business',
+                'who_is_paid' => 'promoter',
+                'explanation' => 'When a sale is attributed to a promoter hop link, you pay the commission % (or flat fee) you set on that offer.',
+                'totals' => [
+                    'offers' => $offers->count(),
+                    'sales_count' => $conversions->count(),
+                    'sales_volume' => $salesVolume,
+                    'commissions_owed_to_promoters' => $commissionsOwed,
+                    'your_net_after_commissions' => round(max(0, $salesVolume - $commissionsOwed), 2),
+                ],
+                'by_offer' => $byOffer,
+                'recent_sales' => $conversions->take(40)->values(),
             ],
         ]);
     }

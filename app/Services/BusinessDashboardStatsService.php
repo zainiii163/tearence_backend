@@ -67,6 +67,11 @@ class BusinessDashboardStatsService
                 'offers' => (int) ($stats['offers'] ?? 0),
                 'pending_applicants' => (int) ($stats['applicants'] ?? 0),
                 'total_applications' => (int) ($stats['applications'] ?? 0),
+                'sales_count' => (int) ($stats['sales'] ?? 0),
+                'sales_volume' => (float) ($stats['affiliate_sales_volume'] ?? 0),
+                'commissions_owed_to_promoters' => (float) ($stats['affiliate_commissions_owed'] ?? 0),
+                'who_pays' => 'business',
+                'who_is_paid' => 'promoter',
             ],
             'updated_at' => now()->toIso8601String(),
         ];
@@ -125,6 +130,14 @@ class BusinessDashboardStatsService
             $stats['orders'] = AffiliateApplication::whereIn('business_affiliate_offer_id', $offerIds)
                 ->where('status', 'approved')
                 ->count();
+        }
+
+        if (Schema::hasTable('affiliate_hop_conversions') && $offerIds->isNotEmpty()) {
+            $conv = DB::table('affiliate_hop_conversions')
+                ->whereIn('business_affiliate_offer_id', $offerIds);
+            $stats['sales'] = (clone $conv)->count();
+            $stats['affiliate_sales_volume'] = round((float) (clone $conv)->sum('sale_amount'), 2);
+            $stats['affiliate_commissions_owed'] = round((float) (clone $conv)->sum('commission_amount'), 2);
         }
     }
 
