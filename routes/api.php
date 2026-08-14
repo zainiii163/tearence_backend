@@ -1525,8 +1525,11 @@ Route::group([
         Route::get('/user-posts', [ApiAffiliateController::class, 'userPosts']);
         Route::get('/user-posts/{id}', [ApiAffiliateController::class, 'userPost']);
         Route::get('/links', [ApiAffiliateController::class, 'affiliateLinks']);
+        Route::get('/courses', [ApiAffiliateController::class, 'courses']);
+        Route::get('/search', [ApiAffiliateController::class, 'search']);
         Route::get('/upsell-plans', [ApiAffiliateController::class, 'upsellPlans']);
         Route::post('/track-click', [ApiAffiliateController::class, 'trackClick']);
+        Route::get('/hubs', [ApiAffiliateController::class, 'hubs']);
 
         // Authenticated routes
         Route::group(['middleware' => 'jwt.auth'], function () {

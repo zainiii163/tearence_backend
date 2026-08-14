@@ -15,14 +15,14 @@ use Illuminate\Database\Eloquent\Builder;
 class UserAffiliatePostResource extends Resource
 {
 
-    protected static ?string $navigationLabel = 'User Posts';
+    protected static ?string $navigationLabel = 'Affiliate Ads (User)';
     protected static ?string $model = UserAffiliatePost::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static ?string $navigationIcon = 'heroicon-o-megaphone';
 
     protected static ?string $navigationGroup = 'Affiliates Hub';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 0;
 
     public static function form(Form $form): Form
     {

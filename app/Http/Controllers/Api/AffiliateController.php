@@ -103,6 +103,15 @@ class AffiliateController extends Controller
                     ->orWhere('tagline', 'like', $q);
             });
         }
+        if ($request->boolean('featured')) {
+            $query->where('is_featured', true);
+        }
+        if ($request->boolean('promoted')) {
+            $query->where('is_promoted', true);
+        }
+        if ($request->boolean('sponsored')) {
+            $query->where('is_sponsored', true);
+        }
 
         $sort = $request->sort ?? 'gravity';
         $order = strtolower((string) ($request->order ?? 'desc')) === 'asc' ? 'asc' : 'desc';
@@ -166,8 +175,16 @@ class AffiliateController extends Controller
     public function userPosts(Request $request): JsonResponse
     {
         $query = UserAffiliatePost::with(['user', 'affiliateCategory']);
+
+        // Public hub: only live paid listings (matches business marketplace)
+        if ($request->boolean('marketplace')) {
+            $query->active()->paid();
+        } elseif ($request->boolean('mine') && Auth::check()) {
+            $query->where('user_id', Auth::id());
+        } else {
+            $query->active()->paid();
+        }
         
-        // Show ALL posts (both active/approved AND pending) to everyone
         // Filters only apply to the result set
         if ($request->category_id) {
             $query->where('affiliate_category_id', $request->category_id);
@@ -177,6 +194,23 @@ class AffiliateController extends Controller
         }
         if ($request->target_audience) {
             $query->where('target_audience', 'like', '%' . $request->target_audience . '%');
+        }
+        if ($request->filled('q') || $request->filled('search')) {
+            $term = '%' . ($request->q ?: $request->search) . '%';
+            $query->where(function ($w) use ($term) {
+                $w->where('title', 'like', $term)
+                    ->orWhere('description', 'like', $term)
+                    ->orWhere('target_audience', 'like', $term);
+            });
+        }
+        if ($request->boolean('featured')) {
+            $query->where('is_featured', true);
+        }
+        if ($request->boolean('promoted')) {
+            $query->where('is_promoted', true);
+        }
+        if ($request->boolean('sponsored')) {
+            $query->where('is_sponsored', true);
         }
 
         // Sort
@@ -192,6 +226,97 @@ class AffiliateController extends Controller
         return response()->json([
             'success' => true,
             'data' => $posts,
+        ]);
+    }
+
+    /**
+     * Public hub map for the 3-part Affiliates architecture (Ads / Marketplace / Courses).
+     */
+    public function hubs(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                [
+                    'id' => 'ads',
+                    'label' => 'Affiliate Ads',
+                    'path' => '/affiliates',
+                    'description' => 'Promoted affiliate link ads',
+                ],
+                [
+                    'id' => 'marketplace',
+                    'label' => 'Marketplace',
+                    'path' => '/affiliates/marketplace',
+                    'description' => 'Business programs to join and promote',
+                ],
+                [
+                    'id' => 'courses',
+                    'label' => 'Courses',
+                    'path' => '/affiliates/courses',
+                    'description' => 'Guides and education offers to get started',
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Education / courses marketplace offers for the Courses hub.
+     */
+    public function courses(Request $request): JsonResponse
+    {
+        $educationCategoryIds = AffiliateCategory::query()
+            ->where(function ($q) {
+                $q->where('name', 'like', '%course%')
+                    ->orWhere('name', 'like', '%education%')
+                    ->orWhere('name', 'like', '%guide%')
+                    ->orWhere('name', 'like', '%training%')
+                    ->orWhere('slug', 'like', '%course%')
+                    ->orWhere('slug', 'like', '%education%')
+                    ->orWhere('slug', 'like', '%guide%')
+                    ->orWhere('slug', 'like', '%training%');
+            })
+            ->pluck('id');
+
+        $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory'])
+            ->active()
+            ->when(
+                $educationCategoryIds->isNotEmpty(),
+                fn ($q) => $q->whereIn('affiliate_category_id', $educationCategoryIds),
+                function ($q) {
+                    $q->whereHas('affiliateCategory', function ($c) {
+                        $c->where('name', 'like', '%course%')
+                            ->orWhere('name', 'like', '%education%')
+                            ->orWhere('name', 'like', '%guide%')
+                            ->orWhere('name', 'like', '%training%');
+                    });
+                }
+            );
+
+        if ($request->filled('q')) {
+            $term = '%' . $request->q . '%';
+            $query->where(function ($w) use ($term) {
+                $w->where('product_service_title', 'like', $term)
+                    ->orWhere('business_name', 'like', $term)
+                    ->orWhere('description', 'like', $term)
+                    ->orWhere('tagline', 'like', $term);
+            });
+        }
+
+        $offers = $query
+            ->orderByDesc('created_at')
+            ->paginate($request->per_page ?? 24);
+
+        $offers->getCollection()->transform(function (BusinessAffiliateOffer $offer) {
+            return $this->appendMarketplaceStats($offer);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $offers,
+            'meta' => [
+                'hub' => 'courses',
+                'education_category_ids' => $educationCategoryIds->values(),
+            ],
         ]);
     }
 
@@ -212,6 +337,13 @@ class AffiliateController extends Controller
 
         if ($request->filled('position')) {
             $query->where('position', $request->position);
+        }
+        if ($request->filled('q') || $request->filled('search')) {
+            $term = '%' . ($request->q ?: $request->search) . '%';
+            $query->where(function ($w) use ($term) {
+                $w->where('title', 'like', $term)
+                    ->orWhere('link', 'like', $term);
+            });
         }
 
         $sort = $request->sort ?? 'created_at';
@@ -485,7 +617,7 @@ class AffiliateController extends Controller
         }
 
         try {
-            // Auto-approve for now so posts go live immediately (default live window: 30 days)
+            // Server-side listing state — ignore client status/payment fields
             $post = UserAffiliatePost::create([
                 'user_id' => Auth::id(),
                 'status' => 'approved',
@@ -1346,6 +1478,7 @@ class AffiliateController extends Controller
 
         if ($type === 'all' || $type === 'user') {
             $userPosts = UserAffiliatePost::active()
+                ->paid()
                 ->with(['user', 'affiliateCategory'])
                 ->where(function ($q) use ($query) {
                     $q->where('title', 'like', '%' . $query . '%')
@@ -1355,6 +1488,38 @@ class AffiliateController extends Controller
                 ->get();
 
             $results['user_posts'] = $userPosts;
+
+            $links = Affiliate::query()
+                ->where(function ($q) {
+                    $q->where('is_active', true)
+                        ->orWhere('status', 'active')
+                        ->orWhereNull('status');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->where(function ($q) use ($query) {
+                    $q->where('title', 'like', '%' . $query . '%')
+                        ->orWhere('link', 'like', '%' . $query . '%');
+                })
+                ->limit(10)
+                ->get()
+                ->map(function (Affiliate $row) {
+                    return [
+                        'id' => $row->id,
+                        'title' => $row->title,
+                        'affiliate_link' => $row->link,
+                        'tracking_link' => $row->link,
+                        'link' => $row->link,
+                        'position' => $row->position,
+                        'is_featured' => true,
+                        'contentType' => 'link',
+                        'content_source' => 'affiliate_links',
+                        'created_at' => $row->created_at,
+                    ];
+                });
+
+            $results['affiliate_links'] = $links;
         }
 
         return response()->json([

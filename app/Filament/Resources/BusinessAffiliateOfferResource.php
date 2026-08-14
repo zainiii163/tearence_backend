@@ -15,14 +15,14 @@ use Illuminate\Database\Eloquent\Builder;
 class BusinessAffiliateOfferResource extends Resource
 {
 
-    protected static ?string $navigationLabel = 'Business Offers';
+    protected static ?string $navigationLabel = 'Marketplace Programs';
     protected static ?string $model = BusinessAffiliateOffer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
     protected static ?string $navigationGroup = 'Affiliates Hub';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
