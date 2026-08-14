@@ -74,6 +74,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->pages([
                 \App\Filament\Pages\AdminDashboard::class,
+                \App\Filament\Pages\AdvertsLifecycle::class,
                 \App\Filament\Pages\TemplatesDashboard::class,
                 \App\Filament\Pages\TemplatePricingSettings::class,
                 \App\Filament\Clusters\DashboardCluster\Pages\AnalyticsOverview::class,
