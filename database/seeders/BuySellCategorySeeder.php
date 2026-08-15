@@ -180,15 +180,15 @@ class BuySellCategorySeeder extends Seeder
                 ]
             ],
             [
-                'name' => 'Pets & Supplies',
+                'name' => 'Animals & Pets',
                 'slug' => 'pets-supplies',
                 'icon' => '🐕',
-                'description' => 'Pets, pet supplies, and animal accessories',
+                'description' => 'Animals, pets, pet supplies, and accessories',
                 'sort_order' => 11,
                 'level' => 1,
                 'is_active' => true,
                 'subcategories' => [
-                    ['name' => 'Dogs', 'slug' => 'dogs', 'sort_order' => 1],
+                    ['name' => 'Animals & Pets', 'slug' => 'dogs', 'sort_order' => 1],
                     ['name' => 'Cats', 'slug' => 'cats', 'sort_order' => 2],
                     ['name' => 'Birds', 'slug' => 'birds', 'sort_order' => 3],
                     ['name' => 'Fish & Aquariums', 'slug' => 'fish-aquariums', 'sort_order' => 4],

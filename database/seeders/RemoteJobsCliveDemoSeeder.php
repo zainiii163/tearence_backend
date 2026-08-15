@@ -69,7 +69,7 @@ class RemoteJobsCliveDemoSeeder extends Seeder
                 'salary_type' => 'yearly',
                 'is_featured' => 1,
                 'image' => $images[0],
-                'description' => 'Build customer-facing React apps for a global remote-first product team. Inspired by roles you see on Remotive / Dynamite Jobs — posted on Worldwide Adverts for layout review.',
+                'description' => 'Build customer-facing React apps for a global remote-first product team. TypeScript, Next.js, and GraphQL day to day.',
                 'skills_needed' => 'React, TypeScript, Next.js, GraphQL, Git',
             ],
             [
