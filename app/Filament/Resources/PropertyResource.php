@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class PropertyResource extends Resource
 {
@@ -91,9 +92,8 @@ class PropertyResource extends Resource
                 // Location
                 Forms\Components\Section::make('Location')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(255),
+                        CountrySelect::make('country')
+                            ->required(),
                         Forms\Components\TextInput::make('city')
                             ->required()
                             ->maxLength(255),

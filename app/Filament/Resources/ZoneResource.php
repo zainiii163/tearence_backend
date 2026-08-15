@@ -36,7 +36,7 @@ class ZoneResource extends Resource
                     ->helperText('Zone/State code'),
                 Forms\Components\Select::make('country_id')
                     ->label('Country')
-                    ->options(Country::all()->pluck('name', 'country_id'))
+                    ->options(fn () => \App\Support\CountrySelectOptions::byId())
                     ->searchable()
                     ->required(),
                 Forms\Components\Toggle::make('is_active')

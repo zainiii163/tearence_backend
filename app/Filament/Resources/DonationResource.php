@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class DonationResource extends Resource
 {
@@ -60,7 +61,7 @@ class DonationResource extends Resource
                 Forms\Components\TextInput::make('organizer_name')->required(),
                 Forms\Components\TextInput::make('organizer_email')->email()->required(),
                 Forms\Components\TextInput::make('organizer_phone'),
-                Forms\Components\TextInput::make('country')->required(),
+                CountrySelect::make('country')->required(),
                 Forms\Components\TextInput::make('city'),
                 Forms\Components\Select::make('user_id')->relationship('user', 'email')->searchable(),
             ])->columns(3),

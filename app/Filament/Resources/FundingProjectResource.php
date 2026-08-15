@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use App\Filament\Forms\Components\CountrySelect;
 
 class FundingProjectResource extends Resource
 {
@@ -182,7 +183,7 @@ class FundingProjectResource extends Resource
 
                 Forms\Components\Section::make('Location & Contact')
                     ->schema([
-                        Forms\Components\TextInput::make('country')->required(),
+                        CountrySelect::make('country')->required(),
                         Forms\Components\TextInput::make('city'),
                         Forms\Components\TextInput::make('website')
                             ->url()

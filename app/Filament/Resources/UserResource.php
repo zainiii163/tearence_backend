@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class UserResource extends Resource
 {
@@ -203,8 +204,7 @@ class UserResource extends Resource
                             ->columnSpan(2),
                         Forms\Components\TextInput::make('city')
                             ->maxLength(120),
-                        Forms\Components\TextInput::make('country')
-                            ->maxLength(120),
+                        CountrySelect::make('country'),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Crypto payout wallet')

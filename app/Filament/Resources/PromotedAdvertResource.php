@@ -87,7 +87,7 @@ class PromotedAdvertResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('country')
                             ->required()
-                            ->options(fn () => \App\Models\Country::pluck('name', 'name'))
+                            ->options(fn () => \App\Support\CountrySelectOptions::byNameWithFallback())
                             ->searchable(),
 
                         Forms\Components\TextInput::make('city')
@@ -368,7 +368,7 @@ class PromotedAdvertResource extends Resource
                     ]),
 
                 Tables\Filters\SelectFilter::make('country')
-                    ->options(fn () => \App\Models\Country::pluck('name', 'name'))
+                    ->options(fn () => \App\Support\CountrySelectOptions::byNameWithFallback())
                     ->searchable(),
 
                 Tables\Filters\TernaryFilter::make('is_active')

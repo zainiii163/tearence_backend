@@ -15,6 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use App\Filament\Forms\Components\CountrySelect;
 
 class BannerAdResource extends Resource
 {
@@ -153,19 +154,21 @@ class BannerAdResource extends Resource
                 
                 Forms\Components\Section::make('Location & Targeting')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->label('Country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            
+                            ->required(),
                         
                         Forms\Components\TextInput::make('city')
                             ->label('City')
                             ->maxLength(100),
                         
-                        Forms\Components\Textarea::make('target_countries')
+                        Forms\Components\Select::make('target_countries')
                             ->label('Target Countries')
-                            ->helperText('Enter countries separated by commas')
-                            ->rows(2),
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->options(fn () => \App\Support\CountrySelectOptions::byNameWithFallback())
+                            ->helperText('Select one or more countries worldwide'),
                         
                         Forms\Components\Textarea::make('target_audience')
                             ->label('Target Audience')

@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class BuySellItemResource extends Resource
 {
@@ -133,9 +134,8 @@ class BuySellItemResource extends Resource
 
                 Forms\Components\Section::make('Location')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            ->required(),
 
                         Forms\Components\TextInput::make('city')
                             ->maxLength(100),

@@ -167,7 +167,7 @@ class ListingResource extends Resource
                             ->createOptionForm([
                                 Forms\Components\Select::make('country_id')
                                     ->label('Country')
-                                    ->options(Country::all()->pluck('name', 'country_id'))
+                                    ->options(fn () => \App\Support\CountrySelectOptions::byId())
                                     ->searchable()
                                     ->required()
                                     ->reactive()

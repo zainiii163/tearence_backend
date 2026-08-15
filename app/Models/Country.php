@@ -37,6 +37,34 @@ class Country extends Model
         'sort_order',
     ];
 
+    protected $appends = [
+        'flag_emoji',
+        'flag_url',
+    ];
+
+    /**
+     * Flag emoji derived from ISO-3166 alpha-2 (e.g. US → 🇺🇸).
+     */
+    public function getFlagEmojiAttribute(): string
+    {
+        $iso = strtoupper((string) ($this->iso_code ?: $this->flag ?: ''));
+        if (strlen($iso) === 2) {
+            return \App\Support\WorldCountries::flagEmoji($iso);
+        }
+
+        return '🏳️';
+    }
+
+    /**
+     * CDN flag image URL (flagcdn).
+     */
+    public function getFlagUrlAttribute(): ?string
+    {
+        $iso = strtolower((string) ($this->iso_code ?: $this->flag ?: ''));
+
+        return \App\Support\WorldCountries::flagUrl($iso);
+    }
+
     /**
      * Set the country code attribute to uppercase.
      *

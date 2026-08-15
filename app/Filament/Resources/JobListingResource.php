@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Forms\Components\CountrySelect;
 
 class JobListingResource extends Resource
 {
@@ -74,9 +75,8 @@ class JobListingResource extends Resource
                 
                 Forms\Components\Section::make('Location & Work Type')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            ->required(),
                         Forms\Components\TextInput::make('city')
                             ->maxLength(100),
                         Forms\Components\Select::make('work_type')

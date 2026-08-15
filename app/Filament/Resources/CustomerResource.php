@@ -61,7 +61,7 @@ class CustomerResource extends Resource
                 Forms\Components\DatePicker::make('birthday'),
                 Forms\Components\Select::make('address_country')
                     ->label('Country')
-                    ->options(Country::all()->pluck('name', 'country_id'))
+                    ->options(fn () => \App\Support\CountrySelectOptions::byId())
                     ->searchable()
                     ->reactive() // Make it reactive to changes
                     ->afterStateUpdated(fn (callable $set) => $set('address_city', null)), // Reset the zone when country changes

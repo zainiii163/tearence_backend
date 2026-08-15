@@ -19,6 +19,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Forms\Components\CountrySelect;
 
 class VehicleResource extends Resource
 {
@@ -316,10 +317,9 @@ class VehicleResource extends Resource
 
                 Forms\Components\Section::make('Location')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->label('Country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            
+                            ->required(),
                         
                         Forms\Components\TextInput::make('city')
                             ->label('City')

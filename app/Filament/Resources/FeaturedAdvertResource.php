@@ -32,6 +32,7 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use App\Filament\Forms\Components\CountrySelect;
 
 class FeaturedAdvertResource extends Resource
 {
@@ -185,9 +186,8 @@ class FeaturedAdvertResource extends Resource
                     ->schema([
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('country')
-                                    ->required()
-                                    ->maxLength(100),
+                                CountrySelect::make('country')
+                                    ->required(),
                                 
                                 TextInput::make('city')
                                     ->required()

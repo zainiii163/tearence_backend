@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Arr;
+use App\Filament\Forms\Components\CountrySelect;
 
 class SponsoredAdvertResource extends Resource
 {
@@ -104,8 +105,7 @@ class SponsoredAdvertResource extends Resource
 
                 Forms\Components\Section::make('Location')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->maxLength(100),
+                        CountrySelect::make('country'),
                         Forms\Components\TextInput::make('city')
                             ->maxLength(100),
                         Forms\Components\TextInput::make('latitude')

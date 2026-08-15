@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Forms\Components\CountrySelect;
 
 class UserAffiliatePostResource extends Resource
 {
@@ -51,8 +52,7 @@ class UserAffiliatePostResource extends Resource
                             ->maxLength(65535)
                             ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('country')
-                            ->maxLength(255),
+                        CountrySelect::make('country'),
 
                         Forms\Components\TextInput::make('region')
                             ->maxLength(255),

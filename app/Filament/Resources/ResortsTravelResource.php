@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Forms\Components\CountrySelect;
 
 class ResortsTravelResource extends Resource
 {
@@ -55,9 +56,8 @@ class ResortsTravelResource extends Resource
                             ->searchable()
                             ->preload()
                             ->nullable(),
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            ->required(),
                         Forms\Components\TextInput::make('city')
                             ->required()
                             ->maxLength(100),
@@ -361,18 +361,7 @@ class ResortsTravelResource extends Resource
                     ]),
                 Tables\Filters\SelectFilter::make('country')
                     ->searchable()
-                    ->options(fn () => collect([
-                        'United Kingdom' => 'United Kingdom',
-                        'United States' => 'United States',
-                        'France' => 'France',
-                        'Germany' => 'Germany',
-                        'Italy' => 'Italy',
-                        'Spain' => 'Spain',
-                        'Netherlands' => 'Netherlands',
-                        'Belgium' => 'Belgium',
-                        'Switzerland' => 'Switzerland',
-                        'Austria' => 'Austria',
-                    ])),
+                    ->options(fn () => \App\Support\CountrySelectOptions::byNameWithFallback()),
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Active'),
             ])

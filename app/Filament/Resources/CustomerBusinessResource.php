@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
+use App\Filament\Forms\Components\CountrySelect;
 
 class CustomerBusinessResource extends Resource
 {
@@ -141,9 +142,7 @@ class CustomerBusinessResource extends Resource
                         Forms\Components\TextInput::make('city')
                             ->label('City')
                             ->maxLength(120),
-                        Forms\Components\TextInput::make('country')
-                            ->label('Country')
-                            ->maxLength(120),
+                        CountrySelect::make('country'),
                         Forms\Components\TextInput::make('business_website')
                             ->label('Website')
                             ->url()

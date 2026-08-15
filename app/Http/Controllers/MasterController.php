@@ -210,7 +210,13 @@ class MasterController extends APIController
      */
     public function country(Request $request)
     {
-        $query = new Country();
+        $query = Country::query()->where(function ($q) {
+            // Prefer active countries when column exists
+            if (\Illuminate\Support\Facades\Schema::hasColumn('country', 'is_active')) {
+                $q->where('is_active', true);
+            }
+        });
+
         $skip = $request->get('skip');
         $limit = $request->get('limit');
 
@@ -221,22 +227,20 @@ class MasterController extends APIController
         if ($sort = $request->get('sort')) {
             $query = $query->orderBy($sort, $request->get('sort_type') ? $request->get('sort_type') : 'asc');
         } else {
-            $query = $query->orderBy('country_id');
+            $query = $query->orderBy('name');
         }
 
         if ($skip == "") {
-            $query = $query->get();
-            $total = $query->count();
+            $items = $query->get();
+            $total = $items->count();
         } else {
-            $perPage = ($skip == "") ? $query->count() : (
-                $request->has('limit') ? $limit : 10
-            );
-            $total = $query->count();
-            $query = $query->skip($skip)->take($perPage)->get();
+            $perPage = $request->has('limit') ? $limit : 10;
+            $total = (clone $query)->count();
+            $items = $query->skip($skip)->take($perPage)->get();
         }
 
         $result = [
-            'items' => $query,
+            'items' => $items,
             'total' => $total,
         ];
 

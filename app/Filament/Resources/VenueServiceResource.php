@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class VenueServiceResource extends Resource
 {
@@ -69,9 +70,8 @@ class VenueServiceResource extends Resource
                 // Location Information
                 Forms\Components\Section::make('Location Information')
                     ->schema([
-                        Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->maxLength(100),
+                        CountrySelect::make('country')
+                            ->required(),
 
                         Forms\Components\TextInput::make('city')
                             ->required()

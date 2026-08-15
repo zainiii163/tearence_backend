@@ -103,7 +103,7 @@ class ServiceResource extends Resource
                             ->placeholder('Add language')
                             ->columnSpanFull(),
                         Forms\Components\Select::make('country')
-                            ->options(fn () => \App\Models\Country::pluck('name', 'name'))
+                            ->options(fn () => \App\Support\CountrySelectOptions::byNameWithFallback())
                             ->searchable()
                             ->required(),
                         Forms\Components\TextInput::make('city')

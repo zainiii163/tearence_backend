@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use App\Filament\Forms\Components\CountrySelect;
 
 class BookAdvertResource extends Resource
 {
@@ -140,30 +141,8 @@ class BookAdvertResource extends Resource
                             ])
                             ->default('USD'),
 
-                        Forms\Components\Select::make('country')
-                            ->required()
-                            ->searchable()
-                            ->options([
-                                'US' => 'United States',
-                                'GB' => 'United Kingdom',
-                                'CA' => 'Canada',
-                                'AU' => 'Australia',
-                                'DE' => 'Germany',
-                                'FR' => 'France',
-                                'IT' => 'Italy',
-                                'ES' => 'Spain',
-                                'NL' => 'Netherlands',
-                                'IN' => 'India',
-                                'JP' => 'Japan',
-                                'CN' => 'China',
-                                'BR' => 'Brazil',
-                                'MX' => 'Mexico',
-                                'ZA' => 'South Africa',
-                                'AE' => 'United Arab Emirates',
-                                'PK' => 'Pakistan',
-                                'NG' => 'Nigeria',
-                                'KE' => 'Kenya',
-                            ]),
+                        CountrySelect::makeIso('country')
+                            ->required(),
 
                         Forms\Components\Select::make('language')
                             ->required()
