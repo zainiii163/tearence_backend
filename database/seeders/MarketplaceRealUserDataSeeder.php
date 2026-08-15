@@ -129,6 +129,21 @@ class MarketplaceRealUserDataSeeder extends Seeder
         return "https://images.unsplash.com/photo-{$id}?auto=format&fit=crop&w={$w}&q=80";
     }
 
+    protected function onlyExistingColumns(string $table, array $payload): array
+    {
+        if (! Schema::hasTable($table)) {
+            return [];
+        }
+        $filtered = [];
+        foreach ($payload as $key => $value) {
+            if (Schema::hasColumn($table, $key)) {
+                $filtered[$key] = $value;
+            }
+        }
+
+        return $filtered;
+    }
+
     protected function seedBuySell(?Customer $a, ?Customer $b, ?Customer $c): void
     {
         if (! Schema::hasTable('buysell_adverts')) {
@@ -248,40 +263,54 @@ class MarketplaceRealUserDataSeeder extends Seeder
         }
 
         $rows = [
-            [$a, 'Marina Bay 2-Bed Condo', 'Singapore', 'Singapore', 1250000, 'SGD', 'residential', true],
-            [$a, 'Bright Loft — Lisbon Centre', 'Lisbon', 'Portugal', 420000, 'EUR', 'residential', true],
-            [$b, 'Waterfront Apartment — Dubai Marina', 'Dubai', 'UAE', 185000, 'USD', 'residential', false],
-            [$b, 'Serviced Office Suite — Manchester', 'Manchester', 'United Kingdom', 285000, 'GBP', 'commercial', false],
-            [$c, 'Hillside Villa — Cape Town', 'Cape Town', 'South Africa', 780000, 'USD', 'luxury', true],
-            [$c, 'Residential Plot — Nairobi', 'Nairobi', 'Kenya', 95000, 'USD', 'land', false],
+            [$a, 'Marina Bay 2-Bed Condo', 'Singapore', 'Singapore', 1250000, 'SGD', 'buy', 'residential', true],
+            [$a, 'Bright Loft — Lisbon Centre', 'Lisbon', 'Portugal', 420000, 'EUR', 'buy', 'residential', true],
+            [$b, 'Waterfront Apartment — Dubai Marina', 'Dubai', 'UAE', 185000, 'USD', 'rent', 'residential', false],
+            [$b, 'Serviced Office Suite — Manchester', 'Manchester', 'United Kingdom', 285000, 'GBP', 'lease', 'commercial', false],
+            [$c, 'Hillside Villa — Cape Town', 'Cape Town', 'South Africa', 780000, 'USD', 'buy', 'luxury', true],
+            [$c, 'Residential Plot — Nairobi', 'Nairobi', 'Kenya', 95000, 'USD', 'invest', 'land', false],
         ];
 
-        foreach ($rows as [$owner, $title, $city, $country, $price, $currency, $type, $featured]) {
+        foreach ($rows as [$owner, $title, $city, $country, $price, $currency, $category, $type, $featured]) {
             if (! $owner) {
                 continue;
             }
             $slug = Str::slug($title).'-c'.$owner->customer_id;
+            $payload = [
+                'title' => $title,
+                'user_id' => $owner->customer_id,
+                'slug' => $slug,
+                'tagline' => 'Listed by '.$this->sellerName($owner),
+                'category' => $category,
+                'property_type' => $type,
+                'country' => $country,
+                'city' => $city,
+                'price' => $price,
+                'currency' => $currency,
+                'cover_image' => $this->img('1545324418-cc1a3fa10c00'),
+                'description' => $title.'. Contact the verified seller on Worldwide Adverts.',
+                'active' => true,
+                'approved' => true,
+                'is_featured' => $featured,
+                'featured' => $featured,
+                'advert_type' => $featured ? 'featured' : 'standard',
+                'status' => 'active',
+                'seller_name' => $this->sellerName($owner),
+                'seller_email' => $owner->email,
+                'seller_phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
+                'contact_name' => $this->sellerName($owner),
+                'contact_email' => $owner->email,
+                'contact_phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
+            ];
+            $filtered = [];
+            foreach ($payload as $key => $value) {
+                if (Schema::hasColumn('properties', $key)) {
+                    $filtered[$key] = $value;
+                }
+            }
             Property::updateOrCreate(
                 ['title' => $title, 'user_id' => $owner->customer_id],
-                array_filter([
-                    'slug' => Schema::hasColumn('properties', 'slug') ? $slug : null,
-                    'tagline' => 'Listed by '.$this->sellerName($owner),
-                    'category' => $type,
-                    'property_type' => $type,
-                    'country' => $country,
-                    'city' => $city,
-                    'price' => $price,
-                    'currency' => $currency,
-                    'cover_image' => $this->img('1545324418-cc1a3fa10c00'),
-                    'description' => $title.'. Contact the verified seller on Worldwide Adverts.',
-                    'active' => true,
-                    'approved' => true,
-                    'is_active' => true,
-                    'is_featured' => $featured,
-                    'featured' => $featured,
-                    'advert_type' => 'sale',
-                    'status' => 'active',
-                ], fn ($v) => $v !== null)
+                $filtered
             );
         }
     }
@@ -423,7 +452,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
                     'images' => [$this->img($photo)],
                     'contact_name' => $this->sellerName($owner),
                     'contact_email' => $owner->email,
-                    'contact_phone' => $owner->mobile_number ?? $owner->phone,
+                    'contact_phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
                     'country' => $country,
                     'city' => $city,
                     'upsell_tier' => 'featured',
@@ -460,7 +489,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
             $slug = Str::slug($title).'-sp'.$owner->customer_id;
             SponsoredAdvert::updateOrCreate(
                 ['slug' => $slug],
-                [
+                $this->onlyExistingColumns('sponsored_adverts', [
                     'title' => $title,
                     'tagline' => 'Sponsored by '.$this->sellerName($owner),
                     'description' => $title,
@@ -473,7 +502,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
                     'main_image' => $this->img($photo),
                     'seller_name' => $this->sellerName($owner),
                     'business_name' => $this->sellerName($owner).' Trading',
-                    'phone' => $owner->mobile_number ?? $owner->phone,
+                    'phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
                     'email' => $owner->email,
                     'verified_seller' => true,
                     'sponsorship_tier' => 'premium',
@@ -485,7 +514,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
                     'is_featured' => true,
                     'created_by' => $owner->customer_id,
                     'user_id' => $owner->customer_id,
-                ]
+                ])
             );
         }
     }
@@ -508,33 +537,39 @@ class MarketplaceRealUserDataSeeder extends Seeder
                 continue;
             }
             $slug = Str::slug($title).'-pr'.$owner->customer_id;
-            PromotedAdvert::updateOrCreate(
-                ['slug' => $slug],
-                [
-                    'title' => $title,
-                    'description' => $title.'. Promoted listing from '.$this->sellerName($owner).'.',
-                    'advert_type' => $type,
-                    'category_id' => $categoryId,
-                    'country' => $country,
-                    'city' => $city,
-                    'price' => $price,
-                    'currency' => 'USD',
-                    'main_image' => $this->img($photo),
-                    'seller_name' => $this->sellerName($owner),
-                    'business_name' => $this->sellerName($owner),
-                    'email' => $owner->email,
-                    'phone' => $owner->mobile_number ?? $owner->phone,
-                    'verified_seller' => true,
-                    'promotion_tier' => 'premium',
-                    'promotion_price' => 50,
-                    'promotion_start' => now()->subDay(),
-                    'promotion_end' => now()->addDays(21),
-                    'payment_status' => 'paid',
-                    'status' => 'active',
-                    'is_active' => true,
-                    'user_id' => $owner->customer_id,
-                ]
-            );
+            $advert = PromotedAdvert::query()
+                ->where('title', $title)
+                ->where('user_id', $owner->customer_id)
+                ->first()
+                ?? PromotedAdvert::query()->where('slug', $slug)->first()
+                ?? new PromotedAdvert();
+
+            $advert->fill($this->onlyExistingColumns('promoted_adverts', [
+                'slug' => $slug,
+                'title' => $title,
+                'description' => $title.'. Promoted listing from '.$this->sellerName($owner).'.',
+                'advert_type' => $type,
+                'category_id' => $categoryId,
+                'country' => $country,
+                'city' => $city,
+                'price' => $price,
+                'currency' => 'USD',
+                'main_image' => $this->img($photo),
+                'seller_name' => $this->sellerName($owner),
+                'business_name' => $this->sellerName($owner),
+                'email' => $owner->email,
+                'phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
+                'verified_seller' => true,
+                'promotion_tier' => 'promoted_premium',
+                'promotion_price' => 50,
+                'promotion_start' => now()->subDay(),
+                'promotion_end' => now()->addDays(21),
+                'payment_status' => 'paid',
+                'status' => 'active',
+                'is_active' => true,
+                'user_id' => $owner->customer_id,
+            ]));
+            $advert->save();
         }
     }
 
@@ -548,7 +583,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
         $rows = [
             [$a, 'Eco-Friendly Water Bottle', 'eco-friendly-water-bottle-user', 'environment', 50000, 32500, 245, true],
             [$b, 'Smart Garden System', 'smart-garden-system-user', 'technology', 75000, 41200, 318, true],
-            [$c, 'Community Art Space', 'community-art-space-user', 'community', 40000, 18600, 152, false],
+            [$c, 'Community Art Space', 'community-art-space-user', 'creative_arts', 40000, 18600, 152, false],
         ];
 
         foreach ($rows as [$owner, $title, $slug, $category, $goal, $funded, $backers, $featured]) {
@@ -564,6 +599,9 @@ class MarketplaceRealUserDataSeeder extends Seeder
                 'project_type' => 'startup',
                 'category' => $category,
                 'description' => $title.' crowdfunding campaign on Worldwide Adverts.',
+                'problem_solved' => 'Solves a real customer need with a clear go-to-market plan.',
+                'vision_mission' => 'Build a sustainable product with community support.',
+                'why_matters_now' => 'Demand is rising and early backers get preferred pricing.',
                 'funding_goal' => $goal,
                 'current_funded' => $funded,
                 'backers_count' => $backers,
@@ -578,14 +616,12 @@ class MarketplaceRealUserDataSeeder extends Seeder
                 'cover_image' => $this->img('1602143407151-7111542de6e8'),
                 'funding_deadline' => now()->addDays(30),
                 'published_at' => now()->subDays(5),
+                'risk_level' => 'low',
+                'use_of_funds' => json_encode(['Product' => 50, 'Marketing' => 30, 'Ops' => 20]),
+                'team_members' => json_encode([['name' => $this->sellerName($owner), 'role' => 'Founder']]),
             ];
 
-            $filtered = [];
-            foreach ($payload as $key => $value) {
-                if (Schema::hasColumn($table, $key)) {
-                    $filtered[$key] = $value;
-                }
-            }
+            $filtered = $this->onlyExistingColumns($table, $payload);
 
             $unique = Schema::hasColumn($table, 'slug')
                 ? ['slug' => $slug]
@@ -616,7 +652,7 @@ class MarketplaceRealUserDataSeeder extends Seeder
             $slug = Str::slug($title).'-ev'.$owner->customer_id;
             EventsVenuesAdvert::updateOrCreate(
                 ['slug' => $slug],
-                [
+                $this->onlyExistingColumns('events_venues_adverts', [
                     'user_id' => $owner->customer_id,
                     'category_id' => $categoryId,
                     'advert_type' => $type,
@@ -630,14 +666,14 @@ class MarketplaceRealUserDataSeeder extends Seeder
                     'contact_name' => $this->sellerName($owner),
                     'business_name' => $this->sellerName($owner).' Events',
                     'email' => $owner->email,
-                    'phone' => $owner->mobile_number ?? $owner->phone,
+                    'phone' => $owner->mobile_number ?? $owner->phone ?? '+44-7700-900000',
                     'main_image' => $this->img($photo),
                     'images' => [$this->img($photo)],
                     'status' => 'active',
                     'is_active' => true,
                     'is_featured' => true,
                     'free_event' => $type === 'event',
-                ]
+                ])
             );
         }
     }
