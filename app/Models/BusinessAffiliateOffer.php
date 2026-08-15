@@ -30,7 +30,11 @@ class BusinessAffiliateOffer extends Model
         'is_sponsored' => 'boolean',
         'paid_at' => 'datetime',
         'expires_at' => 'datetime',
+        'drop_at' => 'datetime',
         'is_active' => 'boolean',
+        'price' => 'decimal:2',
+        'sale_price' => 'decimal:2',
+        'compare_at_price' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -165,6 +169,92 @@ class BusinessAffiliateOffer extends Model
         }
 
         return true;
+    }
+
+    /** Public marketplace / joinable: live and (if a cookie fee was charged) paid. */
+    public function isJoinable(): bool
+    {
+        if (! $this->isCurrentlyActive()) {
+            return false;
+        }
+
+        $status = (string) ($this->payment_status ?: 'paid');
+
+        return $status === 'paid' || $status === '';
+    }
+
+    /**
+     * YouTube Shopping-style deal / drop payload for the public marketplace.
+     */
+    public function shoppingActivity(): array
+    {
+        $price = (float) ($this->sale_price ?? 0);
+        $compare = (float) ($this->compare_at_price ?? 0);
+        $dropAt = $this->drop_at;
+        $type = (string) ($this->promotion_type ?: 'none');
+
+        $droppingSoon = false;
+        if ($dropAt) {
+            try {
+                $droppingSoon = \Carbon\Carbon::parse($dropAt)->isFuture();
+            } catch (\Throwable $e) {
+                $droppingSoon = false;
+            }
+        }
+
+        $onSale = $compare > 0 && $price > 0 && $compare > $price;
+        $percentOff = $onSale ? (int) round((($compare - $price) / $compare) * 100) : null;
+
+        if ($type === '' || $type === 'none') {
+            if ($droppingSoon) {
+                $type = 'product_drop';
+            } elseif ($onSale) {
+                $type = 'sale';
+            } elseif (! empty($this->discount_code)) {
+                $type = 'sale';
+            }
+        }
+
+        $label = $this->promotion_label;
+        if (! $label) {
+            if ($type === 'product_drop') {
+                $label = $droppingSoon ? 'Dropping soon' : 'Product drop';
+            } elseif ($type === 'price_drop' && $onSale) {
+                $label = 'Price drop';
+            } elseif ($type === 'percent_off' && $percentOff) {
+                $label = $percentOff.'% off';
+            } elseif ($type === 'amount_off' && $onSale) {
+                $label = '$'.number_format($compare - $price, 2).' off';
+            } elseif ($onSale && $percentOff) {
+                $label = $percentOff.'% off';
+            } elseif (! empty($this->discount_code)) {
+                $label = 'Code: '.$this->discount_code;
+            }
+        }
+
+        $isoDrop = null;
+        if ($dropAt instanceof \Carbon\CarbonInterface) {
+            $isoDrop = $dropAt->toIso8601String();
+        } elseif ($dropAt) {
+            try {
+                $isoDrop = \Carbon\Carbon::parse($dropAt)->toIso8601String();
+            } catch (\Throwable $e) {
+                $isoDrop = null;
+            }
+        }
+
+        return [
+            'type' => $type === 'none' ? null : $type,
+            'label' => $label,
+            'price' => $price > 0 ? $price : null,
+            'sale_price' => $price > 0 ? $price : null,
+            'compare_at_price' => $compare > 0 ? $compare : null,
+            'discount_code' => $this->discount_code ?: null,
+            'drop_at' => $isoDrop,
+            'dropping_soon' => (bool) $droppingSoon,
+            'on_sale' => (bool) $onSale,
+            'percent_off' => $percentOff,
+        ];
     }
 
     /**

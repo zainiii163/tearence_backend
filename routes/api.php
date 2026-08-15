@@ -1538,6 +1538,7 @@ Route::group([
             
             // Business offer management
             Route::post('/business-offers', [ApiAffiliateController::class, 'createBusinessOffer']);
+            Route::post('/business-offers/{id}/complete-payment', [ApiAffiliateController::class, 'completeCookiePayment']);
             Route::put('/business-offers/{id}', [ApiAffiliateController::class, 'updateBusinessOffer']);
             Route::delete('/business-offers/{id}', [ApiAffiliateController::class, 'deleteBusinessOffer']);
             

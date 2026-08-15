@@ -20,10 +20,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\EnforcesListingPromoPayment;
 use Illuminate\Validation\Rule;
 
 class AffiliateController extends Controller
 {
+    use EnforcesListingPromoPayment;
     /**
      * Get all affiliate categories.
      */
@@ -112,6 +114,14 @@ class AffiliateController extends Controller
         if ($request->boolean('sponsored')) {
             $query->where('is_sponsored', true);
         }
+        if ($request->boolean('on_sale')) {
+            $query->whereNotNull('sale_price')
+                ->whereNotNull('compare_at_price')
+                ->whereColumn('compare_at_price', '>', 'sale_price');
+        }
+        if ($request->boolean('dropping_soon')) {
+            $query->whereNotNull('drop_at')->where('drop_at', '>', now());
+        }
 
         $sort = $request->sort ?? 'gravity';
         $order = strtolower((string) ($request->order ?? 'desc')) === 'asc' ? 'asc' : 'desc';
@@ -153,6 +163,8 @@ class AffiliateController extends Controller
             ? (float) $offer->commission_rate
             : null;
 
+        $shopping = $offer->shoppingActivity();
+        $offer->setAttribute('shopping', $shopping);
         $offer->setAttribute('marketplace_stats', [
             'gravity' => $gravity,
             'avg_earnings_per_sale' => $avgSale,
@@ -164,6 +176,7 @@ class AffiliateController extends Controller
             'commission_label' => $offer->commission_type === 'fixed'
                 ? '$' . number_format((float) $offer->commission_rate, 2)
                 : rtrim(rtrim(number_format((float) $offer->commission_rate, 2), '0'), '.') . '%',
+            'shopping' => $shopping,
         ]);
 
         return $offer;
@@ -279,18 +292,24 @@ class AffiliateController extends Controller
 
         $query = BusinessAffiliateOffer::with(['user', 'affiliateCategory'])
             ->active()
-            ->when(
-                $educationCategoryIds->isNotEmpty(),
-                fn ($q) => $q->whereIn('affiliate_category_id', $educationCategoryIds),
-                function ($q) {
-                    $q->whereHas('affiliateCategory', function ($c) {
+            ->where(function ($q) use ($educationCategoryIds) {
+                if ($educationCategoryIds->isNotEmpty()) {
+                    $q->whereIn('affiliate_category_id', $educationCategoryIds);
+                }
+                $q->orWhere('product_service_title', 'like', '%course%')
+                    ->orWhere('product_service_title', 'like', '%guide%')
+                    ->orWhere('product_service_title', 'like', '%training%')
+                    ->orWhere('product_service_title', 'like', '%tutorial%')
+                    ->orWhere('tagline', 'like', '%course%')
+                    ->orWhere('tagline', 'like', '%guide%')
+                    ->orWhere('description', 'like', '%affiliate marketing%')
+                    ->orWhereHas('affiliateCategory', function ($c) {
                         $c->where('name', 'like', '%course%')
                             ->orWhere('name', 'like', '%education%')
                             ->orWhere('name', 'like', '%guide%')
                             ->orWhere('name', 'like', '%training%');
                     });
-                }
-            );
+            });
 
         if ($request->filled('q')) {
             $term = '%' . $request->q . '%';
@@ -444,6 +463,7 @@ class AffiliateController extends Controller
 
             $payload = $offer->toArray();
             $payload['marketplace_stats'] = $offer->getAttribute('marketplace_stats');
+            $payload['shopping'] = $offer->getAttribute('shopping');
             $payload['my_application'] = null;
 
             $userId = Auth::id();
@@ -517,6 +537,12 @@ class AffiliateController extends Controller
             'business_email' => 'required|email',
             'website_url' => 'nullable|url',
             'verification_document' => 'nullable|string',
+            'sale_price' => 'nullable|numeric|min:0',
+            'compare_at_price' => 'nullable|numeric|min:0',
+            'discount_code' => 'nullable|string|max:64',
+            'promotion_type' => 'nullable|in:none,percent_off,amount_off,sale,price_drop,product_drop',
+            'promotion_label' => 'nullable|string|max:80',
+            'drop_at' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -572,10 +598,27 @@ class AffiliateController extends Controller
             'business_email' => $request->business_email,
             'website_url' => $request->website_url,
             'verification_document' => $request->verification_document,
+            'sale_price' => $request->sale_price,
+            'compare_at_price' => $request->compare_at_price,
+            'discount_code' => $request->discount_code,
+            'promotion_type' => $request->input('promotion_type', 'none'),
+            'promotion_label' => $request->promotion_label,
+            'drop_at' => $request->drop_at,
+            'price' => (float) ($cookiePackage->price_usd ?? 0),
         ]);
 
         $offer->load('affiliateCategory');
         $offer->makeVisible('postback_token');
+
+        $promoAmount = (float) ($cookiePackage->price_usd ?? 0);
+        if ($promoAmount >= 0.01) {
+            return $this->paymentRequiredListingResponse(
+                $offer,
+                $promoAmount,
+                'affiliate',
+                'Pay the cookie / listing package to keep this offer live on Marketplace.'
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -583,11 +626,63 @@ class AffiliateController extends Controller
             'data' => $offer,
             'promo' => $cookiePackage ? [
                 'slug' => $cookiePackage->slug ?? null,
-                'price_usd' => (float) ($cookiePackage->price_usd ?? 0),
+                'price_usd' => $promoAmount,
                 'duration_days' => $cookieDays,
                 'name' => $cookiePackage->name ?? null,
             ] : null,
         ], 201);
+    }
+
+    /**
+     * Confirm cookie-package payment and keep the marketplace offer live.
+     */
+    public function completeCookiePayment(Request $request, string $id): JsonResponse
+    {
+        $offer = BusinessAffiliateOffer::where('user_id', Auth::id())->findOrFail($id);
+
+        if ($offer->payment_status === 'paid') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already paid.',
+                'data' => $offer,
+            ]);
+        }
+
+        $amount = (float) ($offer->price ?? 0);
+        if ($amount < 0.01) {
+            $offer->update([
+                'payment_status' => 'paid',
+                'paid_at' => now(),
+                'is_active' => true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Offer is live.',
+                'data' => $offer->fresh(),
+            ]);
+        }
+
+        $verified = $this->verifyPromoPayment($request, $amount, 'affiliate_offer', $offer->id);
+        if ($verified instanceof JsonResponse) {
+            return $verified;
+        }
+
+        $offer->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'payment_transaction_id' => $request->input('payment_id')
+                ?: $request->input('transaction_id')
+                ?: $offer->payment_transaction_id,
+            'is_active' => true,
+            'status' => 'approved',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment confirmed. Marketplace offer is live.',
+            'data' => $offer->fresh()->load('affiliateCategory'),
+        ]);
     }
 
     /**
@@ -683,6 +778,20 @@ class AffiliateController extends Controller
         $websiteUrl = $request->input('website_url');
 
         $offer = BusinessAffiliateOffer::findOrFail($offerId);
+
+        if ((int) $offer->user_id === (int) Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You cannot promote your own marketplace offer',
+            ], 422);
+        }
+
+        if (! $offer->isCurrentlyActive()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This offer is not live. It may be expired or inactive.',
+            ], 422);
+        }
 
         // Check if user already applied
         $existingApplication = AffiliateApplication::where('business_affiliate_offer_id', $offerId)
@@ -1555,6 +1664,12 @@ class AffiliateController extends Controller
             'business_email' => 'sometimes|required|email',
             'website_url' => 'nullable|url',
             'verification_document' => 'nullable|string',
+            'sale_price' => 'nullable|numeric|min:0',
+            'compare_at_price' => 'nullable|numeric|min:0',
+            'discount_code' => 'nullable|string|max:64',
+            'promotion_type' => 'nullable|in:none,percent_off,amount_off,sale,price_drop,product_drop',
+            'promotion_label' => 'nullable|string|max:80',
+            'drop_at' => 'nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -1570,7 +1685,9 @@ class AffiliateController extends Controller
             'affiliate_category_id', 'country', 'region', 'commission_type',
             'commission_rate', 'cookie_duration', 'allowed_traffic_types',
             'restrictions', 'join_instructions', 'tracking_link', 'promotional_assets',
-            'business_email', 'website_url', 'verification_document'
+            'business_email', 'website_url', 'verification_document',
+            'sale_price', 'compare_at_price', 'discount_code', 'promotion_type',
+            'promotion_label', 'drop_at',
         ]));
 
         return response()->json([

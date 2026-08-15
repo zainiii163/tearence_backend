@@ -112,6 +112,48 @@ class BusinessAffiliateOfferResource extends Resource
                     ])
                     ->columns(2),
 
+                Forms\Components\Section::make('Deals & drops')
+                    ->description('YouTube Shopping-style promotions affiliates can tag and promote.')
+                    ->schema([
+                        Forms\Components\TextInput::make('sale_price')
+                            ->label('Current product price')
+                            ->numeric()
+                            ->step(0.01)
+                            ->prefix('$'),
+
+                        Forms\Components\TextInput::make('compare_at_price')
+                            ->label('Compare-at / original price')
+                            ->numeric()
+                            ->step(0.01)
+                            ->prefix('$')
+                            ->helperText('If higher than the current price, the offer shows as on sale.'),
+
+                        Forms\Components\TextInput::make('discount_code')
+                            ->label('Discount code')
+                            ->maxLength(64),
+
+                        Forms\Components\Select::make('promotion_type')
+                            ->options([
+                                'none' => 'None',
+                                'percent_off' => '% off',
+                                'amount_off' => 'Amount off',
+                                'sale' => 'Sale price',
+                                'price_drop' => 'Price drop',
+                                'product_drop' => 'Product drop',
+                            ])
+                            ->default('none'),
+
+                        Forms\Components\TextInput::make('promotion_label')
+                            ->label('Badge label')
+                            ->maxLength(80)
+                            ->helperText('Optional. Leave blank to auto-generate (e.g. 20% off).'),
+
+                        Forms\Components\DateTimePicker::make('drop_at')
+                            ->label('Drop time')
+                            ->helperText('For product drops: hide-then-reveal time. Shows “Dropping soon” until then.'),
+                    ])
+                    ->columns(2),
+
                 Forms\Components\Section::make('Links & Assets')
                     ->schema([
                         Forms\Components\TextInput::make('tracking_link')

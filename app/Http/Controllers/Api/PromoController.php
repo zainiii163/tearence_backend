@@ -221,6 +221,10 @@ class PromoController extends Controller
                         : now();
                     $record->expires_at = $base->addDays($days);
                     $record->is_active = true;
+                    $record->payment_status = 'paid';
+                    if (! $record->paid_at) {
+                        $record->paid_at = now();
+                    }
                     $record->save();
                     break;
             }
