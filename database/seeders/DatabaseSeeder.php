@@ -91,6 +91,7 @@ class DatabaseSeeder extends Seeder
             // Affiliate marketplace (ClickBank-style programs)
             AffiliateSystemSeeder::class,
             AffiliateMarketplaceOffersSeeder::class,
+            AffiliateLiveHubSeeder::class,
 
             // Revenue tracking (must be last)
             RevenueTrackingSeeder::class,
