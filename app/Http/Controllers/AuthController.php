@@ -717,7 +717,7 @@ class AuthController extends APIController
             // Short global signup: business name + email + phone only.
             // Company docs / VAT / tax / address completed after login.
             $rules['business_name'] = 'required|string|max:255';
-            $rules['phone'] = 'required|string|max:30';
+            $rules['phone'] = 'nullable|string|max:30';
             // Clive: category chosen at signup (homepage category → dashboard)
             $rules['business_category'] = 'required|string|max:100';
             $rules['company_registration_number'] = 'nullable|string|max:50';

@@ -22,14 +22,15 @@ class EnsureVerifiedToPost
             ], 401);
         }
 
-        $emailVerified = ! empty($user->email_verified_at);
-        if (! $emailVerified) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please verify your email before posting. You can still browse and complete your profile.',
-                'code' => 'EMAIL_VERIFICATION_REQUIRED',
-            ], 403);
-        }
+        // TEMPORARILY DISABLED — Clive: let Vikas/Shihab add 10 businesses without verification
+        // $emailVerified = ! empty($user->email_verified_at);
+        // if (! $emailVerified) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Please verify your email before posting. You can still browse and complete your profile.',
+        //         'code' => 'EMAIL_VERIFICATION_REQUIRED',
+        //     ], 403);
+        // }
 
         // Soft KYC nudge on first post when customer KYC columns exist.
         if (Schema::hasColumn('customer', 'kyc_status')) {
