@@ -280,13 +280,14 @@ class BusinessController extends APIController
             $query->business_owner = $request->business_owner;
             $query->personal_phone_number = $request->personal_phone_number;
             $query->personal_email = $request->personal_email;
-            $query->business_company_registration = $request->business_company_registration;
-            $query->business_company_name = $request->business_company_name;
-            $query->business_company_no = $request->business_company_no;
+            $this->applyCompanyLegalFields($query, $request);
             $query->category_id = $request->category_id;
             $query->business_category_slug = $request->business_category_slug;
             $query->city = $request->city;
             $query->country = $request->country;
+            if ($request->exists('postal_code')) {
+                $query->postal_code = $request->postal_code;
+            }
             $query->booking_url = $request->booking_url;
             if ($request->has('category_profile') || $request->has('profile')) {
                 $profile = $request->input('category_profile', $request->input('profile'));
@@ -482,10 +483,8 @@ class BusinessController extends APIController
             $query->business_owner = $request->business_owner;
             $query->personal_phone_number = $request->personal_phone_number;
             $query->personal_email = $request->personal_email;
-            $query->business_company_registration = $request->business_company_registration;
-            $query->business_company_name = $request->business_company_name;
-            $query->business_company_no = $request->business_company_no;
-            $query->category_id = $request->category_id ?? null;
+            $this->applyCompanyLegalFields($query, $request);
+            $query->category_id = $request->category_id ?? $query->category_id;
             if ($request->filled('business_category_slug')) {
                 $query->business_category_slug = $request->business_category_slug;
             }
@@ -1065,5 +1064,106 @@ class BusinessController extends APIController
         $staff->delete();
 
         return $this->successResponse(null, 'Member removed', Response::HTTP_OK);
+    }
+
+    /**
+     * Save company legal details after signup (dashboard complete-profile form).
+     */
+    public function completeProfile(Request $request)
+    {
+        $user = auth('api')->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $customerId = $user->customer_id ?? $user->getKey();
+        $business = CustomerBusiness::where('customer_id', $customerId)->first();
+
+        if (! $business) {
+            $business = new CustomerBusiness();
+            $business->customer_id = $customerId;
+            $business->status = 'active';
+            $name = $request->input('business_name')
+                ?: $request->input('business_company_name')
+                ?: trim(($request->first_name ?? '').' '.($request->last_name ?? ''))
+                ?: 'My business';
+            $business->business_name = $name;
+            $business->slug = Str::slug($name).'-'.Str::lower(Str::random(4));
+            $business->business_email = $request->input('business_email') ?: ($user->email ?? '');
+            $business->business_phone_number = $request->input('business_phone_number') ?: ($request->phone ?: '');
+            $business->business_address = $request->input('business_address') ?: '';
+        }
+
+        $this->applyCompanyLegalFields($business, $request);
+
+        if ($request->filled('business_name')) {
+            $business->business_name = $request->business_name;
+        }
+        if ($request->filled('business_email')) {
+            $business->business_email = $request->business_email;
+        }
+        if ($request->filled('phone') && ! $request->filled('business_phone_number')) {
+            $business->business_phone_number = $request->phone;
+        }
+        if ($request->filled('website') && ! $request->filled('business_website')) {
+            $business->business_website = $request->website;
+        }
+        if ($request->filled('company_registration_number') && ! $request->filled('business_company_no')) {
+            $business->business_company_no = $request->company_registration_number;
+            $business->business_company_registration = $request->company_registration_number;
+        }
+        if ($request->filled('city')) {
+            $business->city = $request->city;
+        }
+        if ($request->filled('country')) {
+            $business->country = $request->country;
+        }
+        if ($request->filled('business_address')) {
+            $business->business_address = $request->business_address;
+        }
+        if ($request->filled('business_category_slug') || $request->filled('dashboard_category')) {
+            $business->business_category_slug = $request->input('business_category_slug', $request->dashboard_category);
+        }
+        if ($request->has('category_profile')) {
+            $profile = $request->input('category_profile');
+            if (is_string($profile)) {
+                $decoded = json_decode($profile, true);
+                $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+            }
+            if (is_array($profile)) {
+                $business->category_profile = $profile;
+            }
+        }
+
+        $business->save();
+
+        return $this->successResponse($business, 'Business profile saved', Response::HTTP_OK);
+    }
+
+    /**
+     * Company name, number, incorporation, VAT, DUNS, website, email, phone, address.
+     */
+    protected function applyCompanyLegalFields(CustomerBusiness $query, Request $request): void
+    {
+        $map = [
+            'business_company_name' => 'business_company_name',
+            'business_company_no' => 'business_company_no',
+            'business_company_registration' => 'business_company_registration',
+            'vat_number' => 'vat_number',
+            'duns_number' => 'duns_number',
+            'incorporation_date' => 'incorporation_date',
+            'business_website' => 'business_website',
+            'business_email' => 'business_email',
+            'business_phone_number' => 'business_phone_number',
+            'business_address' => 'business_address',
+            'postal_code' => 'postal_code',
+        ];
+
+        foreach ($map as $requestKey => $column) {
+            if ($request->exists($requestKey) && Schema::hasColumn('customer_business', $column)) {
+                $value = $request->input($requestKey);
+                $query->{$column} = $value === '' ? null : $value;
+            }
+        }
     }
 }

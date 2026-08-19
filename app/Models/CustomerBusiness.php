@@ -52,12 +52,16 @@ class CustomerBusiness extends Model
         'personal_phone_number',
         'category_id',
         'vat_number',
+        'incorporation_date',
+        'duns_number',
+        'postal_code',
         'business_category_slug',
         'category_profile',
     ];
 
     protected $casts = [
         'category_profile' => 'array',
+        'incorporation_date' => 'date',
     ];
 
     protected $appends = [

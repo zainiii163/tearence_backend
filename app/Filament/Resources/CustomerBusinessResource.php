@@ -143,6 +143,9 @@ class CustomerBusinessResource extends Resource
                             ->label('City')
                             ->maxLength(120),
                         CountrySelect::make('country'),
+                        Forms\Components\TextInput::make('postal_code')
+                            ->label('Postcode')
+                            ->maxLength(32),
                         Forms\Components\TextInput::make('business_website')
                             ->label('Website')
                             ->url()
@@ -234,18 +237,29 @@ class CustomerBusinessResource extends Resource
                     ->collapsible()
                     ->collapsed(false),
                 Forms\Components\Section::make('Company Details')
+                    ->description('Legal company fields shown on the public business page.')
                     ->columns(2)
                     ->schema([
                         Forms\Components\TextInput::make('business_company_name')
-                            ->label('Company Name')
+                            ->label('Company name')
                             ->maxLength(100),
                         Forms\Components\TextInput::make('business_company_no')
-                            ->label('Company Number')
+                            ->label('Company number')
                             ->maxLength(50),
+                        Forms\Components\DatePicker::make('incorporation_date')
+                            ->label('Incorporation date'),
+                        Forms\Components\TextInput::make('vat_number')
+                            ->label('VAT number')
+                            ->maxLength(50),
+                        Forms\Components\TextInput::make('duns_number')
+                            ->label('DUNS')
+                            ->maxLength(32),
                         Forms\Components\TextInput::make('business_company_registration')
-                            ->label('Registration Number')
-                            ->maxLength(50)
-                            ->columnSpanFull(),
+                            ->label('Registration number')
+                            ->maxLength(50),
+                        Forms\Components\TextInput::make('postal_code')
+                            ->label('Postcode')
+                            ->maxLength(32),
                     ])
                     ->collapsible(),
                 Forms\Components\Section::make('Logo & cover')

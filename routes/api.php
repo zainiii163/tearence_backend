@@ -163,6 +163,7 @@ use App\Http\Controllers\Api\PropertyUpsellController;
 use App\Http\Controllers\Api\TwoFactorController;
 
 use App\Http\Controllers\Api\CustomerNotificationController;
+use App\Http\Controllers\Api\LocalAreaAlertController;
 
 use App\Http\Controllers\Api\UserInsightsController;
 
@@ -679,6 +680,8 @@ Route::group([
 
         Route::get('/dashboard-stats', [BusinessController::class, 'dashboardStats']);
 
+        Route::post('/profile/complete', [BusinessController::class, 'completeProfile']);
+
         Route::post('/staff-invites/accept', [BusinessController::class, 'acceptStaffInvite']);
 
         Route::get('/{id}/members', [BusinessController::class, 'members']);
@@ -1099,6 +1102,11 @@ Route::group([
         Route::delete('/delete-all', [CustomerNotificationController::class, 'destroyAll']);
         Route::put('/{id}/read', [CustomerNotificationController::class, 'markAsRead']);
         Route::delete('/{id}', [CustomerNotificationController::class, 'destroy']);
+    });
+
+    Route::group(['prefix' => 'local-alerts'], function () {
+        Route::get('/', [LocalAreaAlertController::class, 'index']);
+        Route::post('/', [LocalAreaAlertController::class, 'store'])->middleware('jwt.auth');
     });
 
 

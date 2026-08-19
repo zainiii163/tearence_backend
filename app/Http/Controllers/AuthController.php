@@ -831,6 +831,18 @@ class AuthController extends APIController
                     'vat_number' => request()->vat_number,
                     'status' => 'active',
                 ];
+                if (Schema::hasColumn('customer_business', 'duns_number')) {
+                    $createPayload['duns_number'] = request()->duns_number;
+                }
+                if (Schema::hasColumn('customer_business', 'incorporation_date')) {
+                    $createPayload['incorporation_date'] = request()->incorporation_date;
+                }
+                if (Schema::hasColumn('customer_business', 'postal_code')) {
+                    $createPayload['postal_code'] = request()->postal_code;
+                }
+                if (Schema::hasColumn('customer_business', 'business_website')) {
+                    $createPayload['business_website'] = request()->website ?: request()->business_website;
+                }
                 if (Schema::hasColumn('customer_business', 'business_category_slug')) {
                     $createPayload['business_category_slug'] = $categorySlug;
                 }
