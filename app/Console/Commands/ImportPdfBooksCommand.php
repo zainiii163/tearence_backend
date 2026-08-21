@@ -395,17 +395,47 @@ class ImportPdfBooksCommand extends Command
     {
         $name = pathinfo($filename, PATHINFO_FILENAME);
         $name = preg_replace('/\(\s*\d+\s*\)$/', '', $name) ?? $name;
+        $name = trim($name, " \t\n\r\0\x0B()[]");
         $name = str_replace(['_', '-', '.'], ' ', $name);
-        // Split camelCase / glued words: 21Incomestreams → 21 Incomestreams
+        // Split camelCase / glued words
         $name = preg_replace('/(?<=[a-z])(?=[A-Z])/', ' ', $name) ?? $name;
         $name = preg_replace('/(?<=[A-Za-z])(?=\d)/', ' ', $name) ?? $name;
         $name = preg_replace('/(?<=\d)(?=[A-Za-z])/', ' ', $name) ?? $name;
         $name = preg_replace('/\s+/', ' ', trim($name)) ?? '';
 
-        // Title-case while keeping small words tidy
+        // Expand common glued ebook tokens
+        $replacements = [
+            '/\beasylistbuilders\b/i' => 'Easy List Builders',
+            '/\bincomestreams\b/i' => 'Income Streams',
+            '/\blittleways\b/i' => 'Little Ways',
+            '/\bpowertips\b/i' => 'Power Tips',
+            '/\bsuccesstipsbvsfw\b/i' => 'Success Tips',
+            '/\blistbuildingsecrets\b/i' => 'List Building Secrets',
+            '/\bstepprofitsystem\b/i' => 'Step Profit System',
+            '/\bexpensivehomebuyingmistakes\b/i' => 'Expensive Home Buying Mistakes',
+            '/\batkinsdietrecipes\b/i' => 'Atkins Diet Recipes',
+            '/\bminutemiracle\b/i' => 'Minute Miracle',
+            '/\bdaysproduct\b/i' => 'Days Product',
+            '/\bscrapbooksketchesv\b/i' => 'Scrapbook Sketches V',
+            '/\bsbdfirst\b/i' => 'SBD First',
+            '/\bweekfoods\b/i' => 'Week Foods',
+            '/\bsbdintroduction\b/i' => 'SBD Introduction',
+            '/\bsbdoverview\b/i' => 'SBD Overview',
+            '/\beasyways\b/i' => 'Easy Ways',
+            '/\bgb ideas\b/i' => 'GB Ideas',
+        ];
+        foreach ($replacements as $pattern => $replacement) {
+            $name = preg_replace($pattern, $replacement, $name) ?? $name;
+        }
+
         $titled = Str::title(Str::lower($name));
         $titled = preg_replace('/\b(Pdf|Ebook|E Book)\b/i', '', $titled) ?? $titled;
         $titled = preg_replace('/\s+/', ' ', trim($titled)) ?? $titled;
+        // Keep short words like "Of", "To", "For" natural
+        $titled = preg_replace_callback('/\b(Of|To|For|In|On|And|The|A|An)\b/', function ($m) {
+            return Str::lower($m[1]);
+        }, $titled) ?? $titled;
+        $titled = Str::ucfirst($titled);
 
         return $titled !== '' ? $titled : 'Untitled Book';
     }
