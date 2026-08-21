@@ -16,6 +16,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class CustomerResource extends Resource
@@ -52,7 +53,21 @@ class CustomerResource extends Resource
                 Forms\Components\TextInput::make('password_hash')
                     ->password()
                     ->label('Password')
-                    ->maxLength(64),
+                    ->helperText('Leave blank to keep current password. New passwords are hashed automatically.')
+                    ->dehydrateStateUsing(function ($state) {
+                        if (! filled($state)) {
+                            return null;
+                        }
+                        $value = (string) $state;
+                        // Already a bcrypt hash (e.g. pasted) — keep as-is
+                        if (str_starts_with($value, '$2y$') || str_starts_with($value, '$2a$') || str_starts_with($value, '$2b$')) {
+                            return $value;
+                        }
+
+                        return Hash::make($value);
+                    })
+                    ->dehydrated(fn ($state) => filled($state))
+                    ->maxLength(255),
                 Forms\Components\TextInput::make('phone')
                     ->tel()
                     ->maxLength(50),
