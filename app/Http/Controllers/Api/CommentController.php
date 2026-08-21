@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\CommunityAuthHelper;
 use App\Models\Comment;
 use App\Models\CommentReaction;
 use App\Models\UserReputation;
@@ -81,36 +82,58 @@ class CommentController extends Controller
 
         $post = CommunityPost::findOrFail($request->post_id);
 
-        $comment = Comment::create([
-            'comment_id' => Str::uuid(),
-            'post_id' => $request->post_id,
-            'user_id' => auth()->id(),
-            'parent_id' => $request->parent_id,
-            'content' => $request->content,
-            'comment_type' => $request->comment_type ?? 'general',
-        ]);
-
-        // Increment post comments count
-        $post->incrementComments();
-
-        // If it's a reply, increment parent's replies count
-        if ($request->parent_id) {
-            $parent = Comment::find($request->parent_id);
-            if ($parent) {
-                $parent->incrementReplies();
-            }
+        $usersUserId = CommunityAuthHelper::usersUserId();
+        if (!$usersUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
         }
 
-        // Update user reputation
-        $reputation = auth()->user()->getReputation();
-        $reputation->incrementCommentsCount();
-        $reputation->incrementReputationScore(2);
+        try {
+            $comment = Comment::create([
+                'comment_id' => Str::uuid(),
+                'post_id' => $request->post_id,
+                'user_id' => $usersUserId,
+                'parent_id' => $request->parent_id,
+                'content' => $request->content,
+                'comment_type' => $request->comment_type ?? 'general',
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $comment->load(['user', 'post']),
-            'message' => 'Comment created successfully'
-        ], 201);
+            // Increment post comments count
+            $post->incrementComments();
+
+            // If it's a reply, increment parent's replies count
+            if ($request->parent_id) {
+                $parent = Comment::find($request->parent_id);
+                if ($parent) {
+                    $parent->incrementReplies();
+                }
+            }
+
+            // Update user reputation on users row
+            $usersUser = CommunityAuthHelper::usersUser(null, false);
+            if ($usersUser) {
+                $reputation = $usersUser->getReputation();
+                $reputation->incrementCommentsCount();
+                $reputation->incrementReputationScore(2);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $comment->load(['user', 'post']),
+                'message' => 'Comment created successfully'
+            ], 201);
+        } catch (\Throwable $e) {
+            \Log::error('Comment store failed', [
+                'users_user_id' => $usersUserId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not create comment: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -120,7 +143,8 @@ class CommentController extends Controller
     {
         $comment = Comment::findOrFail($id);
 
-        if ($comment->user_id !== auth()->id()) {
+        $usersUserId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$usersUserId || (int) $comment->user_id !== (int) $usersUserId) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to update this comment'
@@ -155,7 +179,8 @@ class CommentController extends Controller
     {
         $comment = Comment::findOrFail($id);
 
-        if ($comment->user_id !== auth()->id()) {
+        $usersUserId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$usersUserId || (int) $comment->user_id !== (int) $usersUserId) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to delete this comment'
@@ -202,8 +227,16 @@ class CommentController extends Controller
             ], 422);
         }
 
+        $usersUserId = CommunityAuthHelper::usersUserId();
+        if (!$usersUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
+
         $existingReaction = CommentReaction::where('comment_id', $comment->comment_id)
-                                            ->where('user_id', auth()->id())
+                                            ->where('user_id', $usersUserId)
                                             ->first();
 
         if ($existingReaction) {
@@ -228,14 +261,14 @@ class CommentController extends Controller
         CommentReaction::create([
             'id' => Str::uuid(),
             'comment_id' => $comment->comment_id,
-            'user_id' => auth()->id(),
+            'user_id' => $usersUserId,
             'reaction_type' => $request->reaction_type,
         ]);
 
         $comment->incrementReactions();
 
         // Update reputation for helpful reactions
-        if ($request->reaction_type === 'helpful') {
+        if ($request->reaction_type === 'helpful' && $comment->user) {
             $reputation = $comment->user->getReputation();
             $reputation->incrementHelpfulCount();
             $reputation->incrementReputationScore(2);

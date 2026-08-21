@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\CommunityAuthHelper;
 use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityFollow;
@@ -102,7 +103,7 @@ class CommunityController extends Controller
                                 ->limit($request->get('limit', 10))
                                 ->get();
 
-        $userId = auth('api')->id() ?: auth()->id();
+        $userId = CommunityAuthHelper::usersUserId(null, false);
         if ($userId) {
             $joinedIds = CommunityMember::where('user_id', $userId)
                 ->whereIn('community_id', $communities->pluck('community_id'))
@@ -232,7 +233,13 @@ class CommunityController extends Controller
             $rules = null;
         }
 
-        $userId = auth()->id();
+        $userId = CommunityAuthHelper::usersUserId();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
         $scope = $request->input('scope', 'global') ?: 'global';
 
         $community = Community::create([
@@ -315,9 +322,10 @@ class CommunityController extends Controller
             ->firstOrFail();
 
         // Check if user is admin
-        if (!$community->creator || $community->creator->user_id !== auth()->id()) {
+        $actorId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$community->creator || (int) $community->creator->user_id !== (int) $actorId) {
             $member = CommunityMember::where('community_id', $community->community_id)
-                                     ->where('user_id', auth()->id())
+                                     ->where('user_id', $actorId)
                                      ->where('role', 'admin')
                                      ->first();
             if (!$member) {
@@ -395,9 +403,10 @@ class CommunityController extends Controller
             ->firstOrFail();
 
         // Check if user is admin
-        if (!$community->creator || $community->creator->user_id !== auth()->id()) {
+        $actorId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$community->creator || (int) $community->creator->user_id !== (int) $actorId) {
             $member = CommunityMember::where('community_id', $community->community_id)
-                                     ->where('user_id', auth()->id())
+                                     ->where('user_id', $actorId)
                                      ->where('role', 'admin')
                                      ->first();
             if (!$member) {
@@ -425,8 +434,16 @@ class CommunityController extends Controller
             ->orWhere('slug', $id)
             ->firstOrFail();
 
+        $userId = CommunityAuthHelper::usersUserId();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
+
         $existingMember = CommunityMember::where('community_id', $community->community_id)
-                                         ->where('user_id', auth()->id())
+                                         ->where('user_id', $userId)
                                          ->first();
 
         if ($existingMember) {
@@ -435,8 +452,6 @@ class CommunityController extends Controller
                 'message' => 'You are already a member of this Social Hub group'
             ], 400);
         }
-
-        $userId = auth()->id();
 
         CommunityMember::create([
             'id' => (string) Str::uuid(),
@@ -459,8 +474,11 @@ class CommunityController extends Controller
         );
 
         // Update user reputation
-        $reputation = auth()->user()->getReputation();
-        $reputation->incrementCommunitiesCount();
+        $usersUser = CommunityAuthHelper::usersUser(null, false);
+        if ($usersUser) {
+            $reputation = $usersUser->getReputation();
+            $reputation->incrementCommunitiesCount();
+        }
 
         return response()->json([
             'success' => true,
@@ -477,8 +495,9 @@ class CommunityController extends Controller
             ->orWhere('slug', $id)
             ->firstOrFail();
 
+        $userId = CommunityAuthHelper::usersUserId(null, false);
         $member = CommunityMember::where('community_id', $community->community_id)
-                                 ->where('user_id', auth()->id())
+                                 ->where('user_id', $userId)
                                  ->first();
 
         if (!$member) {
@@ -513,8 +532,16 @@ class CommunityController extends Controller
             ->orWhere('slug', $id)
             ->firstOrFail();
 
+        $userId = CommunityAuthHelper::usersUserId();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
+
         $existingFollow = CommunityFollow::where('community_id', $community->community_id)
-                                          ->where('user_id', auth()->id())
+                                          ->where('user_id', $userId)
                                           ->first();
 
         if ($existingFollow) {
@@ -527,7 +554,7 @@ class CommunityController extends Controller
         CommunityFollow::create([
             'id' => Str::uuid(),
             'community_id' => $community->community_id,
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
         ]);
 
         return response()->json([
@@ -545,8 +572,9 @@ class CommunityController extends Controller
             ->orWhere('slug', $id)
             ->firstOrFail();
 
+        $userId = CommunityAuthHelper::usersUserId(null, false);
         $follow = CommunityFollow::where('community_id', $community->community_id)
-                                  ->where('user_id', auth()->id())
+                                  ->where('user_id', $userId)
                                   ->first();
 
         if (!$follow) {
@@ -665,16 +693,8 @@ class CommunityController extends Controller
         }
 
         // communities.created_by / members / follows FK → users.user_id
-        // Business owners authenticate as Customer, so resolve a matching User by email when possible.
-        $creatorUserId = null;
-        if ($user instanceof \App\Models\User) {
-            $creatorUserId = $user->user_id ?? $user->getKey();
-        } else {
-            $email = $user->email ?? null;
-            if ($email) {
-                $creatorUserId = \App\Models\User::where('email', $email)->value('user_id');
-            }
-        }
+        // Business owners authenticate as Customer, so resolve/create a matching User by email.
+        $creatorUserId = CommunityAuthHelper::usersUserId($user, true);
 
         try {
             $community = Community::create([

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\CommunityAuthHelper;
 use App\Helpers\MediaUrlHelper;
 use App\Models\CommunityPost;
 use App\Models\Community;
@@ -54,9 +55,9 @@ class CommunityPostController extends Controller
             $query->byCity($request->city);
         }
 
-        // Filter by community
-        if ($request->has('community_id')) {
-            $query->byCommunity($request->community_id);
+        // Filter by community (id or slug)
+        if ($request->filled('community_id') || $request->filled('community_slug')) {
+            $query->byCommunity($request->input('community_id') ?: $request->input('community_slug'));
         }
 
         // Filter by verification status
@@ -117,7 +118,7 @@ class CommunityPostController extends Controller
     public function forYou(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = CommunityAuthHelper::usersUser(null, false);
             $query = CommunityPost::query()->notFlagged();
 
             if ($user) {
@@ -180,7 +181,7 @@ class CommunityPostController extends Controller
     public function following(Request $request)
     {
         try {
-            $user = auth()->user();
+            $user = CommunityAuthHelper::usersUser(null, false);
             $query = CommunityPost::query()->notFlagged();
 
             $communityIds = [];
@@ -482,70 +483,102 @@ class CommunityPostController extends Controller
             })->all();
         }
 
-        $post = CommunityPost::create([
-            'post_id' => (string) Str::uuid(),
-            'user_id' => auth()->id(),
-            'post_type' => $request->post_type,
-            'advert_type' => $request->advert_type,
-            'advert_id' => $request->advert_id,
-            'title' => $request->title,
-            'content' => $request->content,
-            'cover_image' => $coverImage,
-            'media' => $media ?: null,
-            'category_id' => $request->category_id,
-            'location' => $request->location,
-            'country' => $request->country,
-            'city' => $request->city,
-            'discussion_type' => $isPoll ? 'poll' : $request->discussion_type,
-            'is_poll' => $isPoll,
-            'poll_options' => $pollOptions,
-            'poll_ends_at' => $isPoll ? $request->input('poll_ends_at') : null,
-            'poll_votes_count' => 0,
-            'tags' => $request->tags,
-        ]);
+        $usersUserId = CommunityAuthHelper::usersUserId();
+        if (!$usersUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account. Please ensure your email is set.',
+            ], 422);
+        }
 
-        // Attach to communities
-        foreach ($request->community_ids as $index => $communityId) {
-            CommunityPostCommunity::create([
-                'id' => Str::uuid(),
-                'community_id' => $communityId,
-                'post_id' => $post->post_id,
-                'is_primary' => $index === 0,
+        try {
+            $post = CommunityPost::create([
+                'post_id' => (string) Str::uuid(),
+                'user_id' => $usersUserId,
+                'post_type' => $request->post_type,
+                'advert_type' => $request->advert_type,
+                'advert_id' => $request->advert_id,
+                'title' => $request->title,
+                'content' => $request->content,
+                'cover_image' => $coverImage,
+                'media' => $media ?: null,
+                'category_id' => $request->category_id,
+                'location' => $request->location,
+                'country' => $request->country,
+                'city' => $request->city,
+                'discussion_type' => $isPoll ? 'poll' : $request->discussion_type,
+                'is_poll' => $isPoll,
+                'poll_options' => $pollOptions,
+                'poll_ends_at' => $isPoll ? $request->input('poll_ends_at') : null,
+                'poll_votes_count' => 0,
+                'tags' => $request->tags,
             ]);
 
-            // Increment community posts count
-            $community = Community::find($communityId);
-            if ($community) {
-                $community->incrementPostsCount();
-                if ($request->post_type === 'ad_thread') {
-                    $community->incrementActiveAdsCount();
+            // Attach to communities (pivot `id` is auto-increment bigint)
+            foreach ($request->community_ids as $index => $communityId) {
+                $already = CommunityPostCommunity::where('community_id', $communityId)
+                    ->where('post_id', $post->post_id)
+                    ->exists();
+                if (!$already) {
+                    CommunityPostCommunity::create([
+                        'community_id' => $communityId,
+                        'post_id' => $post->post_id,
+                        'is_primary' => $index === 0,
+                    ]);
+                }
+
+                $community = Community::where(function ($q) use ($communityId) {
+                    $q->where('community_id', $communityId)
+                        ->orWhere('slug', $communityId);
+                })->first();
+                if ($community) {
+                    $community->incrementPostsCount();
+                    if ($request->post_type === 'ad_thread') {
+                        $community->incrementActiveAdsCount();
+                    }
                 }
             }
+
+            // Update customer posts_count (KYC first-post tracking) + users reputation
+            $authUser = CommunityAuthHelper::authUser();
+            if ($authUser && \Illuminate\Support\Facades\Schema::hasColumn('customer', 'posts_count')) {
+                try {
+                    $authUser->increment('posts_count');
+                } catch (\Throwable $e) {
+                    // ignore if actor is not a customer row
+                }
+            }
+            $usersUser = CommunityAuthHelper::usersUser($authUser, false);
+            if ($usersUser) {
+                $reputation = $usersUser->getReputation();
+                $reputation->incrementPostsCount();
+                $reputation->incrementReputationScore(5);
+            }
+
+            $post = $post->load(['user', 'category', 'communities', 'primaryCommunity']);
+            $post->withPollState($usersUserId);
+
+            $payload = [
+                'success' => true,
+                'data' => $post,
+                'message' => $isPoll ? 'Poll created successfully' : 'Post created successfully',
+            ];
+            if ($request->attributes->get('kyc_prompt')) {
+                $payload['kyc_prompt'] = true;
+                $payload['message'] .= '. Please complete KYC verification when prompted.';
+            }
+
+            return response()->json($payload, 201);
+        } catch (\Throwable $e) {
+            \Log::error('CommunityPost store failed', [
+                'users_user_id' => $usersUserId,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not create post: '.$e->getMessage(),
+            ], 500);
         }
-
-        // Update user reputation + posts_count (KYC first-post tracking)
-        $user = auth()->user();
-        if ($user && \Illuminate\Support\Facades\Schema::hasColumn('customer', 'posts_count')) {
-            $user->increment('posts_count');
-        }
-        $reputation = $user->getReputation();
-        $reputation->incrementPostsCount();
-        $reputation->incrementReputationScore(5);
-
-        $post = $post->load(['user', 'category', 'communities', 'primaryCommunity']);
-        $post->withPollState(auth()->id());
-
-        $payload = [
-            'success' => true,
-            'data' => $post,
-            'message' => $isPoll ? 'Poll created successfully' : 'Post created successfully',
-        ];
-        if ($request->attributes->get('kyc_prompt')) {
-            $payload['kyc_prompt'] = true;
-            $payload['message'] .= '. Please complete KYC verification when prompted.';
-        }
-
-        return response()->json($payload, 201);
     }
 
     /**
@@ -596,7 +629,13 @@ class CommunityPostController extends Controller
             ], 422);
         }
 
-        $userId = auth()->id();
+        $userId = CommunityAuthHelper::usersUserId();
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
         $existing = CommunityPollVote::where('post_id', $post->post_id)
             ->where('user_id', $userId)
             ->first();
@@ -657,7 +696,7 @@ class CommunityPostController extends Controller
      */
     protected function attachPollState($posts): void
     {
-        $userId = auth('api')->id() ?: auth()->id();
+        $userId = CommunityAuthHelper::usersUserId(null, false);
         if (method_exists($posts, 'getCollection')) {
             $posts->getCollection()->transform(function ($post) use ($userId) {
                 if ($post instanceof CommunityPost) {
@@ -680,7 +719,8 @@ class CommunityPostController extends Controller
     {
         $post = CommunityPost::findOrFail($id);
 
-        if ($post->user_id !== auth()->id()) {
+        $usersUserId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$usersUserId || (int) $post->user_id !== (int) $usersUserId) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to update this post'
@@ -718,7 +758,8 @@ class CommunityPostController extends Controller
     {
         $post = CommunityPost::findOrFail($id);
 
-        if ($post->user_id !== auth()->id()) {
+        $usersUserId = CommunityAuthHelper::usersUserId(null, false);
+        if (!$usersUserId || (int) $post->user_id !== (int) $usersUserId) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to delete this post'
@@ -759,8 +800,16 @@ class CommunityPostController extends Controller
             ], 422);
         }
 
+        $usersUserId = CommunityAuthHelper::usersUserId();
+        if (!$usersUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
+
         $existingReaction = PostReaction::where('post_id', $post->post_id)
-                                        ->where('user_id', auth()->id())
+                                        ->where('user_id', $usersUserId)
                                         ->first();
 
         if ($existingReaction) {
@@ -785,14 +834,14 @@ class CommunityPostController extends Controller
         PostReaction::create([
             'id' => Str::uuid(),
             'post_id' => $post->post_id,
-            'user_id' => auth()->id(),
+            'user_id' => $usersUserId,
             'reaction_type' => $request->reaction_type,
         ]);
 
         $post->incrementReactions();
 
         // Update reputation for helpful reactions
-        if ($request->reaction_type === 'helpful') {
+        if ($request->reaction_type === 'helpful' && $post->user) {
             $reputation = $post->user->getReputation();
             $reputation->incrementHelpfulCount();
             $reputation->incrementReputationScore(2);
@@ -811,8 +860,16 @@ class CommunityPostController extends Controller
     {
         $post = CommunityPost::findOrFail($id);
 
+        $usersUserId = CommunityAuthHelper::usersUserId();
+        if (!$usersUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not resolve a Social Hub user profile for this account.',
+            ], 422);
+        }
+
         $existingSave = SavedPost::where('post_id', $post->post_id)
-                                  ->where('user_id', auth()->id())
+                                  ->where('user_id', $usersUserId)
                                   ->first();
 
         if ($existingSave) {
@@ -826,7 +883,7 @@ class CommunityPostController extends Controller
 
         SavedPost::create([
             'id' => Str::uuid(),
-            'user_id' => auth()->id(),
+            'user_id' => $usersUserId,
             'post_id' => $post->post_id,
         ]);
 
@@ -866,7 +923,15 @@ class CommunityPostController extends Controller
      */
     public function saved(Request $request)
     {
-        $savedPosts = auth()->user()->savedPosts()
+        $usersUser = CommunityAuthHelper::usersUser(null, false);
+        if (!$usersUser) {
+            return response()->json([
+                'success' => true,
+                'data' => SavedPost::query()->whereRaw('1 = 0')->paginate($request->get('per_page', 20)),
+            ]);
+        }
+
+        $savedPosts = $usersUser->savedPosts()
             ->with('post.user', 'post.category', 'post.communities')
             ->latest()
             ->paginate($request->get('per_page', 20));
@@ -938,7 +1003,15 @@ class CommunityPostController extends Controller
      */
     public function myPosts(Request $request)
     {
-        $posts = auth()->user()->communityPosts()
+        $usersUser = CommunityAuthHelper::usersUser(null, false);
+        if (!$usersUser) {
+            return response()->json([
+                'success' => true,
+                'data' => CommunityPost::query()->whereRaw('1 = 0')->paginate($request->get('per_page', 20)),
+            ]);
+        }
+
+        $posts = $usersUser->communityPosts()
                                ->with(['category', 'communities', 'primaryCommunity'])
                                ->paginate($request->get('per_page', 20));
 
@@ -956,11 +1029,14 @@ class CommunityPostController extends Controller
         $post = CommunityPost::findOrFail($id);
 
         // Check if user is moderator/admin in any of the post's communities
+        $usersUser = CommunityAuthHelper::usersUser(null, false);
         $canPin = false;
-        foreach ($post->communities as $community) {
-            if (auth()->user()->isModeratorOf($community->community_id)) {
-                $canPin = true;
-                break;
+        if ($usersUser) {
+            foreach ($post->communities as $community) {
+                if ($usersUser->isModeratorOf($community->community_id)) {
+                    $canPin = true;
+                    break;
+                }
             }
         }
 

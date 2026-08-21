@@ -209,8 +209,13 @@ class CommunityPost extends Model
 
     public function scopeByCommunity($query, $communityId)
     {
+        // Qualify column: both communities and community_post_communities have community_id
+        // (ambiguous WHERE causes MySQL 500s on community feeds).
         return $query->whereHas('communities', function ($q) use ($communityId) {
-            $q->where('community_id', $communityId);
+            $q->where(function ($inner) use ($communityId) {
+                $inner->where('communities.community_id', $communityId)
+                    ->orWhere('communities.slug', $communityId);
+            });
         });
     }
 
