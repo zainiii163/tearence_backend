@@ -2,111 +2,60 @@
 
 namespace App\Policies;
 
-use App\Models\Vehicle;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
+/**
+ * Authorizes Filament/admin actions on Customer records.
+ * (Previously this file was a mistaken copy of VehiclePolicy.)
+ */
 class CustomerPolicy
 {
     use HandlesAuthorization;
 
-    /**
-     * Determine whether customer can view any vehicles.
-     */
-    public function viewAny(Customer|User $customer): bool
+    protected function canManageCustomers(User $user): bool
     {
-        // All authenticated customers/users can view vehicles
-        return $customer->isAuthenticated();
+        return (bool) (
+            ($user->is_super_admin ?? false)
+            || ($user->can_manage_users ?? false)
+            || ($user->can_manage_dashboard ?? false)
+            || (method_exists($user, 'isAdmin') && $user->isAdmin())
+        );
     }
 
-    /**
-     * Determine whether customer can view a specific vehicle.
-     */
-    public function view(Customer|User $customer, Vehicle $vehicle): bool
+    public function viewAny(User $user): bool
     {
-        // Admin can view all, customers can view their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return $this->canManageCustomers($user);
     }
 
-    /**
-     * Determine whether customer can create vehicles.
-     */
-    public function create(Customer|User $customer): bool
+    public function view(User $user, Customer $customer): bool
     {
-        // Admin and authenticated customers can create
-        return $customer->isAdmin() || $customer->isAuthenticated();
+        return $this->canManageCustomers($user);
     }
 
-    /**
-     * Determine whether customer can update a vehicle.
-     */
-    public function update(Customer|User $customer, Vehicle $vehicle): bool
+    public function create(User $user): bool
     {
-        // Admin can update all, customers can update their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return $this->canManageCustomers($user);
     }
 
-    /**
-     * Determine whether customer can delete a vehicle.
-     */
-    public function delete(Customer|User $customer, Vehicle $vehicle): bool
+    public function update(User $user, Customer $customer): bool
     {
-        // Admin can delete all, customers can delete their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return $this->canManageCustomers($user);
     }
 
-    /**
-     * Determine whether customer can favourite a vehicle.
-     */
-    public function favourite(Customer|User $customer, Vehicle $vehicle): bool
+    public function delete(User $user, Customer $customer): bool
     {
-        // Admin can favourite all, customers can favourite their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return (bool) ($user->is_super_admin ?? false);
     }
 
-    /**
-     * Determine whether customer can view analytics for a vehicle.
-     */
-    public function viewAnalytics(Customer|User $customer, Vehicle $vehicle): bool
+    public function restore(User $user, Customer $customer): bool
     {
-        // Admin can view all analytics, customers can view their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return (bool) ($user->is_super_admin ?? false);
     }
 
-    /**
-     * Determine whether customer can submit enquiries for a vehicle.
-     */
-    public function submitEnquiry(Customer|User $customer): bool
+    public function forceDelete(User $user, Customer $customer): bool
     {
-        // Admin and authenticated customers can submit enquiries
-        return $customer->isAdmin() || $customer->isAuthenticated();
-    }
-
-    /**
-     * Determine whether customer can view enquiries for a vehicle.
-     */
-    public function viewEnquiries(Customer|User $customer, Vehicle $vehicle): bool
-    {
-        // Admin can view all enquiries, customers can view their own
-        if ($customer instanceof User) {
-            return $customer->isAdmin() || $customer->user_id === $vehicle->user_id;
-        }
-        return $customer->isAdmin() || $customer->customer_id === $vehicle->user_id;
+        return (bool) ($user->is_super_admin ?? false);
     }
 }
