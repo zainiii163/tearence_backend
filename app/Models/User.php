@@ -516,7 +516,29 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
      */
     public function getReputation()
     {
-        return $this->reputation ?? $this->reputation()->create();
+        if ($this->relationLoaded('reputation') && $this->reputation) {
+            return $this->reputation;
+        }
+
+        $existing = $this->reputation()->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return $this->reputation()->create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'user_id' => $this->user_id,
+            'reputation_score' => 0,
+            'posts_count' => 0,
+            'comments_count' => 0,
+            'helpful_count' => 0,
+            'communities_count' => 0,
+            'positive_reviews' => 0,
+            'negative_reviews' => 0,
+            'flags_received' => 0,
+            'completed_deals' => 0,
+            'badges' => [],
+        ]);
     }
 
     /**

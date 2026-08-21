@@ -11,7 +11,7 @@ class UserReputation extends Model
 
     protected $table = 'user_reputation';
     protected $primaryKey = 'id';
-    public $incrementing = true;
+    public $incrementing = false;
     protected $keyType = 'string';
 
     protected $fillable = [

@@ -111,12 +111,18 @@ class CommentController extends Controller
                 }
             }
 
-            // Update user reputation on users row
-            $usersUser = CommunityAuthHelper::usersUser(null, false);
-            if ($usersUser) {
-                $reputation = $usersUser->getReputation();
-                $reputation->incrementCommentsCount();
-                $reputation->incrementReputationScore(2);
+            // Reputation is best-effort — never fail the comment itself
+            try {
+                $usersUser = CommunityAuthHelper::usersUser(null, false);
+                if ($usersUser) {
+                    $reputation = $usersUser->getReputation();
+                    $reputation->incrementCommentsCount();
+                    $reputation->incrementReputationScore(2);
+                }
+            } catch (\Throwable $repErr) {
+                \Log::warning('Comment reputation update skipped', [
+                    'error' => $repErr->getMessage(),
+                ]);
             }
 
             return response()->json([

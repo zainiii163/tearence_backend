@@ -824,14 +824,31 @@ class CommunityController extends Controller
      */
     public function myCommunities()
     {
-        $communities = auth()->user()->communities()
-                                     ->with('category')
-                                     ->get();
+        try {
+            $usersUser = CommunityAuthHelper::usersUser();
+            if (!$usersUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not resolve a Social Hub user profile for this account.',
+                ], 422);
+            }
 
-        return response()->json([
-            'success' => true,
-            'data' => $communities
-        ]);
+            $communities = $usersUser->communities()
+                ->with('category')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $communities,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('myCommunities failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not load your communities.',
+                'data' => [],
+            ], 500);
+        }
     }
 
     /**
