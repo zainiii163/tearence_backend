@@ -16,7 +16,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class CustomerResource extends Resource
@@ -50,23 +49,11 @@ class CustomerResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(150),
-                Forms\Components\TextInput::make('password_hash')
+                Forms\Components\TextInput::make('new_password')
                     ->password()
                     ->label('Password')
-                    ->helperText('Leave blank to keep current password. New passwords are hashed automatically.')
-                    ->dehydrateStateUsing(function ($state) {
-                        if (! filled($state)) {
-                            return null;
-                        }
-                        $value = (string) $state;
-                        // Already a bcrypt hash (e.g. pasted) — keep as-is
-                        if (str_starts_with($value, '$2y$') || str_starts_with($value, '$2a$') || str_starts_with($value, '$2b$')) {
-                            return $value;
-                        }
-
-                        return Hash::make($value);
-                    })
-                    ->dehydrated(fn ($state) => filled($state))
+                    ->helperText('Leave blank to keep the current password.')
+                    ->dehydrated(false)
                     ->maxLength(255),
                 Forms\Components\TextInput::make('phone')
                     ->tel()
@@ -112,7 +99,11 @@ class CustomerResource extends Resource
                 //     ->numeric()
                 //     ->sortable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query
+                            ->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    }),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
                 // Tables\Columns\TextColumn::make('email_verified_at')

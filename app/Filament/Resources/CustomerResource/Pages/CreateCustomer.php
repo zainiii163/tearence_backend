@@ -5,7 +5,7 @@ namespace App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 
 class CreateCustomer extends CreateRecord
 {
@@ -13,14 +13,11 @@ class CreateCustomer extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Ensure customer_uid is set if not provided
-        if (empty($data['customer_uid'])) {
-            $data['customer_uid'] = Str::random(10);
-        }
+        $password = $data['new_password'] ?? null;
+        unset($data['new_password'], $data['password_hash']);
 
-        // Hash password if provided
-        if (!empty($data['password_hash'])) {
-            $data['password_hash'] = bcrypt($data['password_hash']);
+        if (filled($password)) {
+            $data['password_hash'] = Hash::make((string) $password);
         }
 
         return $data;
