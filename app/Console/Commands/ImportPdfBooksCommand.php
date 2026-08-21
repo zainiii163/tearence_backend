@@ -24,7 +24,8 @@ class ImportPdfBooksCommand extends Command
         {--dry-run : Show what would be imported without writing}
         {--prepare-only : Generate covers + copy PDFs to public storage without DB inserts}
         {--from-manifest : Insert books from storage/app/book-imports/manifest.json (files already prepared)}
-        {--force : Re-import and overwrite existing books with the same slug}';
+        {--force : Re-import and overwrite existing books with the same slug}
+        {--purge-existing : Delete ALL existing books (DB rows + their cover/sample files) before import}';
 
     protected $description = 'Import PDF books with proper titles, generated covers, and sample files into the Books marketplace';
 
@@ -128,6 +129,10 @@ class ImportPdfBooksCommand extends Command
                 $this->error('Database unavailable: '.$e->getMessage());
                 $this->line('Tip: use --prepare-only to generate covers/PDFs without DB, then import on the server.');
                 return self::FAILURE;
+            }
+
+            if ($this->option('purge-existing')) {
+                $this->purgeExistingBooks();
             }
         }
 
@@ -284,6 +289,10 @@ class ImportPdfBooksCommand extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('purge-existing')) {
+            $this->purgeExistingBooks();
+        }
+
         $rows = json_decode(File::get($manifestPath), true);
         if (!is_array($rows) || $rows === []) {
             $this->error('Manifest is empty or invalid JSON.');
@@ -374,6 +383,39 @@ class ImportPdfBooksCommand extends Command
         $this->line('Ensure: php artisan storage:link');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Remove all existing marketplace books and their local cover/sample files.
+     */
+    private function purgeExistingBooks(): void
+    {
+        $count = Book::query()->count();
+        $this->warn("Purging {$count} existing book(s) from the database…");
+
+        Book::query()->orderBy('id')->chunkById(100, function ($books) {
+            foreach ($books as $book) {
+                $paths = [];
+                if (!empty($book->cover_image) && !str_starts_with((string) $book->cover_image, 'http')) {
+                    $paths[] = ltrim((string) $book->cover_image, '/');
+                }
+                $samples = is_array($book->sample_files) ? $book->sample_files : [];
+                foreach ($samples as $sample) {
+                    $p = $sample['path'] ?? null;
+                    if ($p && !str_starts_with((string) $p, 'http')) {
+                        $paths[] = ltrim((string) $p, '/');
+                    }
+                }
+                foreach (array_unique($paths) as $rel) {
+                    if (Storage::disk('public')->exists($rel)) {
+                        Storage::disk('public')->delete($rel);
+                    }
+                }
+                $book->delete();
+            }
+        });
+
+        $this->info('Existing books removed.');
     }
 
     private function resolveOwnerUserId(): int
