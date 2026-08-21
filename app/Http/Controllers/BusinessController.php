@@ -360,8 +360,15 @@ class BusinessController extends APIController
      */
     public function show($id)
     {
-        $query = CustomerBusiness::find($id);
-        if (is_null($query)) {
+        // Accept numeric id or slug (FE links often use /business/{slug})
+        $query = null;
+        if (is_numeric($id)) {
+            $query = CustomerBusiness::find($id);
+        }
+        if (!$query) {
+            $query = CustomerBusiness::where('slug', $id)->first();
+        }
+        if (!$query) {
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
         // Convert business_logo to full URL

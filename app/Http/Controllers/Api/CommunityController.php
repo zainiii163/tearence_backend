@@ -811,7 +811,7 @@ class CommunityController extends Controller
                 'slug' => $community->business->slug,
                 'business_name' => $community->business->business_name,
                 'business_logo' => $community->business->business_logo,
-                'href' => '/business/' . ($community->business->slug ?: $community->business->id),
+                'href' => '/business/' . ($community->business->id ?: $community->business->slug),
             ];
         }
         $payload['social_href'] = '/community/' . ($community->slug ?: $community->community_id);
