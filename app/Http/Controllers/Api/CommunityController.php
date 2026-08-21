@@ -664,48 +664,71 @@ class CommunityController extends Controller
             $counter++;
         }
 
-        $userId = $user->user_id ?? $user->getKey();
+        // communities.created_by / members / follows FK → users.user_id
+        // Business owners authenticate as Customer, so resolve a matching User by email when possible.
+        $creatorUserId = null;
+        if ($user instanceof \App\Models\User) {
+            $creatorUserId = $user->user_id ?? $user->getKey();
+        } else {
+            $email = $user->email ?? null;
+            if ($email) {
+                $creatorUserId = \App\Models\User::where('email', $email)->value('user_id');
+            }
+        }
 
-        $community = Community::create([
-            'community_id' => (string) Str::uuid(),
-            'name' => $baseName,
-            'slug' => $slug,
-            'description' => $business->business_description
-                ?: ('Follow ' . ($business->business_name ?: 'this business') . ' for promotions, photos and updates.'),
-            'cover_image' => $business->business_logo,
-            'scope' => 'global',
-            'city' => $business->city,
-            'created_by' => $userId,
-            'business_id' => $business->id,
-            'members_count' => 1,
-            'beginner_friendly' => true,
-            'rules' => [
-                'Be respectful',
-                'No spam',
-                'Share updates about this business only',
-            ],
-        ]);
+        try {
+            $community = Community::create([
+                'community_id' => (string) Str::uuid(),
+                'name' => $baseName,
+                'slug' => $slug,
+                'description' => $business->business_description
+                    ?: ('Follow ' . ($business->business_name ?: 'this business') . ' for promotions, photos and updates.'),
+                'cover_image' => $business->business_logo,
+                'scope' => 'global',
+                'city' => $business->city,
+                'created_by' => $creatorUserId,
+                'business_id' => $business->id,
+                'members_count' => $creatorUserId ? 1 : 0,
+                'beginner_friendly' => true,
+                'rules' => [
+                    'Be respectful',
+                    'No spam',
+                    'Share updates about this business only',
+                ],
+            ]);
 
-        CommunityMember::firstOrCreate(
-            [
-                'community_id' => $community->community_id,
-                'user_id' => $userId,
-            ],
-            [
-                'id' => (string) Str::uuid(),
-                'role' => 'admin',
-            ]
-        );
+            if ($creatorUserId) {
+                CommunityMember::firstOrCreate(
+                    [
+                        'community_id' => $community->community_id,
+                        'user_id' => $creatorUserId,
+                    ],
+                    [
+                        'id' => (string) Str::uuid(),
+                        'role' => 'admin',
+                    ]
+                );
 
-        CommunityFollow::firstOrCreate(
-            [
-                'community_id' => $community->community_id,
-                'user_id' => $userId,
-            ],
-            [
-                'id' => (string) Str::uuid(),
-            ]
-        );
+                CommunityFollow::firstOrCreate(
+                    [
+                        'community_id' => $community->community_id,
+                        'user_id' => $creatorUserId,
+                    ],
+                    [
+                        'id' => (string) Str::uuid(),
+                    ]
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::error('ensureForBusiness failed', [
+                'business_id' => $business->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not create Social Hub page: ' . $e->getMessage(),
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,

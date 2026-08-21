@@ -186,8 +186,8 @@ class SetupMgnitBusinessCommand extends Command
                     $slug = $original.'-'.$n++;
                 }
 
-                $creatorId = $customer->customer_id;
-                // communities.created_by often references user_id; fall back to customer id
+                $creatorUserId = \App\Models\User::where('email', $email)->value('user_id');
+
                 $community = Community::create([
                     'community_id' => (string) Str::uuid(),
                     'name' => $baseName,
@@ -196,26 +196,29 @@ class SetupMgnitBusinessCommand extends Command
                     'cover_image' => $business->cover_image ?: $business->business_logo,
                     'scope' => 'global',
                     'city' => 'Kington',
-                    'created_by' => $creatorId,
+                    'created_by' => $creatorUserId,
                     'business_id' => $business->id,
-                    'members_count' => 1,
+                    'members_count' => $creatorUserId ? 1 : 0,
                     'beginner_friendly' => true,
                     'rules' => ['Be respectful', 'No spam', 'Share updates about MGNIT LTD only'],
                 ]);
 
-                try {
-                    CommunityMember::firstOrCreate(
-                        [
-                            'community_id' => $community->community_id,
-                            'user_id' => $creatorId,
-                        ],
-                        [
-                            'role' => 'admin',
-                            'joined_at' => now(),
-                        ]
-                    );
-                } catch (\Throwable $e) {
-                    $this->warn('Community member link skipped: '.$e->getMessage());
+                if ($creatorUserId) {
+                    try {
+                        CommunityMember::firstOrCreate(
+                            [
+                                'community_id' => $community->community_id,
+                                'user_id' => $creatorUserId,
+                            ],
+                            [
+                                'id' => (string) Str::uuid(),
+                                'role' => 'admin',
+                                'joined_at' => now(),
+                            ]
+                        );
+                    } catch (\Throwable $e) {
+                        $this->warn('Community member link skipped: '.$e->getMessage());
+                    }
                 }
 
                 $this->info('Social Hub created: /community/'.$community->slug);
