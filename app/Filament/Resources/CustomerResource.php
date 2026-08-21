@@ -30,6 +30,12 @@ class CustomerResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
+    public static function getEloquentQuery(): Builder
+    {
+        // Avoid eager-loading currency on every Filament list row (can break render if relation is odd)
+        return parent::getEloquentQuery()->without(['currency']);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -95,21 +101,20 @@ class CustomerResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('customer_uid')
                     ->searchable(),
-                // Tables\Columns\TextColumn::make('group.name')
-                //     ->numeric()
-                //     ->sortable(),
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Name')
+                    ->getStateUsing(fn (Customer $record): string => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) ?: '—')
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query
-                            ->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
+                        return $query->where(function (Builder $q) use ($search) {
+                            $q->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
                     }),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
-                // Tables\Columns\TextColumn::make('email_verified_at')
-                //     ->dateTime()
-                //     ->sortable(),
                 Tables\Columns\TextColumn::make('phone')
+                    ->formatStateUsing(fn ($state): string => is_scalar($state) || $state === null ? (string) ($state ?? '—') : '—')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
