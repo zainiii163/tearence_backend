@@ -32,6 +32,11 @@ class CustomerBusinessResource extends Resource
 
     protected static ?string $pluralLabel = 'Businesses';
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['socialCommunity', 'customer', 'category']);
+    }
+
     public static function canViewAny(): bool
     {
         return true;
@@ -359,6 +364,19 @@ class CustomerBusinessResource extends Resource
                     ->preload(),
             ])
             ->actions([
+                Tables\Actions\Action::make('open_social')
+                    ->label('Social')
+                    ->icon('heroicon-o-share')
+                    ->color('primary')
+                    ->url(function (CustomerBusiness $record): ?string {
+                        $community = $record->socialCommunity;
+                        if (!$community) {
+                            return null;
+                        }
+                        return BusinessSocialPageResource::socialUrl($community);
+                    })
+                    ->openUrlInNewTab()
+                    ->visible(fn (CustomerBusiness $record): bool => (bool) $record->socialCommunity),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

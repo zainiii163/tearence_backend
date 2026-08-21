@@ -37,6 +37,7 @@ class Community extends Model
         'beginner_friendly',
         'rules',
         'created_by',
+        'business_id',
     ];
 
     protected $casts = [
@@ -55,6 +56,11 @@ class Community extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by', 'user_id');
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(CustomerBusiness::class, 'business_id', 'id');
     }
 
     public function members()

@@ -187,7 +187,11 @@ class Customer extends Authenticatable implements JWTSubject
      */
     public function isAdmin(): bool
     {
-        return $this->email === 'admin@worldwideadverts.com' || $this->customer_id === 1;
+        return $this->email === 'admin@worldwideadverts.com'
+            || (int) $this->customer_id === 1
+            || (bool) ($this->is_admin ?? false)
+            || (bool) ($this->is_super_admin ?? false)
+            || in_array(strtolower((string) ($this->role ?? '')), ['admin', 'super_admin', 'superadmin'], true);
     }
 
     /**

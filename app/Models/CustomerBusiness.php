@@ -78,6 +78,12 @@ class CustomerBusiness extends Model
         return $this->belongsTo(Category::class, 'category_id', 'category_id');
     }
 
+    /** Linked Social Hub / Creator Feed page */
+    public function socialCommunity()
+    {
+        return $this->hasOne(Community::class, 'business_id', 'id');
+    }
+
     /**
      * Frontend-friendly alias for category_profile JSON.
      */

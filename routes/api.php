@@ -3589,10 +3589,14 @@ Route::group([
         Route::get('/trending', [CommunityController::class, 'trending']);
         Route::get('/featured', [CommunityController::class, 'featured']);
         Route::get('/category/{categoryId}', [CommunityController::class, 'byCategory']);
+        Route::get('/business/{businessId}', [CommunityController::class, 'forBusiness']);
 
         // Authenticated routes (static paths before /{id})
         Route::group(['middleware' => 'jwt.auth'], function () {
             Route::get('/my-communities', [CommunityController::class, 'myCommunities']);
+            Route::get('/business-pages', [CommunityController::class, 'businessPages']);
+            Route::post('/business/{businessId}/ensure', [CommunityController::class, 'ensureForBusiness'])
+                ->middleware('verified.to.post');
             Route::post('/', [CommunityController::class, 'store'])->middleware('verified.to.post');
             Route::put('/{id}', [CommunityController::class, 'update']);
             Route::delete('/{id}', [CommunityController::class, 'destroy']);

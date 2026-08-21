@@ -7,7 +7,9 @@ use App\Models\Community;
 use App\Models\CommunityMember;
 use App\Models\CommunityFollow;
 use App\Models\Category;
+use App\Models\CustomerBusiness;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -144,14 +146,31 @@ class CommunityController extends Controller
      */
     public function show($id)
     {
-        $community = Community::with(['category', 'creator', 'members.user'])
-                              ->where('community_id', $id)
-                              ->orWhere('slug', $id)
+        $with = ['category', 'creator', 'members.user'];
+        if (Schema::hasColumn('communities', 'business_id')) {
+            $with[] = 'business';
+        }
+
+        $community = Community::with($with)
+                              ->where(function ($q) use ($id) {
+                                  $q->where('community_id', $id)->orWhere('slug', $id);
+                              })
                               ->firstOrFail();
+
+        $payload = $community->toArray();
+        if ($community->relationLoaded('business') && $community->business) {
+            $payload['business'] = [
+                'id' => $community->business->id,
+                'slug' => $community->business->slug,
+                'business_name' => $community->business->business_name,
+                'business_logo' => $community->business->business_logo,
+                'href' => '/business/' . ($community->business->slug ?: $community->business->id),
+            ];
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $community
+            'data' => $payload
         ]);
     }
 
@@ -562,6 +581,199 @@ class CommunityController extends Controller
             'success' => true,
             'data' => $members
         ]);
+    }
+
+    /**
+     * Public: Social Hub page linked to a business profile.
+     */
+    public function forBusiness($businessId)
+    {
+        if (!Schema::hasColumn('communities', 'business_id')) {
+            return response()->json([
+                'success' => true,
+                'data' => null,
+                'message' => 'Business Social Hub link not migrated yet',
+            ]);
+        }
+
+        $community = Community::with(['category', 'creator', 'business'])
+            ->where('business_id', $businessId)
+            ->first();
+
+        if (!$community) {
+            return response()->json([
+                'success' => true,
+                'data' => null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->formatBusinessCommunity($community),
+        ]);
+    }
+
+    /**
+     * Auth: create (or return) the Social Hub page for a business the user owns.
+     */
+    public function ensureForBusiness(Request $request, $businessId)
+    {
+        if (!Schema::hasColumn('communities', 'business_id')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Run migrations to enable business Social Hub pages',
+            ], 503);
+        }
+
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $business = CustomerBusiness::findOrFail($businessId);
+        $customerId = $user->customer_id ?? $user->getKey();
+        $isOwner = (int) $business->customer_id === (int) $customerId;
+        $isAdmin = (method_exists($user, 'isAdmin') && $user->isAdmin())
+            || (method_exists($user, 'isBusinessAdmin') && $user->isBusinessAdmin())
+            || (bool) ($user->is_super_admin ?? false)
+            || in_array(strtolower((string) ($user->role ?? '')), ['admin', 'super_admin', 'superadmin'], true);
+
+        if (!$isOwner && !$isAdmin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the business owner can open their Social Hub page',
+            ], 403);
+        }
+
+        $community = Community::where('business_id', $business->id)->first();
+        if ($community) {
+            return response()->json([
+                'success' => true,
+                'data' => $this->formatBusinessCommunity($community->load(['category', 'creator', 'business'])),
+                'created' => false,
+            ]);
+        }
+
+        $baseName = trim($business->business_name ?: 'Business') . ' — updates';
+        $slug = Str::slug($baseName);
+        $originalSlug = $slug ?: ('business-' . $business->id);
+        $slug = $originalSlug;
+        $counter = 1;
+        while (Community::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+
+        $userId = $user->user_id ?? $user->getKey();
+
+        $community = Community::create([
+            'community_id' => (string) Str::uuid(),
+            'name' => $baseName,
+            'slug' => $slug,
+            'description' => $business->business_description
+                ?: ('Follow ' . ($business->business_name ?: 'this business') . ' for promotions, photos and updates.'),
+            'cover_image' => $business->business_logo,
+            'scope' => 'global',
+            'city' => $business->city,
+            'created_by' => $userId,
+            'business_id' => $business->id,
+            'members_count' => 1,
+            'beginner_friendly' => true,
+            'rules' => [
+                'Be respectful',
+                'No spam',
+                'Share updates about this business only',
+            ],
+        ]);
+
+        CommunityMember::firstOrCreate(
+            [
+                'community_id' => $community->community_id,
+                'user_id' => $userId,
+            ],
+            [
+                'id' => (string) Str::uuid(),
+                'role' => 'admin',
+            ]
+        );
+
+        CommunityFollow::firstOrCreate(
+            [
+                'community_id' => $community->community_id,
+                'user_id' => $userId,
+            ],
+            [
+                'id' => (string) Str::uuid(),
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->formatBusinessCommunity($community->load(['category', 'creator', 'business'])),
+            'created' => true,
+            'message' => 'Business Social Hub page ready',
+        ], 201);
+    }
+
+    /**
+     * Admin / dashboard: list Social Hub pages linked to businesses.
+     */
+    public function businessPages(Request $request)
+    {
+        if (!Schema::hasColumn('communities', 'business_id')) {
+            return response()->json(['success' => true, 'data' => []]);
+        }
+
+        $user = auth()->user();
+        $query = Community::with(['business', 'category', 'creator'])
+            ->whereNotNull('business_id');
+
+        $isAdmin = $user && (
+            (method_exists($user, 'isAdmin') && $user->isAdmin())
+            || (method_exists($user, 'isBusinessAdmin') && $user->isBusinessAdmin())
+            || (bool) ($user->is_super_admin ?? false)
+            || in_array(strtolower((string) ($user->role ?? '')), ['admin', 'super_admin', 'superadmin'], true)
+        );
+        if (!$isAdmin) {
+            $customerId = $user->customer_id ?? $user->getKey();
+            $ownedIds = CustomerBusiness::where('customer_id', $customerId)->pluck('id');
+            $query->whereIn('business_id', $ownedIds);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhereHas('business', function ($bq) use ($search) {
+                      $bq->where('business_name', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $rows = $query->orderByDesc('updated_at')->paginate($request->get('per_page', 20));
+        $rows->getCollection()->transform(fn ($c) => $this->formatBusinessCommunity($c));
+
+        return response()->json([
+            'success' => true,
+            'data' => $rows,
+        ]);
+    }
+
+    protected function formatBusinessCommunity(Community $community): array
+    {
+        $payload = $community->toArray();
+        if ($community->relationLoaded('business') && $community->business) {
+            $payload['business'] = [
+                'id' => $community->business->id,
+                'slug' => $community->business->slug,
+                'business_name' => $community->business->business_name,
+                'business_logo' => $community->business->business_logo,
+                'href' => '/business/' . ($community->business->slug ?: $community->business->id),
+            ];
+        }
+        $payload['social_href'] = '/community/' . ($community->slug ?: $community->community_id);
+        $payload['followers_count'] = $community->followers()->count();
+        return $payload;
     }
 
     /**
