@@ -202,6 +202,29 @@ class TeamRoleSeeder extends Seeder
                     ],
                 ],
             ],
+            'it' => [
+                'name' => 'IT',
+                'description' => 'IT / security — login monitoring and infrastructure',
+                'roles' => [
+                    'security-analyst' => [
+                        'name' => 'Security Analyst',
+                        'description' => 'View all login activity and security alerts',
+                        'flags' => [
+                            'can_view_analytics' => true,
+                        ],
+                        'permissions' => ['security.logs', 'security.alerts'],
+                    ],
+                    'it-admin' => [
+                        'name' => 'IT Admin',
+                        'description' => 'IT department lead — full security log access',
+                        'flags' => [
+                            'can_view_analytics' => true,
+                            'can_manage_dashboard' => true,
+                        ],
+                        'permissions' => ['security.logs', 'security.alerts', 'security.manage'],
+                    ],
+                ],
+            ],
         ];
 
         foreach ($tree as $teamSlug => $teamData) {

@@ -142,6 +142,10 @@ class UserResource extends Resource
                         Forms\Components\Toggle::make('can_view_analytics')
                             ->label('Can View Analytics')
                             ->default(false),
+                        Forms\Components\Toggle::make('can_view_security_logs')
+                            ->label('Can View Security / Login Logs')
+                            ->helperText('IT / Super Admin: see all login attempts and locations')
+                            ->default(false),
                         Forms\Components\Toggle::make('is_active')
                             ->label('Active')
                             ->helperText('Deactivate to prevent login')

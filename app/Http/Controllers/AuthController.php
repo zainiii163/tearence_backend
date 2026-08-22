@@ -19,6 +19,7 @@ use App\Helpers\OtpHelper;
 use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\Category;
+use App\Services\LoginAuditService;
 use App\Services\VerificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -116,6 +117,11 @@ class AuthController extends APIController
         // check user is exists or not by email
         $check_user = Customer::where('email', request()->email);
         if (!$check_user->exists()) {
+            app(LoginAuditService::class)->recordCustomerFailure(
+                (string) request()->email,
+                'user_not_found',
+                'api'
+            );
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
 
@@ -132,6 +138,11 @@ class AuthController extends APIController
 
         // get token from user email & password
         if (!$token = auth('api')->attempt(['email' => $email, 'password' => $password])) {
+            app(LoginAuditService::class)->recordCustomerFailure(
+                (string) $email,
+                'invalid_credentials',
+                'api'
+            );
             return $this->errorResponse('There was a problem logging in. Check your email and password or create an account.', Response::HTTP_UNAUTHORIZED);
         }
 
@@ -139,12 +150,27 @@ class AuthController extends APIController
         if ($authed && $authed->two_factor_confirmed_at) {
             auth('api')->logout();
             $pending = \App\Http\Controllers\Api\TwoFactorController::createPendingLogin($authed);
+            app(LoginAuditService::class)->record([
+                'guard' => 'api',
+                'actor_type' => 'customer',
+                'actor_id' => $authed->customer_id,
+                'email' => $authed->email,
+                'successful' => false,
+                'event' => '2fa_pending',
+                'is_admin_backend' => false,
+            ]);
 
             return $this->successResponse([
                 'requires_2fa' => true,
                 'pending_token' => $pending,
             ], 'Two-factor authentication required', Response::HTTP_OK);
         }
+
+        app(LoginAuditService::class)->recordCustomerSuccess(
+            (string) $authed->email,
+            $authed->customer_id,
+            'api'
+        );
 
         $response = [
             'access_token' => $token,
@@ -169,6 +195,12 @@ class AuthController extends APIController
 
             // Attempt JWT authentication using the configured api guard
             if (!$token = auth('api')->attempt($credentials)) {
+                app(LoginAuditService::class)->recordCustomerFailure(
+                    (string) $credentials['email'],
+                    'invalid_credentials',
+                    'api'
+                );
+
                 return response()->json([
                     'success' => false,
                     'message' => 'The provided credentials do not match our records.'
@@ -180,6 +212,15 @@ class AuthController extends APIController
             if ($user && $user->two_factor_confirmed_at) {
                 auth('api')->logout();
                 $pending = \App\Http\Controllers\Api\TwoFactorController::createPendingLogin($user);
+                app(LoginAuditService::class)->record([
+                    'guard' => 'api',
+                    'actor_type' => 'customer',
+                    'actor_id' => $user->customer_id,
+                    'email' => $user->email,
+                    'successful' => false,
+                    'event' => '2fa_pending',
+                    'is_admin_backend' => false,
+                ]);
 
                 return response()->json([
                     'success' => true,
@@ -190,6 +231,12 @@ class AuthController extends APIController
                     ],
                 ]);
             }
+
+            app(LoginAuditService::class)->recordCustomerSuccess(
+                (string) $user->email,
+                $user->customer_id,
+                'api'
+            );
 
             return response()->json([
                 'success' => true,
@@ -355,6 +402,11 @@ class AuthController extends APIController
         // check user is exists or not by email
         $check_user = User::where('email', request()->email);
         if (!$check_user->exists()) {
+            app(LoginAuditService::class)->recordAdminFailure(
+                (string) request()->email,
+                'user_not_found',
+                'admin'
+            );
             return $this->errorResponse('Data not found.', RESPONSE::HTTP_NOT_FOUND);
         }
 
@@ -371,8 +423,20 @@ class AuthController extends APIController
 
         // get token from user email & password
         if (!$token = auth('admin')->attempt($validator->validated())) {
+            app(LoginAuditService::class)->recordAdminFailure(
+                (string) request()->email,
+                'invalid_credentials',
+                'admin'
+            );
             return $this->errorResponse('There was a problem logging in. Check your email and password or create an account.', RESPONSE::HTTP_UNAUTHORIZED);
         }
+
+        $adminUser = auth('admin')->user();
+        app(LoginAuditService::class)->recordAdminSuccess(
+            (string) ($adminUser->email ?? request()->email),
+            $adminUser->user_id ?? null,
+            'admin'
+        );
 
         $response = [
             'access_token' => $token,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\TotpHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\LoginAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -148,6 +149,12 @@ class TwoFactorController extends Controller
         $payload = Cache::get($cacheKey);
 
         if (!$payload || empty($payload['customer_id'])) {
+            app(LoginAuditService::class)->recordCustomerFailure(
+                '',
+                '2fa_session_expired',
+                'api',
+                '2fa_failed'
+            );
             return response()->json([
                 'success' => false,
                 'message' => 'Login session expired. Please sign in again.',
@@ -157,6 +164,12 @@ class TwoFactorController extends Controller
         $user = Customer::find($payload['customer_id']);
         if (!$user || !$user->two_factor_confirmed_at) {
             Cache::forget($cacheKey);
+            app(LoginAuditService::class)->recordCustomerFailure(
+                (string) ($user->email ?? ''),
+                '2fa_user_invalid',
+                'api',
+                '2fa_failed'
+            );
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to verify two-factor login.',
@@ -164,6 +177,13 @@ class TwoFactorController extends Controller
         }
 
         if (!$this->verifyUserCode($user, $request->code)) {
+            app(LoginAuditService::class)->recordCustomerFailure(
+                (string) $user->email,
+                'invalid_2fa_code',
+                'api',
+                '2fa_failed',
+                ['customer_id' => $user->customer_id]
+            );
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid authentication or recovery code.',
@@ -172,6 +192,13 @@ class TwoFactorController extends Controller
 
         Cache::forget($cacheKey);
         $token = JWTAuth::fromUser($user);
+
+        app(LoginAuditService::class)->recordCustomerSuccess(
+            (string) $user->email,
+            $user->customer_id,
+            'api',
+            '2fa_success'
+        );
 
         return response()->json([
             'success' => true,

@@ -123,6 +123,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_manage_listings',
         'can_manage_dashboard',
         'can_view_analytics',
+        'can_view_security_logs',
         'is_business_admin',
         'timezone',
         'avatar',
@@ -175,6 +176,7 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
         'can_manage_listings' => 'boolean',
         'can_manage_dashboard' => 'boolean',
         'can_view_analytics' => 'boolean',
+        'can_view_security_logs' => 'boolean',
         'email_verified' => 'boolean',
         'mobile_verified' => 'boolean',
         'crypto_wallet_verified_at' => 'datetime',
@@ -244,8 +246,15 @@ class User extends Authenticatable implements FilamentUser, HasName, JWTSubject
             'manage_listings' => $this->can_manage_listings,
             'manage_dashboard' => $this->can_manage_dashboard,
             'view_analytics' => $this->can_view_analytics,
+            'view_security_logs' => (bool) ($this->can_view_security_logs ?? false),
             default => false,
         };
+    }
+
+    /** Super Admin + IT: view all login attempts and locations */
+    public function canViewSecurityLogs(): bool
+    {
+        return (bool) $this->is_super_admin || (bool) ($this->can_view_security_logs ?? false);
     }
 
     /**

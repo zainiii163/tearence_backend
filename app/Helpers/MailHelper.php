@@ -64,4 +64,51 @@ class MailHelper
 
         Log::info('Send forgot password reset link to : '.$user->email);
     }
+
+    /**
+     * Clive: email Super Admin / IT when logins or attempts need attention.
+     */
+    public static function sendSecurityLoginAlert(string $message, array $details = []): void
+    {
+        if (! config('security.login_alerts_enabled', true)) {
+            return;
+        }
+
+        $recipients = config('security.alert_emails', []);
+
+        if (config('security.email_security_staff', true)) {
+            try {
+                $staff = \App\Models\User::query()
+                    ->where(function ($q) {
+                        $q->where('is_super_admin', true);
+                        if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'can_view_security_logs')) {
+                            $q->orWhere('can_view_security_logs', true);
+                        }
+                    })
+                    ->whereNotNull('email')
+                    ->pluck('email')
+                    ->all();
+                $recipients = array_merge($recipients, $staff);
+            } catch (\Throwable $e) {
+                Log::debug('Security staff email lookup skipped: '.$e->getMessage());
+            }
+        }
+
+        $recipients = array_values(array_unique(array_filter(array_map('strtolower', $recipients))));
+        if ($recipients === []) {
+            Log::info('Security login alert (no recipients configured): '.$message);
+
+            return;
+        }
+
+        foreach ($recipients as $email) {
+            try {
+                Mail::to($email)->send(new \App\Mail\SecurityLoginAlertMail($message, $details));
+            } catch (\Exception $e) {
+                Log::warning('Security login alert email failed for '.$email.': '.$e->getMessage());
+            }
+        }
+
+        Log::info('Security login alert emailed to: '.implode(', ', $recipients));
+    }
 }
