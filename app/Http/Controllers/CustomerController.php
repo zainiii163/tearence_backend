@@ -8,6 +8,7 @@ use App\Models\Location;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -137,46 +138,65 @@ class CustomerController extends APIController
      */
     public function index(Request $request)
     {
-        $query = new Customer();
-        $skip = $request->get('skip');
-        $limit = $request->get('limit');
+        $query = Customer::query();
 
         if ($email = $request->get('email')) {
-            $query = $query->where(function($query) use ($email) {
-                $query = $query->where('email', 'like', '%'.$email.'%');
-            });
+            $query->where('email', 'like', '%'.$email.'%');
         }
 
         if ($name = $request->get('name')) {
-            $query = $query->where(function($query) use ($name) {
-                $query = $query->where('first_name', 'like', '%'.$name.'%');
-                $query = $query->orWhere('last_name', 'like', '%'.$name.'%');
+            $query->where(function ($q) use ($name) {
+                $q->where('first_name', 'like', '%'.$name.'%')
+                    ->orWhere('last_name', 'like', '%'.$name.'%');
             });
         }
 
+        // React admin Users tab sends a single combined search term.
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('email', 'like', '%'.$search.'%')
+                    ->orWhere('first_name', 'like', '%'.$search.'%')
+                    ->orWhere('last_name', 'like', '%'.$search.'%');
+            });
+        }
+
+        // Only filter on optional columns when they actually exist (prevents
+        // SQL 500s on databases that have not been migrated yet).
         if ($status = $request->get('status')) {
-            $query = $query->where('status', $status);
+            if (Schema::hasColumn('customer', 'status')) {
+                $query->where('status', $status);
+            }
         }
 
-        if ($sort = $request->get('sort')) {
-            $query = $query->orderBy($sort, $request->get('sort_type') ? $request->get('sort_type') : 'asc');
-        } else {
-            $query = $query->orderBy('category_id');
+        if ($role = $request->get('role')) {
+            if (Schema::hasColumn('customer', 'role')) {
+                $query->where('role', $role);
+            }
         }
 
-        if ($skip == "") {
-            $query = $query->get();
-            $total = $query->count();
+        $sort = $request->get('sort');
+        if ($sort && Schema::hasColumn('customer', $sort)) {
+            $query->orderBy($sort, $request->get('sort_type') ?: 'asc');
         } else {
-            $perPage = ($skip == "") ? $query->count() : (
-                $request->has('limit') ? $limit : 10
-            );
-            $total = $query->count();
-            $query = $query->skip($skip)->take($perPage)->get();
+            $query->orderBy('customer_id');
+        }
+
+        $total = $query->count();
+
+        // Prefer page/per_page (admin Users tab), fall back to legacy skip/limit.
+        $perPage = (int) $request->get('per_page', (int) ($request->get('limit') ?: 0));
+        if ($perPage > 0) {
+            $page = max(1, (int) $request->get('page', 1));
+            $items = $query->skip(($page - 1) * $perPage)->take($perPage)->get();
+        } elseif (($skip = $request->get('skip')) !== null && $skip !== '') {
+            $take = (int) ($request->get('limit') ?: 10);
+            $items = $query->skip((int) $skip)->take($take > 0 ? $take : 10)->get();
+        } else {
+            $items = $query->get();
         }
 
         $result = [
-            'items' => $query,
+            'items' => $items,
             'total' => $total,
         ];
 
@@ -475,15 +495,40 @@ class CustomerController extends APIController
             DB::beginTransaction();
 
             // $customer->update($requestData);
-            $customer->first_name = $requestData['first_name'];
-            $customer->last_name = $requestData['last_name'];
-            $customer->phone = $requestData['phone'];
-            $customer->gender = $requestData['gender'];
-            $customer->currency_id = $requestData['currency_id'];
-            $customer->birthday = $requestData['birthday'];
-            $customer->address_street = $requestData['address_street'];
-            $customer->address_house = $requestData['address_house'];
-            $customer->email = $requestData['email'];
+            // Partial updates: only touch fields that were actually sent so
+            // admin actions like PUT { role } or { status } do not wipe
+            // profile data with nulls.
+            $profileFields = [
+                'first_name',
+                'last_name',
+                'phone',
+                'gender',
+                'currency_id',
+                'birthday',
+                'address_street',
+                'address_house',
+                'email',
+            ];
+            foreach ($profileFields as $field) {
+                if ($request->has($field)) {
+                    $customer->{$field} = $requestData[$field];
+                }
+            }
+
+            // Admin management fields used by the Super Admin dashboard.
+            if (Schema::hasColumn('customer', 'role') && $request->filled('role')) {
+                $customer->role = strtolower((string) $request->input('role'));
+            }
+            if (Schema::hasColumn('customer', 'is_super_admin') && $request->has('is_super_admin')) {
+                $customer->is_super_admin = (bool) $request->boolean('is_super_admin');
+            }
+            if (Schema::hasColumn('customer', 'status') && $request->filled('status')) {
+                $customer->status = strtolower((string) $request->input('status'));
+            }
+            if (Schema::hasColumn('customer', 'user_type') && $request->filled('user_type')) {
+                $customer->user_type = strtolower((string) $request->input('user_type'));
+            }
+
             $customer->updated_at = date("Y-m-d H:i:s");
             $customer->save();
 

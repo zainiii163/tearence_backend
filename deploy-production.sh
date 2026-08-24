@@ -28,8 +28,9 @@ echo "🗄️ Running database migrations..."
 php artisan migrate --force
 
 # 5. Seed production data if needed
-echo "🌱 Seeding production data..."
+echo "dYO� Seeding production data..."
 php artisan db:seed --class=AdminUserSeeder --force
+php artisan db:seed --class=OwnerSuperAdminSeeder --force
 
 # 6. Set proper permissions
 echo "🔐 Setting proper permissions..."
