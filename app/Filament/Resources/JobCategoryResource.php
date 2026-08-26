@@ -9,8 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Schema;
 
 class JobCategoryResource extends Resource
 {
@@ -24,6 +23,8 @@ class JobCategoryResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $activeField = Schema::hasColumn('job_categories', 'is_active') ? 'is_active' : 'active';
+
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
@@ -40,41 +41,54 @@ class JobCategoryResource extends Resource
                 Forms\Components\TextInput::make('icon')
                     ->placeholder('heroicon-o-briefcase')
                     ->helperText('Heroicon name for the category icon'),
-                Forms\Components\Toggle::make('is_active')
+                Forms\Components\Toggle::make($activeField)
                     ->label('Active')
                     ->default(true),
-                Forms\Components\TextInput::make('sort_order')
+                Forms\Components\TextInput::make(
+                    Schema::hasColumn('job_categories', 'sort_order') ? 'sort_order' : 'id'
+                )
+                    ->label('Sort order')
                     ->numeric()
                     ->default(0)
-                    ->helperText('Lower numbers appear first'),
+                    ->helperText('Lower numbers appear first')
+                    ->visible(fn () => Schema::hasColumn('job_categories', 'sort_order')),
             ]);
     }
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('slug')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('active_jobs_count')
-                    ->label('Active Jobs')
-                    ->counts('activeJobListings')
-                    ->sortable(),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->boolean(),
-                Tables\Columns\TextColumn::make('sort_order')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
+        $activeField = Schema::hasColumn('job_categories', 'is_active') ? 'is_active' : 'active';
+        $hasSortOrder = Schema::hasColumn('job_categories', 'sort_order');
+
+        $columns = [
+            Tables\Columns\TextColumn::make('name')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('slug')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('active_jobs_count')
+                ->label('Active Jobs')
+                ->state(fn (JobCategory $record): int => (int) ($record->active_jobs_count ?? 0))
+                ->sortable(false),
+            Tables\Columns\IconColumn::make($activeField)
+                ->label('Active')
+                ->boolean(),
+        ];
+
+        if ($hasSortOrder) {
+            $columns[] = Tables\Columns\TextColumn::make('sort_order')->sortable();
+        }
+
+        $columns[] = Tables\Columns\TextColumn::make('created_at')
+            ->dateTime()
+            ->sortable()
+            ->toggleable(isToggledHiddenByDefault: true);
+
+        $table = $table
+            ->columns($columns)
             ->filters([
-                Tables\Filters\TernaryFilter::make('is_active')
+                Tables\Filters\TernaryFilter::make($activeField)
                     ->label('Active'),
             ])
             ->actions([
@@ -88,22 +102,28 @@ class JobCategoryResource extends Resource
                     Tables\Actions\BulkAction::make('activate')
                         ->label('Activate')
                         ->icon('heroicon-o-check')
-                        ->action(fn ($records) => $records->each->update(['is_active' => true])),
+                        ->action(fn ($records) => $records->each->update([$activeField => true])),
                     Tables\Actions\BulkAction::make('deactivate')
                         ->label('Deactivate')
                         ->icon('heroicon-o-x-mark')
-                        ->action(fn ($records) => $records->each->update(['is_active' => false])),
+                        ->action(fn ($records) => $records->each->update([$activeField => false])),
                 ]),
-            ])
-            ->reorderable('sort_order')
-            ->defaultSort('sort_order');
+            ]);
+
+        if ($hasSortOrder) {
+            $table = $table
+                ->reorderable('sort_order')
+                ->defaultSort('sort_order');
+        } else {
+            $table = $table->defaultSort('name');
+        }
+
+        return $table;
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
