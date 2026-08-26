@@ -176,6 +176,7 @@ use App\Http\Controllers\Api\BuySellUploadController;
 use App\Http\Controllers\Api\BusinessTemplateController;
 use App\Http\Controllers\Api\PayPalOrderController;
 use App\Http\Controllers\Api\CryptoPaymentController;
+use App\Http\Controllers\Api\StripePaymentController;
 use App\Http\Controllers\Api\SellerMarketplaceController;
 use App\Http\Controllers\Api\CustomerKycController;
 
@@ -2397,6 +2398,20 @@ Route::group([
             ->middleware('jwt.auth')
             ->where('paymentId', '[A-Za-z0-9_-]+');
         Route::post('/webhook', [CryptoPaymentController::class, 'webhook']);
+    });
+
+    // Site-wide Stripe card checkout (all products via PaymentProcessor)
+    Route::group(['prefix' => 'stripe', 'middleware' => ['throttle:payments']], function () {
+        Route::get('/config', [StripePaymentController::class, 'clientConfig']);
+        Route::post('/payment-intents', [StripePaymentController::class, 'createPaymentIntent'])
+            ->middleware('jwt.auth');
+        Route::post('/payment-intents/{paymentId}/confirm', [StripePaymentController::class, 'confirm'])
+            ->middleware('jwt.auth')
+            ->where('paymentId', '[A-Za-z0-9_-]+');
+        Route::post('/payment-intents/{paymentId}/confirm-mock', [StripePaymentController::class, 'confirmMock'])
+            ->middleware('jwt.auth')
+            ->where('paymentId', '[A-Za-z0-9_-]+');
+        Route::post('/webhook', [StripePaymentController::class, 'webhook']);
     });
 
     // Marketplace seller earnings (product sales → 85% seller / 15% platform)

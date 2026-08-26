@@ -23,7 +23,7 @@ class HrDashboard extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Staff, customers, job listings, applications, and talent pool.';
+        return 'Staff directory, holiday & sick leave, and payroll (salary, location, position, hours). Use HR & Payroll in the sidebar.';
     }
 
     protected function getHeaderWidgets(): array

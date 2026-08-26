@@ -3,8 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Support\DashboardMetrics;
+use App\Models\HrEmployee;
+use App\Models\HrLeaveRequest;
+use App\Models\HrPayrollRecord;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Schema;
 
 class HrDashboardStatsWidget extends BaseWidget
 {
@@ -14,6 +18,36 @@ class HrDashboardStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        if (Schema::hasTable('hr_employees')) {
+            $employees = HrEmployee::query()->count();
+            $active = HrEmployee::query()->where('status', 'active')->count();
+            $pendingLeave = Schema::hasTable('hr_leave_requests')
+                ? HrLeaveRequest::query()->where('status', 'pending')->count()
+                : 0;
+            $payrollDraft = Schema::hasTable('hr_payroll_records')
+                ? HrPayrollRecord::query()->where('payment_status', 'draft')->count()
+                : 0;
+
+            return [
+                Stat::make('Employees', number_format($employees))
+                    ->description(number_format($active).' active')
+                    ->descriptionIcon('heroicon-m-identification')
+                    ->color('primary'),
+                Stat::make('Pending leave', number_format($pendingLeave))
+                    ->description('Holiday & sick requests')
+                    ->descriptionIcon('heroicon-m-calendar-days')
+                    ->color('warning'),
+                Stat::make('Payroll drafts', number_format($payrollDraft))
+                    ->description('Awaiting approval / pay')
+                    ->descriptionIcon('heroicon-m-banknotes')
+                    ->color('success'),
+                Stat::make('On leave', number_format(HrEmployee::query()->where('status', 'on_leave')->count()))
+                    ->description('Current status')
+                    ->descriptionIcon('heroicon-m-user-minus')
+                    ->color('info'),
+            ];
+        }
+
         $staff = DashboardMetrics::count('users', function ($q) {
             $q->where(function ($inner) {
                 if (DashboardMetrics::columnExists('users', 'is_super_admin')) {
@@ -28,31 +62,11 @@ class HrDashboardStatsWidget extends BaseWidget
             });
         });
 
-        $totalUsers = DashboardMetrics::count('users');
-        $customers = max($totalUsers - $staff, 0);
-
-        $jobs = DashboardMetrics::count('jobs');
-        $applications = DashboardMetrics::count('job_applications');
-        $seekers = DashboardMetrics::count('job_seekers');
-        $groups = DashboardMetrics::count('group');
-
         return [
             Stat::make('Team / Staff', number_format(max($staff, 0)))
-                ->description('Admin & internal roles')
+                ->description('Run migrate for HR employees table')
                 ->descriptionIcon('heroicon-m-identification')
                 ->color('primary'),
-            Stat::make('Customers', number_format($customers))
-                ->description('Registered platform users')
-                ->descriptionIcon('heroicon-m-users')
-                ->color('info'),
-            Stat::make('Open Jobs', number_format($jobs))
-                ->description(number_format($applications) . ' applications')
-                ->descriptionIcon('heroicon-m-briefcase')
-                ->color('success'),
-            Stat::make('Talent Pool', number_format($seekers + $groups))
-                ->description(number_format($seekers) . ' seekers · ' . number_format($groups) . ' groups')
-                ->descriptionIcon('heroicon-m-academic-cap')
-                ->color('warning'),
         ];
     }
 }

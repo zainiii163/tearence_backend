@@ -8,17 +8,18 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
-use Filament\Tables\Table;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Actions\Action;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\HtmlString;
 
+/**
+ * Clive: track money-in across cards / Stripe / PayPal / crypto.
+ * Values persist in cache (admin UI). Live checkout still uses .env for PayPal/crypto;
+ * Stripe card checkout is not wired in the storefront yet.
+ */
 class GatewaySettings extends Page implements HasForms
 {
     use InteractsWithForms;
@@ -40,33 +41,35 @@ class GatewaySettings extends Page implements HasForms
     public static function canView(): bool
     {
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return false;
         }
-        return $user->is_super_admin;
+
+        return (bool) $user->is_super_admin;
     }
 
     public ?array $data = [];
 
     public function mount(): void
     {
+        $saved = Cache::get('wwa_gateway_settings', []);
+
         $this->form->fill([
-            'paypal_enabled' => true,
-            'paypal_client_id' => '',
-            'paypal_secret' => '',
-            'paypal_mode' => 'sandbox',
-            'stripe_enabled' => false,
-            'stripe_publishable_key' => '',
-            'stripe_secret_key' => '',
-            'stripe_webhook_secret' => '',
-            'razorpay_enabled' => false,
-            'razorpay_key_id' => '',
-            'razorpay_key_secret' => '',
-            'bank_transfer_enabled' => true,
-            'bank_account_name' => '',
-            'bank_account_number' => '',
-            'bank_name' => '',
-            'bank_swift_code' => '',
+            'paypal_enabled' => $saved['paypal_enabled'] ?? (bool) config('paypal.client_id'),
+            'paypal_client_id' => $saved['paypal_client_id'] ?? (string) config('paypal.client_id', ''),
+            'paypal_secret' => $saved['paypal_secret'] ?? (string) config('paypal.client_secret', ''),
+            'paypal_mode' => $saved['paypal_mode'] ?? (string) config('paypal.mode', 'sandbox'),
+            'stripe_enabled' => $saved['stripe_enabled'] ?? (bool) env('STRIPE_SECRET'),
+            'stripe_publishable_key' => $saved['stripe_publishable_key'] ?? (string) env('STRIPE_KEY', env('STRIPE_PUBLISHABLE_KEY', '')),
+            'stripe_secret_key' => $saved['stripe_secret_key'] ?? (string) env('STRIPE_SECRET', ''),
+            'stripe_webhook_secret' => $saved['stripe_webhook_secret'] ?? (string) env('STRIPE_WEBHOOK_SECRET', ''),
+            'bank_transfer_enabled' => $saved['bank_transfer_enabled'] ?? true,
+            'bank_account_name' => $saved['bank_account_name'] ?? '',
+            'bank_account_number' => $saved['bank_account_number'] ?? '',
+            'bank_name' => $saved['bank_name'] ?? '',
+            'bank_swift_code' => $saved['bank_swift_code'] ?? '',
+            'crypto_enabled' => (bool) env('NOWPAYMENTS_API_KEY') || (bool) env('CRYPTO_PAYMENTS_ENABLED', true),
+            'crypto_provider' => env('NOWPAYMENTS_API_KEY') ? 'NOWPayments' : 'Mock / env',
         ]);
     }
 
@@ -74,11 +77,26 @@ class GatewaySettings extends Page implements HasForms
     {
         return $form
             ->schema([
+                Section::make('Money-in overview')
+                    ->description('Clive: track revenue from cards, bank cards, Stripe, PayPal, and crypto.')
+                    ->schema([
+                        Placeholder::make('status')
+                            ->label('')
+                            ->content(new HtmlString(
+                                '<ul class="list-disc pl-5 text-sm text-gray-600 space-y-1">'
+                                .'<li><strong>PayPal</strong> — live in checkout (orders + capture). Filament: Commerce / verified payments.</li>'
+                                .'<li><strong>Crypto</strong> — live via NOWPayments (or mock). Filament: Crypto Payments.</li>'
+                                .'<li><strong>Stripe / card</strong> — live in PaymentProcessor when STRIPE_SECRET + STRIPE_KEY are set (mock when empty).</li>'
+                                .'<li><strong>Bank transfer</strong> — details for manual reconciliation.</li>'
+                                .'</ul>'
+                            )),
+                    ]),
+
                 Section::make('PayPal Settings')
                     ->schema([
                         Toggle::make('paypal_enabled')
                             ->label('Enable PayPal')
-                            ->helperText('Enable PayPal payment gateway'),
+                            ->helperText('Checkout uses PAYPAL_* from .env; this toggle is admin preference.'),
                         TextInput::make('paypal_client_id')
                             ->label('PayPal Client ID')
                             ->maxLength(255),
@@ -95,11 +113,11 @@ class GatewaySettings extends Page implements HasForms
                             ->required(),
                     ])->columns(2),
 
-                Section::make('Stripe Settings')
+                Section::make('Stripe / card Settings')
                     ->schema([
                         Toggle::make('stripe_enabled')
                             ->label('Enable Stripe')
-                            ->helperText('Enable Stripe payment gateway'),
+                            ->helperText('Checkout uses STRIPE_* from .env. Mock when secret missing (STRIPE_MOCK=auto).'),
                         TextInput::make('stripe_publishable_key')
                             ->label('Stripe Publishable Key')
                             ->maxLength(255),
@@ -113,25 +131,25 @@ class GatewaySettings extends Page implements HasForms
                             ->maxLength(255),
                     ])->columns(2),
 
-                Section::make('Razorpay Settings')
+                Section::make('Crypto (NOWPayments)')
                     ->schema([
-                        Toggle::make('razorpay_enabled')
-                            ->label('Enable Razorpay')
-                            ->helperText('Enable Razorpay payment gateway'),
-                        TextInput::make('razorpay_key_id')
-                            ->label('Razorpay Key ID')
-                            ->maxLength(255),
-                        TextInput::make('razorpay_key_secret')
-                            ->label('Razorpay Key Secret')
-                            ->password()
-                            ->maxLength(255),
+                        Toggle::make('crypto_enabled')
+                            ->label('Crypto enabled (from env)')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('crypto_provider')
+                            ->label('Provider')
+                            ->disabled()
+                            ->dehydrated(false),
+                        Placeholder::make('crypto_hint')
+                            ->label('')
+                            ->content('Configure NOWPAYMENTS_API_KEY / CRYPTO_* in .env. Completed invoices appear under Commerce → Crypto Payments.'),
                     ])->columns(2),
 
                 Section::make('Bank Transfer Settings')
                     ->schema([
                         Toggle::make('bank_transfer_enabled')
-                            ->label('Enable Bank Transfer')
-                            ->helperText('Enable bank transfer payment method'),
+                            ->label('Enable Bank Transfer'),
                         TextInput::make('bank_account_name')
                             ->label('Account Holder Name')
                             ->maxLength(255),
@@ -145,31 +163,20 @@ class GatewaySettings extends Page implements HasForms
                             ->label('SWIFT/BIC Code')
                             ->maxLength(255),
                     ])->columns(2),
-            ]);
+            ])
+            ->statePath('data');
     }
-
-    // Table functionality removed - uncomment and implement when gateways model/table is available
-    // public function table(Table $table): Table
-    // {
-    //     return $table
-    //         ->query(
-    //             // Query gateways table here
-    //         )
-    //         ->columns([
-    //             TextColumn::make('name')
-    //                 ->label('Gateway Name')
-    //                 ->searchable(),
-    //             // ... other columns
-    //         ]);
-    // }
 
     public function save(): void
     {
         $data = $this->form->getState();
+        unset($data['crypto_enabled'], $data['crypto_provider']);
 
-        // Here you would typically save to a settings table or config file
+        Cache::forever('wwa_gateway_settings', $data);
+
         Notification::make()
-            ->title('Gateway settings saved successfully')
+            ->title('Gateway settings saved')
+            ->body('Admin preferences stored. Live PayPal / Stripe / crypto still follow .env on the server.')
             ->success()
             ->send();
     }
@@ -183,11 +190,4 @@ class GatewaySettings extends Page implements HasForms
                 ->color('primary'),
         ];
     }
-
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            // You can add widgets here if needed
-        ];
-    }
-} 
+}

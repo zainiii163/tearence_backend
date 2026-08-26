@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\VerifiedPaymentReference;
+use App\Services\StripeClient;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -215,6 +216,16 @@ class PaymentVerificationService
             throw new RuntimeException('Crypto mock payment was not confirmed. Complete crypto checkout first.');
         }
 
+        // Stripe mock must be confirmed first
+        if (str_starts_with($paymentId, 'STRIPE-MOCK-')) {
+            throw new RuntimeException('Stripe mock payment was not confirmed. Complete card checkout first.');
+        }
+
+        // Live Stripe PaymentIntent
+        if (str_starts_with($paymentId, 'pi_')) {
+            return $this->fetchStripePayment($paymentId);
+        }
+
         // Live NOWPayments — refresh if still open
         if (str_starts_with($paymentId, 'NP-')) {
             return $this->fetchNowPaymentsPayment($paymentId);
@@ -288,6 +299,12 @@ class PaymentVerificationService
         if (str_starts_with($paymentId, 'CRYPTO-MOCK-')) {
             return 'crypto_mock';
         }
+        if (str_starts_with($paymentId, 'STRIPE-MOCK-')) {
+            return 'stripe_mock';
+        }
+        if (str_starts_with($paymentId, 'pi_')) {
+            return 'stripe';
+        }
         if (str_starts_with($paymentId, 'NP-')) {
             return 'nowpayments';
         }
@@ -296,6 +313,54 @@ class PaymentVerificationService
         }
 
         return 'paypal';
+    }
+
+    /**
+     * @return array{status:string,amount:float,currency:string,provider:string,source:string,captured?:bool}
+     */
+    private function fetchStripePayment(string $paymentId): array
+    {
+        try {
+            $intent = app(StripeClient::class)->retrievePaymentIntent($paymentId);
+            $statusRaw = (string) ($intent['status'] ?? '');
+            $succeeded = $statusRaw === 'succeeded';
+            $amountCents = (int) ($intent['amount_received'] ?? $intent['amount'] ?? 0);
+            $amount = round($amountCents / 100, 2);
+            $currency = strtoupper((string) ($intent['currency'] ?? 'USD'));
+
+            if ($amount <= 0 && ($pending = $this->getPendingOrder($paymentId))) {
+                $amount = (float) $pending['amount'];
+                $currency = (string) ($pending['currency'] ?? $currency);
+            }
+
+            if ($succeeded) {
+                $this->rememberCompletedOrder($paymentId, [
+                    'status' => 'COMPLETED',
+                    'amount' => $amount,
+                    'currency' => $currency,
+                    'provider' => 'stripe',
+                    'source' => 'stripe_retrieve',
+                    'captured' => true,
+                ]);
+            }
+
+            return [
+                'status' => $succeeded ? 'COMPLETED' : strtoupper($statusRaw ?: 'PENDING'),
+                'amount' => $amount,
+                'currency' => $currency,
+                'provider' => 'stripe',
+                'source' => 'stripe_retrieve',
+                'captured' => $succeeded,
+            ];
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::error('Payment defence: Stripe lookup failed', [
+                'payment_id' => $paymentId,
+                'error' => $e->getMessage(),
+            ]);
+            throw new RuntimeException('Unable to verify card payment with Stripe. Try again or contact support.');
+        }
     }
 
     /**

@@ -130,7 +130,9 @@ class AdminPanelProvider extends PanelProvider
                 'Fundraising',
                 'Templates',
                 'Commerce',
+                'HR & Payroll',
                 'Content',
+                'Security',
                 'Settings',
             ])
             ->renderHook(
