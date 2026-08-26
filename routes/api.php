@@ -30,6 +30,8 @@ use App\Http\Controllers\Api\EventController;
 
 use App\Http\Controllers\Api\VenueController;
 
+use App\Http\Controllers\Api\V1\ZoneController;
+
 use App\Http\Controllers\Api\VenueServiceController;
 
 use App\Http\Controllers\Api\UpsellController;
@@ -298,6 +300,10 @@ Route::group([
         // Route::post('/validate-otp', [AuthController::class, 'validateOtp']);
 
     });
+
+    // Zones / Cities (public for cascading dropdowns)
+    Route::get('/zones', [\App\Http\Controllers\Api\V1\ZoneController::class, 'index']);
+    Route::get('/zones/by-country', [\App\Http\Controllers\Api\V1\ZoneController::class, 'getByCountry']);
 
     // Email / phone / company verification (anti-scam signup & post forms)
     Route::prefix('verification')->group(function () {
@@ -697,6 +703,13 @@ Route::group([
     Route::group(['prefix' => 'business'], function () {
 
         Route::get('/', [BusinessController::class, 'index']);
+
+        Route::get('/{id}/listings', [BusinessController::class, 'listings']);
+
+        Route::get('/{id}/reviews', [\App\Http\Controllers\Api\SiteReviewController::class, 'businessIndex']);
+
+        Route::post('/{id}/reviews', [\App\Http\Controllers\Api\SiteReviewController::class, 'businessStore'])
+            ->middleware('jwt.auth');
 
         Route::get('/{id}', [BusinessController::class, 'show']);
 
@@ -1343,6 +1356,13 @@ Route::group([
 
         });
 
+    });
+
+    // Polymorphic site reviews (business, resort, book, store, property, vehicle, etc.)
+    Route::group(['prefix' => 'site-reviews'], function () {
+        Route::get('/{type}/{id}', [\App\Http\Controllers\Api\SiteReviewController::class, 'index']);
+        Route::post('/{type}/{id}', [\App\Http\Controllers\Api\SiteReviewController::class, 'store'])
+            ->middleware('jwt.auth');
     });
 
 
