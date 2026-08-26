@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Clive: signup stays frictionless; email verification is required before posting.
+ * Controlled by EMAIL_VERIFICATION_REQUIRED env (default true).
  */
 class EnsureVerifiedToPost
 {
@@ -22,15 +23,18 @@ class EnsureVerifiedToPost
             ], 401);
         }
 
-        // TEMPORARILY DISABLED — Clive: let Vikas/Shihab add 10 businesses without verification
-        // $emailVerified = ! empty($user->email_verified_at);
-        // if (! $emailVerified) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Please verify your email before posting. You can still browse and complete your profile.',
-        //         'code' => 'EMAIL_VERIFICATION_REQUIRED',
-        //     ], 403);
-        // }
+        // Email verification required before posting (configurable)
+        if (config('verification.email_required', env('EMAIL_VERIFICATION_REQUIRED', true))) {
+            $emailVerified = ! empty($user->email_verified_at);
+            if (! $emailVerified) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please verify your email before posting. You can still browse and complete your profile.',
+                    'code' => 'EMAIL_VERIFICATION_REQUIRED',
+                    'verification_url' => config('verification.frontend_url', 'https://worldwideadverts.info') . '/verify-email',
+                ], 403);
+            }
+        }
 
         // Soft KYC nudge on first post when customer KYC columns exist.
         if (Schema::hasColumn('customer', 'kyc_status')) {

@@ -309,9 +309,17 @@ Route::group([
     Route::prefix('verification')->group(function () {
         Route::post('/email/send', [VerificationController::class, 'sendEmailOtp']);
         Route::post('/email/verify', [VerificationController::class, 'verifyEmailOtp']);
+        Route::get('/status', [VerificationController::class, 'verificationStatus'])->middleware('jwt.auth');
         Route::post('/phone/send', [VerificationController::class, 'sendPhoneOtp']);
         Route::post('/phone/verify', [VerificationController::class, 'verifyPhoneOtp']);
         Route::post('/company/check', [VerificationController::class, 'checkCompany']);
+    });
+
+    // AI Video Advert Agent (authenticated)
+    Route::middleware('jwt.auth')->group(function () {
+        Route::post('/video-ad-agent/generate', [\App\Http\Controllers\Api\V1\VideoAdvertAgentController::class, 'generate']);
+        Route::post('/video-ad-agent/learn', [\App\Http\Controllers\Api\V1\VideoAdvertAgentController::class, 'learn']);
+        Route::get('/video-ad-agent/history', [\App\Http\Controllers\Api\V1\VideoAdvertAgentController::class, 'history']);
     });
 
     // Health check for load balancers / uptime monitors

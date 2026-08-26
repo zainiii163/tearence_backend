@@ -9,6 +9,12 @@ return [
     /** When true, OTP is included in API response (for testing). Auto-on when mail fails. */
     'expose_otp' => (bool) env('VERIFICATION_EXPOSE_OTP', false),
 
+    /** Frontend URL for password-reset links and verification pages */
+    'frontend_url' => env('FRONTEND_URL', 'https://worldwideadverts.info'),
+
+    /** Require email verification before allowing posts (default true) */
+    'email_required' => (bool) env('EMAIL_VERIFICATION_REQUIRED', true),
+
     'companies_house_api_key' => env('COMPANIES_HOUSE_API_KEY'),
 
     'twilio' => [

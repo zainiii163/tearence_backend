@@ -892,8 +892,8 @@ class AuthController extends APIController
                     'personal_email' => $email,
                     'personal_phone_number' => $phone,
                     'category_id' => $categoryId,
-                    'vat_number' => request()->vat_number,
-                    'status' => 'active',
+'vat_number' => request()->vat_number,
+                'status' => 'pending',
                 ];
                 if (Schema::hasColumn('customer_business', 'duns_number')) {
                     $createPayload['duns_number'] = request()->duns_number;
@@ -1012,7 +1012,7 @@ class AuthController extends APIController
                 'created_at' => now(),
             ]);
 
-            $frontend = rtrim(env('FRONTEND_URL', env('APP_FRONTEND_URL', 'http://localhost:3000')), '/');
+            $frontend = rtrim(config('verification.frontend_url', env('FRONTEND_URL', env('APP_FRONTEND_URL', 'http://localhost:3000'))), '/');
             $resetUrl = $frontend.'/reset-password?token='.urlencode($plainToken).'&email='.urlencode($email);
 
             MailHelper::sendForgotPasswordEmail($user, $resetUrl);

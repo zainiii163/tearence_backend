@@ -56,11 +56,57 @@ class VerificationController extends APIController
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        // Update customer email_verified_at and business status
+        $customer = Customer::where('email', strtolower(trim($request->email)))->first();
+        if ($customer) {
+            $customer->email_verified_at = now();
+            $customer->save();
+
+            // Activate associated business pages
+            CustomerBusiness::where('customer_id', $customer->customer_id)
+                ->where('status', 'pending')
+                ->update(['status' => 'active']);
+        }
+
         return response()->json([
             'success' => true,
             'status' => 'Success',
-            'message' => 'Email verified successfully.',
+            'message' => 'Email verified successfully. Your business pages are now live.',
             'data' => ['verified' => true],
+        ]);
+    }
+
+    /**
+     * Check verification status for current user.
+     * Returns whether email/phone are verified and business status.
+     */
+    public function verificationStatus(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated.', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $verification = app(VerificationService::class);
+        $email = $user->email;
+        $phone = $user->phone ?? null;
+
+        $emailVerified = $verification->isEmailVerified($email) || ! empty($user->email_verified_at);
+        $phoneVerified = $phone ? $verification->isPhoneVerified($phone) : false;
+
+        $businesses = CustomerBusiness::where('customer_id', $user->customer_id)->get(['id', 'business_name', 'slug', 'status']);
+
+        return $this->successResponse([
+            'email_verified' => (bool) $emailVerified,
+            'phone_verified' => (bool) $phoneVerified,
+            'businesses' => $businesses->map(fn ($b) => [
+                'id' => $b->id,
+                'name' => $b->business_name,
+                'slug' => $b->slug,
+                'status' => $b->status,
+                'is_live' => $b->status === 'active',
+            ]),
+            'can_post' => (bool) $emailVerified,
         ]);
     }
 
