@@ -767,6 +767,7 @@ class AuthController extends APIController
         $rules = [
             'first_name' => 'required',
             'last_name' => 'required',
+            'username' => 'nullable|string|max:100|unique:customer,username',
             'email' => 'required|email|unique:customer',
             'password' => ['required', 'same:password_confirmation', Password::min(8)->letters()->numbers()],
             'password_confirmation' => 'required',
@@ -827,6 +828,9 @@ class AuthController extends APIController
             $customer->customer_uid = Str::random(10);
             $customer->first_name = request()->first_name;
             $customer->last_name = request()->last_name;
+            if (request()->username && Schema::hasColumn('customer', 'username')) {
+                $customer->username = request()->username;
+            }
             $customer->affiliate_id = "";
             $customer->affiliated_members = 0;
             $customer->email = $email;
