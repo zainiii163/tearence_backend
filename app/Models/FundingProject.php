@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Schema;
 
 class FundingProject extends Model
 {
@@ -79,7 +80,9 @@ class FundingProject extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+        $fk = Schema::hasColumn($this->getTable(), 'customer_id') ? 'customer_id' : 'user_id';
+
+        return $this->belongsTo(Customer::class, $fk, 'customer_id');
     }
 
     /** @deprecated Prefer customer() — kept for API compatibility */
@@ -118,12 +121,32 @@ class FundingProject extends Model
         return $this->belongsToMany(Customer::class, 'funding_pledges', 'funding_project_id', 'customer_id');
     }
 
+    public function getAmountRaisedAttribute($value): float
+    {
+        if ($value !== null && $value !== '') {
+            return (float) $value;
+        }
+
+        return (float) ($this->attributes['current_funded'] ?? 0);
+    }
+
+    public function getBackerCountAttribute($value): int
+    {
+        if ($value !== null && $value !== '') {
+            return (int) $value;
+        }
+
+        return (int) ($this->attributes['backers_count'] ?? 0);
+    }
+
     public function getFundingPercentageAttribute(): float
     {
-        if ($this->funding_goal == 0) {
+        $goal = (float) ($this->funding_goal ?? 0);
+        if ($goal == 0) {
             return 0;
         }
-        return round(($this->current_funded / $this->funding_goal) * 100, 2);
+
+        return round(((float) $this->amount_raised / $goal) * 100, 2);
     }
 
     public function isFunded(): bool
@@ -133,11 +156,13 @@ class FundingProject extends Model
 
     public function getDaysRemainingAttribute(): ?int
     {
-        if (!$this->funding_deadline) {
+        $deadline = $this->funding_deadline ?? $this->funding_ends_at ?? null;
+        if (! $deadline) {
             return null;
         }
-        $days = now()->diffInDays($this->funding_deadline, false);
-        return max(0, (int)$days);
+        $days = now()->diffInDays($deadline, false);
+
+        return max(0, (int) $days);
     }
 
     public function isActive(): bool

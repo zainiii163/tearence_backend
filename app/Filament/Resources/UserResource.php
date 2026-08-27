@@ -312,7 +312,7 @@ class UserResource extends Resource
                         'submitted' => 'Submitted',
                         'verified' => 'Verified',
                         'rejected' => 'Rejected',
-                        default => $state,
+                        default => ($state ?? ''),
                     })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')

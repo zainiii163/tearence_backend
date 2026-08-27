@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\AdManagementResource\Pages;
 
 use App\Filament\Resources\AdManagementResource;
+use App\Models\Advertisement;
 use Filament\Resources\Pages\Page as ResourcePage;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -11,6 +12,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdReports extends ResourcePage implements HasTable
 {
@@ -28,23 +30,41 @@ class AdReports extends ResourcePage implements HasTable
 
     public function table(Table $table): Table
     {
+        $adsTable = (new Advertisement)->getTable();
+        $query = Advertisement::query()->whereRaw('1 = 0');
+
+        if (Schema::hasTable($adsTable)) {
+            $hasPayment = Schema::hasColumn($adsTable, 'payment_status');
+            $hasPrice = Schema::hasColumn($adsTable, 'price');
+            $hasType = Schema::hasColumn($adsTable, 'type');
+
+            $select = [
+                DB::raw('COUNT(*) as total_ads'),
+                DB::raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_ads'),
+                DB::raw($hasPayment && $hasPrice
+                    ? 'SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'
+                    : '0 as total_revenue'),
+                DB::raw($hasPayment
+                    ? 'SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'
+                    : '0 as pending_payments'),
+                DB::raw($hasPrice ? 'AVG(price) as avg_price' : '0 as avg_price'),
+            ];
+
+            if ($hasType) {
+                array_unshift($select, 'type');
+                $query = Advertisement::query()->select($select)->groupBy('type');
+            } else {
+                array_unshift($select, DB::raw("'all' as type"));
+                $query = Advertisement::query()->select($select);
+            }
+        }
+
         return $table
-            ->query(
-                DB::table('advertisements')
-                    ->select([
-                        'type',
-                        DB::raw('COUNT(*) as total_ads'),
-                        DB::raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_ads'),
-                        DB::raw('SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'),
-                        DB::raw('SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'),
-                        DB::raw('AVG(price) as avg_price'),
-                    ])
-                    ->groupBy('type')
-            )
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('type')
                     ->label('Ad Type')
-                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->formatStateUsing(fn ($state) => $state ? ucfirst($state) : '—')
                     ->searchable(),
                 
                 Tables\Columns\TextColumn::make('total_ads')
@@ -123,12 +143,29 @@ class AdReports extends ResourcePage implements HasTable
 
     public function getSummaryStats(): array
     {
-        $summary = DB::table('advertisements')
+        $table = (new Advertisement)->getTable();
+        if (! Schema::hasTable($table)) {
+            return [
+                'total_ads' => 0,
+                'active_ads' => 0,
+                'total_revenue' => 0,
+                'pending_payments' => 0,
+            ];
+        }
+
+        $hasPayment = Schema::hasColumn($table, 'payment_status');
+        $hasPrice = Schema::hasColumn($table, 'price');
+
+        $summary = DB::table($table)
             ->select([
                 DB::raw('COUNT(*) as total_ads'),
                 DB::raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_ads'),
-                DB::raw('SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'),
-                DB::raw('SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'),
+                DB::raw($hasPayment && $hasPrice
+                    ? 'SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'
+                    : '0 as total_revenue'),
+                DB::raw($hasPayment
+                    ? 'SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'
+                    : '0 as pending_payments'),
             ])
             ->first();
 

@@ -320,7 +320,7 @@ class BannerAdResource extends Resource
                         'featured' => 'Featured',
                         'sponsored' => 'Sponsored',
                         'network_boost' => 'Network Boost',
-                        default => $state,
+                        default => ($state ?? ''),
                     }),
                 
                 Tables\Columns\TextColumn::make('country')

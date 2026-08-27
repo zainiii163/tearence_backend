@@ -82,11 +82,12 @@ class EnquiriesRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'read' => 'info',
                         'replied' => 'success',
                         'closed' => 'gray',
+                        default => 'gray',
                     })
                     ->sortable(),
                 

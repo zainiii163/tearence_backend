@@ -14,6 +14,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 
@@ -87,11 +88,22 @@ class JobAlertResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\Select::make('location_id')
                             ->label('Location')
-                            ->options(Location::all()->pluck('city', 'location_id'))
-                            ->searchable(),
+                            ->relationship('location', 'city')
+                            ->searchable()
+                            ->preload()
+                            ->visible(fn () => Schema::hasTable('job_alerts') && Schema::hasColumn('job_alerts', 'location_id')),
                         Forms\Components\Select::make('parent_category_id')
                             ->label('Parent Category')
-                            ->options(Category::whereNull('parent_id')->orderBy('name', 'ASC')->pluck('name', 'category_id'))
+                            ->options(function () {
+                                return \App\Support\SafeSelectOptions::get(function () {
+                                    $query = Category::query()->orderBy('name', 'ASC');
+                                    if (Schema::hasColumn('category', 'parent_id')) {
+                                        $query->whereNull('parent_id');
+                                    }
+
+                                    return $query->pluck('name', 'category_id');
+                                });
+                            })
                             ->reactive()
                             ->dehydrated(false)
                             ->searchable(),
@@ -100,7 +112,9 @@ class JobAlertResource extends Resource
                             ->options(function ($get) {
                                 $parentId = $get('parent_category_id');
                                 if ($parentId) {
-                                    return Category::where('parent_id', $parentId)->pluck('name', 'category_id');
+                                return \App\Support\SafeSelectOptions::get(
+                                    fn () => Category::query()->where('parent_id', $parentId)->pluck('name', 'category_id')
+                                );
                                 }
                                 return [];
                             })
@@ -149,72 +163,105 @@ class JobAlertResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $alertsTable = 'job_alerts';
+        $hasCustomer = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'customer_id');
+        $hasLocationId = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'location_id');
+        $hasCategoryId = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'category_id');
+        $hasJobType = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'job_type');
+        $activeField = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'is_active')
+            ? 'is_active'
+            : 'active';
+        $nameField = Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'name')
+            ? 'name'
+            : 'title';
+        $ownerColumn = $hasCustomer ? 'customer.name' : 'user.name';
+
+        $columns = [
+            TextColumn::make($ownerColumn)
+                ->label('Customer')
+                ->formatStateUsing(function (JobAlert $record): string {
+                    return $record->customer?->name ?? $record->user?->name ?? '—';
+                }),
+            TextColumn::make($nameField)
+                ->label('Alert Name')
+                ->searchable()
+                ->sortable(),
+            TextColumn::make('keywords')
+                ->label('Keywords')
+                ->badge()
+                ->separator(',')
+                ->limit(3),
+        ];
+
+        if ($hasLocationId) {
+            $columns[] = TextColumn::make('location.city')->label('Location');
+        }
+
+        if ($hasCategoryId) {
+            $columns[] = TextColumn::make('category.name')->label('Category');
+        }
+
+        if ($hasJobType) {
+            $columns[] = TextColumn::make('job_type')
+                ->label('Job Types')
+                ->badge()
+                ->separator(',')
+                ->limit(2);
+        }
+
+        $columns = array_merge($columns, [
+            TextColumn::make('frequency')
+                ->badge()
+                ->color(fn (?string $state): string => match ($state) {
+                    'instant' => 'success',
+                    'daily' => 'info',
+                    'weekly' => 'warning',
+                    default => 'gray',
+                }),
+            TextColumn::make('last_matched_count')
+                ->label('Last Match Count')
+                ->numeric()
+                ->default(0)
+                ->sortable(Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'last_matched_count')),
+            TextColumn::make('last_notified_at')
+                ->label('Last Notified')
+                ->dateTime()
+                ->sortable(Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, 'last_notified_at')),
+            Tables\Columns\IconColumn::make(
+                Schema::hasTable($alertsTable) && Schema::hasColumn($alertsTable, $activeField)
+                    ? $activeField
+                    : 'is_active'
+            )
+                ->label('Active')
+                ->boolean(),
+            TextColumn::make('created_at')
+                ->dateTime()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
+        ]);
+
+        $filters = [
+            Tables\Filters\SelectFilter::make('frequency')
+                ->options([
+                    'instant' => 'Instant',
+                    'daily' => 'Daily',
+                    'weekly' => 'Weekly',
+                ]),
+            Tables\Filters\TernaryFilter::make($activeField)
+                ->label('Active Status'),
+        ];
+
+        if ($hasLocationId) {
+            $filters[] = Tables\Filters\SelectFilter::make('location_id')
+                ->label('Location')
+                ->relationship('location', 'city')
+                ->searchable()
+                ->preload();
+        }
+
         return $table
-            ->columns([
-                TextColumn::make('customer.name')
-                    ->label('Customer')
-                    ->searchable(['first_name', 'last_name', 'email'])
-                    ->sortable(),
-                TextColumn::make('name')
-                    ->label('Alert Name')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('keywords')
-                    ->label('Keywords')
-                    ->badge()
-                    ->separator(',')
-                    ->limit(3),
-                TextColumn::make('location.city')
-                    ->label('Location')
-                    ->sortable(),
-                TextColumn::make('category.name')
-                    ->label('Category')
-                    ->sortable(),
-                TextColumn::make('job_type')
-                    ->label('Job Types')
-                    ->badge()
-                    ->separator(',')
-                    ->limit(2),
-                TextColumn::make('frequency')
-                    ->badge()
-                    ->color(fn(string $state): string => match ($state) {
-                        'instant' => 'success',
-                        'daily' => 'info',
-                        'weekly' => 'warning',
-                        default => 'gray',
-                    }),
-                TextColumn::make('last_matched_count')
-                    ->label('Last Match Count')
-                    ->numeric()
-                    ->default(0)
-                    ->sortable(),
-                TextColumn::make('last_notified_at')
-                    ->label('Last Notified')
-                    ->dateTime()
-                    ->sortable(),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Active')
-                    ->boolean()
-                    ->sortable(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('frequency')
-                    ->options([
-                        'instant' => 'Instant',
-                        'daily' => 'Daily',
-                        'weekly' => 'Weekly',
-                    ]),
-                Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Active Status'),
-                Tables\Filters\SelectFilter::make('location_id')
-                    ->label('Location')
-                    ->options(Location::all()->pluck('city', 'location_id'))
-                    ->searchable(),
-            ])
+            ->columns($columns)
+            ->filters($filters)
             ->actions([
                 Action::make('viewMatchingJobs')
                     ->label('View Matching Jobs')
@@ -230,12 +277,12 @@ class JobAlertResource extends Resource
                     Tables\Actions\BulkAction::make('activate')
                         ->label('Activate')
                         ->icon('heroicon-o-check-circle')
-                        ->action(fn ($records) => $records->each->update(['is_active' => true]))
+                        ->action(fn ($records) => $records->each->update([$activeField => true]))
                         ->deselectRecordsAfterCompletion(),
                     Tables\Actions\BulkAction::make('deactivate')
                         ->label('Deactivate')
                         ->icon('heroicon-o-x-circle')
-                        ->action(fn ($records) => $records->each->update(['is_active' => false]))
+                        ->action(fn ($records) => $records->each->update([$activeField => false]))
                         ->deselectRecordsAfterCompletion(),
                 ]),
             ])

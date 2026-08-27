@@ -254,7 +254,7 @@ class BookAdvertResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\BadgeColumn::make('advert_type')
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'standard' => 'gray',
                         'promoted' => 'blue',
                         'featured' => 'yellow',
@@ -264,7 +264,7 @@ class BookAdvertResource extends Resource
                     }),
 
                 Tables\Columns\BadgeColumn::make('status')
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'inactive' => 'gray',
                         'active' => 'success',
                         'pending' => 'warning',

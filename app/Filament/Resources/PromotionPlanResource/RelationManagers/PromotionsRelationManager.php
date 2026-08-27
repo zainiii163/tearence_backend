@@ -20,7 +20,7 @@ class PromotionsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Promotion Information')
+                Forms\Components\Section::make('Promotion Information')
                     ->schema([
                         Forms\Components\Select::make('project_id')
                             ->relationship('project', 'title')
@@ -74,11 +74,12 @@ class PromotionsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'active' => 'success',
                         'expired' => 'danger',
                         'cancelled' => 'gray',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('starts_at')

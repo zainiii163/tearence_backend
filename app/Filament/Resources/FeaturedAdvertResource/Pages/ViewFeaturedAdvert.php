@@ -55,7 +55,7 @@ class ViewFeaturedAdvert extends ViewRecord
                                         'home' => 'Home / Garden',
                                         'health' => 'Health / Wellness',
                                         'misc' => 'Miscellaneous / Other',
-                                        default => $state,
+                                        default => ($state ?? ''),
                                     }),
 
                                 BadgeEntry::make('condition')
@@ -82,7 +82,7 @@ class ViewFeaturedAdvert extends ViewRecord
                                         'GBP' => 'GBP (£)',
                                         'USD' => 'USD ($)',
                                         'EUR' => 'EUR (€)',
-                                        default => $state,
+                                        default => ($state ?? ''),
                                     }),
 
                                 BadgeEntry::make('payment_status')
@@ -107,7 +107,7 @@ class ViewFeaturedAdvert extends ViewRecord
                                         'promoted' => 'Promoted',
                                         'featured' => 'Featured',
                                         'sponsored' => 'Sponsored',
-                                        default => $state,
+                                        default => ($state ?? ''),
                                     }),
 
                                 TextEntry::make('upsell_price')

@@ -55,7 +55,7 @@ class ApplicationsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'gray',
                         'reviewed' => 'blue',
                         'shortlisted' => 'green',
@@ -63,6 +63,7 @@ class ApplicationsRelationManager extends RelationManager
                         'offered' => 'success',
                         'rejected' => 'danger',
                         'withdrawn' => 'warning',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('created_at')

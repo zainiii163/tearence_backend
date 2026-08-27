@@ -120,7 +120,7 @@ class AdModerationResource extends Resource
                 Tables\Columns\TextColumn::make('customer.first_name')
                     ->label('Posted By')
                     ->formatStateUsing(fn ($record) => $record->customer?->first_name . ' ' . $record->customer?->last_name)
-                    ->searchable(['customer.first_name', 'customer.last_name']),
+                    ->searchable(['first_name', 'last_name']),
 
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Category')
@@ -138,11 +138,13 @@ class AdModerationResource extends Resource
                         'pending' => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'pending' => 'Pending Review',
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
+                        default => $state ?: '—',
                     }),
 
                 Tables\Columns\TextColumn::make('post_type')
@@ -153,12 +155,14 @@ class AdModerationResource extends Resource
                         'sponsored' => 'warning',
                         'promoted' => 'info',
                         'admin' => 'success',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'regular' => 'Regular',
                         'sponsored' => 'Sponsored',
                         'promoted' => 'Promoted',
                         'admin' => 'Admin',
+                        default => $state ?: '—',
                     }),
 
                 Tables\Columns\IconColumn::make('is_admin_post')

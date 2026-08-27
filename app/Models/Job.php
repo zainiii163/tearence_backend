@@ -68,6 +68,8 @@ class Job extends Model
         'views',
         'expires_at',
         'posted_at',
+        'promotion_type',
+        'promotion_expires_at',
     ];
 
     protected $casts = [
@@ -80,6 +82,8 @@ class Job extends Model
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
         'expires_at' => 'datetime',
+        'posted_at' => 'datetime',
+        'promotion_expires_at' => 'datetime',
     ];
 
     // Relationships

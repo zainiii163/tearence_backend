@@ -20,7 +20,7 @@ class FundingDetailRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Funding Details')
+                Forms\Components\Section::make('Funding Details')
                     ->schema([
                         Forms\Components\KeyValue::make('use_of_funds')
                             ->label('Use of Funds')

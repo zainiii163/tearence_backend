@@ -103,7 +103,7 @@ class JobViewResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('device_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'desktop' => 'success',
                         'mobile' => 'warning',
                         'tablet' => 'info',

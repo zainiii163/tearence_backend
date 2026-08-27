@@ -35,7 +35,11 @@ class JobApplication extends Model
     // Relationships
     public function job(): BelongsTo
     {
-        return $this->belongsTo(Job::class);
+        $fk = \Illuminate\Support\Facades\Schema::hasColumn($this->getTable(), 'job_id')
+            ? 'job_id'
+            : 'job_listing_id';
+
+        return $this->belongsTo(Job::class, $fk);
     }
 
     public function user(): BelongsTo
@@ -197,7 +201,11 @@ class JobApplication extends Model
         parent::boot();
 
         static::created(function ($application) {
-            $application->job->incrementApplications();
+            try {
+                $application->job?->incrementApplications();
+            } catch (\Throwable) {
+                // Job row or applications_count column may be missing; never block the application save.
+            }
         });
     }
 }

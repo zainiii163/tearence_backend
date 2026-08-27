@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Schema;
 
 class JobAlert extends Model
 {
@@ -12,6 +14,28 @@ class JobAlert extends Model
 
     protected $primaryKey = 'job_alert_id';
     protected $table = 'job_alerts';
+
+    /**
+     * Production may have an older job_alerts table without deleted_at.
+     */
+    public static function bootSoftDeletes()
+    {
+        if (! Schema::hasTable('job_alerts') || ! Schema::hasColumn('job_alerts', 'deleted_at')) {
+            return;
+        }
+
+        static::addGlobalScope(new SoftDeletingScope);
+    }
+
+    public function getKeyName()
+    {
+        $table = $this->getTable();
+        if (Schema::hasTable($table) && Schema::hasColumn($table, 'job_alert_id')) {
+            return 'job_alert_id';
+        }
+
+        return 'id';
+    }
 
     protected $fillable = [
         'customer_id',
@@ -44,7 +68,14 @@ class JobAlert extends Model
      */
     public function customer()
     {
-        return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+        $fk = Schema::hasColumn($this->getTable(), 'customer_id') ? 'customer_id' : 'user_id';
+
+        return $this->belongsTo(Customer::class, $fk, 'customer_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
     /**

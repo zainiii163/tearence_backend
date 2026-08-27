@@ -206,7 +206,9 @@ class ListingResource extends Resource
                             ->required(),
                         Forms\Components\Select::make('parent_category_id')
                             ->label('Parent Category')
-                            ->options(Category::whereNull('parent_id')->orderBy('name', 'ASC')->pluck('name', 'category_id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => Category::query()->whereNull('parent_id')->orderBy('name', 'ASC')->pluck('name', 'category_id')
+                            ))
                             ->getOptionLabelUsing(function ($value) {
                                 $category = Category::find($value);
                                 return $category ? $category->name : null;
@@ -258,7 +260,9 @@ class ListingResource extends Resource
                             ->reactive(),  // Ensure it's reactive to the parent category selection
                         Forms\Components\Select::make('currency_id')
                             ->label('Currency')
-                            ->options(Currency::all()->pluck('name', 'currency_id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => Currency::query()->pluck('name', 'currency_id')
+                            ))
                             ->getOptionLabelUsing(function ($value) {
                                 $currency = Currency::find($value);
                                 return $currency ? $currency->name : null;
@@ -272,7 +276,9 @@ class ListingResource extends Resource
                             ->default(0),
                         Forms\Components\Select::make('package_id')
                             ->label('Package')
-                            ->options(Package::all()->pluck('title', 'package_id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => Package::query()->pluck('title', 'package_id')
+                            ))
                             ->getOptionLabelUsing(function ($value) {
                                 $package = Package::find($value);
                                 return $package ? $package->title : null;
@@ -422,25 +428,22 @@ class ListingResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('package.title')
-                    ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Customer')
+                    ->formatStateUsing(fn ($record) => $record->customer?->name ?? '—'),
                 Tables\Columns\TextColumn::make('location.country_name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Country'),
                 Tables\Columns\TextColumn::make('category.name')
-                    ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('title')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('price')
                     ->formatStateUsing(function ($record) {
-                        $currencyCode = $record->currency->code; // Assuming you have a relationship with currency
-                        $price = number_format($record->price, 2); // Format the price with two decimal places
+                        $currencyCode = $record->currency?->code ?: '';
+                        $price = number_format((float) ($record->price ?? 0), 2);
 
-                        return "{$currencyCode} {$price}"; // Return formatted price with currency code
+                        return trim("{$currencyCode} {$price}");
                     })
                     ->sortable(),
                 Tables\Columns\TextColumn::make('job_type')
@@ -454,8 +457,7 @@ class ListingResource extends Resource
                             return '$' . number_format($record->salary_min, 0) . ' - $' . number_format($record->salary_max, 0);
                         }
                         return '-';
-                    })
-                    ->sortable(),
+                    }),
                 Tables\Columns\IconColumn::make('is_featured')
                     ->label('Featured')
                     ->boolean(),
@@ -464,30 +466,34 @@ class ListingResource extends Resource
                     ->boolean(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'draft' => 'gray',
                         'active' => 'success',
+                        'inactive' => 'gray',
                         'deactivated' => 'warning',
                         'expired' => 'danger',
+                        default => 'gray',
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('approval_status')
                     ->label('Approval')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
+                        default => 'gray',
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('post_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn(string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'regular' => 'gray',
                         'sponsored' => 'primary',
                         'promoted' => 'info',
                         'admin' => 'warning',
+                        default => 'gray',
                     }),
                 Tables\Columns\IconColumn::make('is_admin_post')
                     ->label('Admin Post')

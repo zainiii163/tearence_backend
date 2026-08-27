@@ -28,15 +28,18 @@ class JobApplicationResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Application Information')
                     ->schema([
-                        Forms\Components\Select::make('job_listing_id')
-                            ->relationship('jobListing', 'title')
+                        Forms\Components\Select::make('job_id')
+                            ->label('Job')
+                            ->relationship('job', 'title')
                             ->searchable()
-                            ->preload()
                             ->required(),
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
-                            ->preload()
+                            ->label('Applicant')
+                            ->relationship('user', 'email')
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) . ' | ' . ($record->email ?? '')
+                            )
+                            ->searchable(['email', 'first_name', 'last_name'])
                             ->required(),
                         Forms\Components\TextInput::make('full_name')
                             ->required()
@@ -88,7 +91,7 @@ class JobApplicationResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('jobListing.title')
+                Tables\Columns\TextColumn::make('job.title')
                     ->label('Job Title')
                     ->searchable()
                     ->limit(50),
@@ -101,7 +104,7 @@ class JobApplicationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'viewed' => 'info',
                         'shortlisted' => 'success',

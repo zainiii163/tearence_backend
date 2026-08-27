@@ -3,7 +3,10 @@
 namespace App\Filament\Resources\JobResource\Pages;
 
 use App\Filament\Resources\JobResource;
+use App\Models\Job;
+use App\Support\JobSchema;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class CreateJob extends CreateRecord
@@ -20,7 +23,6 @@ class CreateJob extends CreateRecord
             ? (bool) $data['is_active']
             : (($data['status'] ?? '') === 'active');
 
-        // Keep visibility in sync with status
         if (($data['status'] ?? '') === 'active') {
             $data['is_active'] = true;
         }
@@ -29,5 +31,10 @@ class CreateJob extends CreateRecord
         }
 
         return $data;
+    }
+
+    protected function handleRecordCreation(array $data): Model
+    {
+        return Job::create(JobSchema::normalizeAdminPayload($data));
     }
 }

@@ -128,7 +128,9 @@ class BannerResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('pricing_plan_id')
                             ->label('Pricing Plan')
-                            ->options(AdPricingPlan::where('ad_type', 'banner')->active()->pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => AdPricingPlan::query()->where('ad_type', 'banner')->active()->pluck('name', 'id')
+                            ))
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set) => $state ? $set('price', AdPricingPlan::find($state)?->price) : null)
                             ->required(),
@@ -200,13 +202,21 @@ class BannerResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('User')
-                            ->options(Customer::all()->pluck('name', 'customer_id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => Customer::query()
+                                    ->get()
+                                    ->mapWithKeys(fn ($customer) => [
+                                        $customer->customer_id => \App\Support\FilamentUserLabel::from($customer),
+                                    ])
+                            ))
                             ->default('')
                             ->searchable(),
                         
                         Forms\Components\Select::make('category_id')
                             ->label('Banner Category')
-                            ->options(BannerCategory::where('is_active', true)->pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => BannerCategory::query()->where('is_active', true)->pluck('name', 'id')
+                            ))
                             ->searchable(),
                         
                         Forms\Components\Select::make('service_id')
@@ -252,11 +262,12 @@ class BannerResource extends Resource
                 Tables\Columns\TextColumn::make('banner_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'standard' => 'primary',
                         'gif' => 'success',
                         'html5' => 'warning',
                         'video' => 'danger',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('banner_size')
@@ -351,7 +362,9 @@ class BannerResource extends Resource
                 
                 Tables\Filters\SelectFilter::make('pricing_plan_id')
                     ->label('Pricing Plan')
-                    ->options(AdPricingPlan::where('ad_type', 'banner')->active()->pluck('name', 'id')),
+                    ->options(fn () => \App\Support\SafeSelectOptions::get(
+                        fn () => AdPricingPlan::query()->where('ad_type', 'banner')->active()->pluck('name', 'id')
+                    )),
                 
                 Tables\Filters\Filter::make('expires_soon')
                     ->label('Expires Soon')

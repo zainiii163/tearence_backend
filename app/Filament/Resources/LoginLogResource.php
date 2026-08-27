@@ -109,7 +109,7 @@ class LoginLogResource extends Resource
                     ->boolean(),
                 Tables\Columns\TextColumn::make('event')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'login', '2fa_success' => 'success',
                         'logout' => 'gray',
                         '2fa_pending' => 'warning',

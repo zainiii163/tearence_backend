@@ -157,11 +157,12 @@ class BuySellPromotionResource extends Resource
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'info',
                         'featured' => 'warning',
                         'sponsored' => 'success',
                         'network_boost' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('price')
@@ -170,11 +171,12 @@ class BuySellPromotionResource extends Resource
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'active' => 'success',
                         'expired' => 'gray',
                         'cancelled' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('starts_at')

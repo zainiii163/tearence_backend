@@ -81,11 +81,12 @@ class UpsellsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('upsell_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'info',
                         'featured' => 'warning',
                         'sponsored' => 'success',
                         'network' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('price')
@@ -99,20 +100,22 @@ class UpsellsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'active' => 'success',
                         'cancelled' => 'danger',
                         'expired' => 'gray',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('payment_status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
                         'failed' => 'danger',
                         'refunded' => 'info',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('activated_at')

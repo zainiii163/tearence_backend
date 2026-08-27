@@ -16,6 +16,9 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Actions\Action;
 use App\Filament\Forms\Components\CountrySelect;
+use App\Models\Customer;
+use App\Support\JobSchema;
+use Illuminate\Support\Facades\DB;
 
 class JobResource extends Resource
 {
@@ -118,7 +121,8 @@ class JobResource extends Resource
 
                 Forms\Components\Section::make('Job Details')
                     ->schema([
-                        Forms\Components\Select::make('category_id')
+                        Forms\Components\Select::make(JobSchema::column('category'))
+                            ->label('Category')
                             ->relationship('category', 'name')
                             ->searchable()
                             ->preload(),
@@ -129,7 +133,6 @@ class JobResource extends Resource
                                 'full_time' => 'Full-time',
                                 'part_time' => 'Part-time',
                                 'contract' => 'Contract',
-                                'freelance' => 'Freelance',
                                 'internship' => 'Internship',
                                 'temporary' => 'Temporary',
                                 'remote' => 'Remote',
@@ -161,10 +164,10 @@ class JobResource extends Resource
                         Forms\Components\Select::make('education_level')
                             ->options([
                                 'high_school' => 'High School',
-                                'associate' => 'Associate Degree',
+                                'diploma' => 'Diploma / Associate',
                                 'bachelor' => 'Bachelor\'s Degree',
                                 'master' => 'Master\'s Degree',
-                                'doctorate' => 'Doctorate',
+                                'phd' => 'Doctorate',
                             ]),
                         
                         Forms\Components\Toggle::make('remote_available'),
@@ -199,16 +202,42 @@ class JobResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->label('Posted by (customer)')
-                            ->relationship(
-                                name: 'user',
-                                titleAttribute: 'email',
-                                modifyQueryUsing: fn ($query) => $query->orderBy('email')
-                            )
-                            ->getOptionLabelFromRecordUsing(
-                                fn ($record) => trim(($record->first_name ?? '').' '.($record->last_name ?? '')).' <'.$record->email.'>'
-                            )
-                            ->searchable(['email', 'first_name', 'last_name'])
-                            ->preload()
+                            ->options(function () {
+                                return Customer::query()
+                                    ->select(
+                                        DB::raw("CONCAT(first_name,' ',last_name,' | ',email) AS full_name"),
+                                        'customer_id'
+                                    )
+                                    ->orderBy('created_at', 'desc')
+                                    ->limit(50)
+                                    ->pluck('full_name', 'customer_id');
+                            })
+                            ->getSearchResultsUsing(function (string $search) {
+                                return Customer::query()
+                                    ->select(
+                                        DB::raw("CONCAT(first_name,' ',last_name,' | ',email) AS full_name"),
+                                        'customer_id'
+                                    )
+                                    ->when($search !== '', function ($q) use ($search) {
+                                        $q->where(function ($q) use ($search) {
+                                            $q->where('first_name', 'like', "%{$search}%")
+                                                ->orWhere('last_name', 'like', "%{$search}%")
+                                                ->orWhere('email', 'like', "%{$search}%");
+                                        });
+                                    })
+                                    ->orderBy('created_at', 'desc')
+                                    ->limit(50)
+                                    ->pluck('full_name', 'customer_id');
+                            })
+                            ->getOptionLabelUsing(function ($value) {
+                                $customer = Customer::find($value);
+                                if (! $customer) {
+                                    return null;
+                                }
+
+                                return trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) . ' | ' . $customer->email;
+                            })
+                            ->searchable()
                             ->required(),
 
                         Forms\Components\Select::make('status')
@@ -293,7 +322,7 @@ class JobResource extends Resource
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending_review' => 'warning',
                         'active' => 'success',
                         'expired' => 'danger',
@@ -308,12 +337,13 @@ class JobResource extends Resource
                 
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'basic' => 'gray',
                         'promoted' => 'info',
                         'featured' => 'warning',
                         'sponsored' => 'success',
                         'network' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('views')

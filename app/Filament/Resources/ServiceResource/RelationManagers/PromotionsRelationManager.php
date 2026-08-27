@@ -75,11 +75,12 @@ class PromotionsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'info',
                         'featured' => 'primary',
                         'sponsored' => 'warning',
                         'network_boost' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('price')
                     ->money(),
@@ -91,10 +92,11 @@ class PromotionsRelationManager extends RelationManager
                     ->dateTime(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'active' => 'success',
                         'expired' => 'warning',
                         'cancelled' => 'danger',
+                        default => 'gray',
                     }),
             ])
             ->filters([

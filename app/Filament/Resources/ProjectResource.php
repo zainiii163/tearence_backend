@@ -35,8 +35,9 @@ class ProjectResource extends Resource
                 Forms\Components\Section::make('Project Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
+                            ->relationship('user', 'email')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => \App\Support\FilamentUserLabel::from($record))
+                            ->searchable(['email', 'first_name', 'last_name'])
                             ->required()
                             ->label('Project Owner'),
 
@@ -164,7 +165,7 @@ class ProjectResource extends Resource
 
                 Tables\Columns\TextColumn::make('project_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'technology' => 'primary',
                         'social' => 'success',
                         'environment' => 'warning',
@@ -173,15 +174,17 @@ class ProjectResource extends Resource
                         'arts' => 'secondary',
                         'business' => 'gray',
                         'other' => 'gray',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('funding_model')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'donation' => 'primary',
                         'reward' => 'success',
                         'equity' => 'warning',
                         'loan' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('funding_goal')
@@ -208,20 +211,22 @@ class ProjectResource extends Resource
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'draft' => 'gray',
                         'active' => 'success',
                         'completed' => 'primary',
                         'cancelled' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('promotion_tier')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'basic' => 'gray',
                         'promoted' => 'success',
                         'featured' => 'warning',
                         'sponsored' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('created_at')

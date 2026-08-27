@@ -31,9 +31,11 @@ class JobSeekerResource extends Resource
                 Forms\Components\Section::make('Personal Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
-                            ->preload()
+                            ->relationship('user', 'email')
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) . ' | ' . ($record->email ?? '')
+                            )
+                            ->searchable(['email', 'first_name', 'last_name'])
                             ->required(),
                         
                         Forms\Components\TextInput::make('title')
@@ -227,12 +229,13 @@ class JobSeekerResource extends Resource
                 
                 Tables\Columns\TextColumn::make('experience_level')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'entry' => 'gray',
                         'junior' => 'blue',
                         'mid' => 'green',
                         'senior' => 'orange',
                         'executive' => 'purple',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\IconColumn::make('remote_availability')

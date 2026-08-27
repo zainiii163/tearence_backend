@@ -264,45 +264,44 @@ class FundingProjectResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('project_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'personal' => 'gray',
                         'startup' => 'blue',
                         'community' => 'green',
                         'creative' => 'purple',
+                        default => 'gray',
                     })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('category')
                     ->badge()
                     ->color('primary'),
-                Tables\Columns\TextColumn::make('user.first_name')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('customer.first_name')
+                    ->label('Creator')
+                    ->formatStateUsing(fn (FundingProject $record): string => $record->customer?->name
+                        ?? $record->user?->name
+                        ?? '—')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('funding_goal')
                     ->money()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount_raised')
                     ->money()
-                    ->sortable()
-                    ->getStateUsing(fn (FundingProject $record): string => 
-                        '$' . number_format($record->amount_raised, 2)
-                    ),
+                    ->getStateUsing(fn (FundingProject $record): float => (float) $record->amount_raised),
                 Tables\Columns\TextColumn::make('funding_percentage')
                     ->label('Funded %')
-                    ->getStateUsing(fn (FundingProject $record): string => 
-                        round($record->funding_percentage, 1) . '%'
+                    ->getStateUsing(fn (FundingProject $record): string =>
+                        round((float) $record->funding_percentage, 1) . '%'
                     )
-                    ->sortable()
-                    ->color(fn (FundingProject $record): string => 
-                        $record->funding_percentage >= 100 ? 'success' : 
+                    ->color(fn (FundingProject $record): string =>
+                        $record->funding_percentage >= 100 ? 'success' :
                         ($record->funding_percentage >= 50 ? 'warning' : 'danger')
                     ),
                 Tables\Columns\TextColumn::make('backer_count')
                     ->numeric()
-                    ->sortable()
+                    ->getStateUsing(fn (FundingProject $record): int => (int) $record->backer_count)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('days_remaining')
                     ->getStateUsing(fn (FundingProject $record): ?int => $record->days_remaining)
-                    ->sortable()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean()
@@ -375,14 +374,14 @@ class FundingProjectResource extends Resource
                             ->numeric()
                             ->prefix('$'),
                     ])
-                    ->query(function (array $data): Builder {
+                    ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                $data['min_goal'],
+                                $data['min_goal'] ?? null,
                                 fn (Builder $query, $amount): Builder => $query->where('funding_goal', '>=', $amount)
                             )
                             ->when(
-                                $data['max_goal'],
+                                $data['max_goal'] ?? null,
                                 fn (Builder $query, $amount): Builder => $query->where('funding_goal', '<=', $amount)
                             );
                     }),

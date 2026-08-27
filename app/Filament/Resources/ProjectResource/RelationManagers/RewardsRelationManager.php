@@ -20,7 +20,7 @@ class RewardsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Reward Information')
+                Forms\Components\Section::make('Reward Information')
                     ->schema([
                         Forms\Components\TextInput::make('title')
                             ->required()

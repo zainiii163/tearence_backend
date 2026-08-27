@@ -121,27 +121,29 @@ class FundingUpsellResource extends Resource
                     ->wrap(),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'blue',
                         'featured' => 'purple',
                         'sponsored' => 'gold',
+                        default => ($state ?? ''),
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'promoted' => 'Promoted',
                         'featured' => 'Featured',
                         'sponsored' => 'Sponsored',
-                        default => $state,
+                        default => ($state ?? ''),
                     }),
                 Tables\Columns\TextColumn::make('price')
                     ->money()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'paid' => 'success',
                         'cancelled' => 'danger',
                         'expired' => 'gray',
+                        default => 'gray',
                     }),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Active')

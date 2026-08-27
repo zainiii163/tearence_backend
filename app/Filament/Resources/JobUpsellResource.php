@@ -3,8 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\JobUpsellResource\Pages;
+use App\Models\Job;
 use App\Models\JobUpsell;
-use App\Models\Listing;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -32,12 +32,16 @@ class JobUpsellResource extends Resource
                 Forms\Components\Section::make('Upsell Details')
                     ->columns(2)
                     ->schema([
-                        Forms\Components\Select::make('listing_id')
-                            ->label('Job Listing')
-                            ->relationship('listing', 'title')
+                        Forms\Components\Select::make('upsellable_id')
+                            ->label('Job')
+                            ->options(fn () => Job::query()->latest('id')->limit(80)->pluck('title', 'id'))
+                            ->getSearchResultsUsing(fn (string $search) => Job::query()
+                                ->where('title', 'like', "%{$search}%")
+                                ->limit(50)
+                                ->pluck('title', 'id'))
+                            ->getOptionLabelUsing(fn ($value) => Job::find($value)?->title)
                             ->required()
-                            ->searchable()
-                            ->preload(),
+                            ->searchable(),
                         Forms\Components\Select::make('upsell_type')
                             ->label('Upsell Type')
                             ->options([
@@ -93,14 +97,13 @@ class JobUpsellResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('listing.title')
+                TextColumn::make('upsellable.title')
                     ->label('Job Title')
                     ->searchable()
-                    ->sortable()
                     ->limit(40),
-                TextColumn::make('listing.customer.name')
-                    ->label('Employer')
-                    ->searchable(),
+                TextColumn::make('upsellable.company_name')
+                    ->label('Company')
+                    ->toggleable(),
                 TextColumn::make('upsell_type')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {

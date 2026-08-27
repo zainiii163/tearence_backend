@@ -92,6 +92,7 @@ class ServiceReviewResource extends Resource
                         3 => 'info',
                         2 => 'warning',
                         1 => 'danger',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn (int $state): string => $state . ' ★'),
                 Tables\Columns\TextColumn::make('comment')
@@ -99,10 +100,11 @@ class ServiceReviewResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

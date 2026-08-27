@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\AdManagementResource\Widgets;
 
+use App\Models\Advertisement;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdStatsOverview extends BaseWidget
 {
@@ -12,15 +14,36 @@ class AdStatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        $stats = DB::table('advertisements')
-            ->select([
-                DB::raw('COUNT(*) as total_ads'),
-                DB::raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_ads'),
-                DB::raw('SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'),
-                DB::raw('SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'),
-                DB::raw('SUM(CASE WHEN end_date < NOW() THEN 1 ELSE 0 END) as expired_ads'),
-            ])
-            ->first();
+        $table = (new Advertisement)->getTable();
+        $stats = (object) [
+            'total_ads' => 0,
+            'active_ads' => 0,
+            'total_revenue' => 0,
+            'pending_payments' => 0,
+            'expired_ads' => 0,
+        ];
+
+        if (Schema::hasTable($table)) {
+            $hasPayment = Schema::hasColumn($table, 'payment_status');
+            $hasPrice = Schema::hasColumn($table, 'price');
+            $hasEndDate = Schema::hasColumn($table, 'end_date');
+
+            $stats = DB::table($table)
+                ->select([
+                    DB::raw('COUNT(*) as total_ads'),
+                    DB::raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_ads'),
+                    DB::raw($hasPayment && $hasPrice
+                        ? 'SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as total_revenue'
+                        : '0 as total_revenue'),
+                    DB::raw($hasPayment
+                        ? 'SUM(CASE WHEN payment_status = "pending" THEN 1 ELSE 0 END) as pending_payments'
+                        : '0 as pending_payments'),
+                    DB::raw($hasEndDate
+                        ? 'SUM(CASE WHEN end_date < NOW() THEN 1 ELSE 0 END) as expired_ads'
+                        : '0 as expired_ads'),
+                ])
+                ->first() ?? $stats;
+        }
 
         return [
             Stat::make('Total Ads', $stats->total_ads ?? 0)

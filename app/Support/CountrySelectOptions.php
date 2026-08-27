@@ -108,9 +108,11 @@ class CountrySelectOptions
             return collect();
         }
 
-        return Country::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $query = Country::query()->orderBy('name');
+        if (Schema::hasColumn('country', 'is_active')) {
+            $query->where('is_active', true);
+        }
+
+        return $query->get();
     }
 }

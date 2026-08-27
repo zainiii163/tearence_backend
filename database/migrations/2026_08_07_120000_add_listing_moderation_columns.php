@@ -16,29 +16,32 @@ return new class extends Migration
         }
 
         Schema::table('listing', function (Blueprint $table) {
+            if (!Schema::hasColumn('listing', 'approval_status')) {
+                $table->string('approval_status', 50)->default('approved');
+            }
             if (!Schema::hasColumn('listing', 'approved_by')) {
-                $table->unsignedBigInteger('approved_by')->nullable()->after('approval_status');
+                $table->unsignedBigInteger('approved_by')->nullable();
             }
             if (!Schema::hasColumn('listing', 'approved_at')) {
-                $table->timestamp('approved_at')->nullable()->after('approved_by');
+                $table->timestamp('approved_at')->nullable();
             }
             if (!Schema::hasColumn('listing', 'rejection_reason')) {
-                $table->text('rejection_reason')->nullable()->after('approved_at');
+                $table->text('rejection_reason')->nullable();
             }
             if (!Schema::hasColumn('listing', 'post_type')) {
-                $table->string('post_type', 50)->default('regular')->after('rejection_reason');
+                $table->string('post_type', 50)->default('regular');
             }
             if (!Schema::hasColumn('listing', 'is_admin_post')) {
-                $table->boolean('is_admin_post')->default(false)->after('post_type');
+                $table->boolean('is_admin_post')->default(false);
             }
             if (!Schema::hasColumn('listing', 'is_harmful')) {
-                $table->boolean('is_harmful')->default(false)->after('is_admin_post');
+                $table->boolean('is_harmful')->default(false);
             }
             if (!Schema::hasColumn('listing', 'moderation_notes')) {
-                $table->text('moderation_notes')->nullable()->after('is_harmful');
+                $table->text('moderation_notes')->nullable();
             }
             if (!Schema::hasColumn('listing', 'last_reposted_at')) {
-                $table->timestamp('last_reposted_at')->nullable()->after('moderation_notes');
+                $table->timestamp('last_reposted_at')->nullable();
             }
         });
     }

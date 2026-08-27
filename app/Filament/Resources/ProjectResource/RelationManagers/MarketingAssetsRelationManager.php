@@ -20,7 +20,7 @@ class MarketingAssetsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Marketing Assets')
+                Forms\Components\Section::make('Marketing Assets')
                     ->schema([
                         Forms\Components\TextInput::make('pitch_video_url')
                             ->label('Pitch Video URL')

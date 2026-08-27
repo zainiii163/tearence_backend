@@ -9,6 +9,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class ZoneResource extends Resource
 {
@@ -55,38 +57,55 @@ class ZoneResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $hasActive = Schema::hasTable('zone') && Schema::hasColumn('zone', 'is_active');
+        $hasSortOrder = Schema::hasTable('zone') && Schema::hasColumn('zone', 'sort_order');
+
+        $columns = [
+            Tables\Columns\TextColumn::make('name')
+                ->searchable()
+                ->sortable()
+                ->description(fn (Zone $record) => $record->country?->name ?? '—'),
+            Tables\Columns\TextColumn::make('country.name')
+                ->label('Country')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('code')
+                ->searchable()
+                ->sortable()
+                ->badge(),
+        ];
+
+        if ($hasActive) {
+            $columns[] = Tables\Columns\IconColumn::make('is_active')->boolean();
+        }
+
+        if ($hasSortOrder) {
+            $columns[] = Tables\Columns\TextColumn::make('sort_order')
+                ->numeric()
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true);
+        }
+
+        $columns[] = Tables\Columns\TextColumn::make('created_at')
+            ->dateTime()
+            ->sortable()
+            ->toggleable(isToggledHiddenByDefault: true);
+
+        $filters = [
+            Tables\Filters\SelectFilter::make('country_id')
+                ->relationship('country', 'name')
+                ->label('Country'),
+        ];
+
+        if ($hasActive) {
+            $filters[] = Tables\Filters\TernaryFilter::make('is_active');
+        }
+
         return $table
-            ->defaultSort(['country.name' => 'asc', 'sort_order' => 'asc', 'name' => 'asc'])
-            ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable()
-                    ->sortable()
-                    ->description(fn (Zone $record) => $record->country?->name ?? '—'),
-                Tables\Columns\TextColumn::make('country.name')
-                    ->label('Country')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('code')
-                    ->searchable()
-                    ->sortable()
-                    ->badge(),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->boolean(),
-                Tables\Columns\TextColumn::make('sort_order')
-                    ->numeric()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('country_id')
-                    ->relationship('country', 'name')
-                    ->label('Country'),
-                Tables\Filters\TernaryFilter::make('is_active'),
-            ])
+            ->defaultSort('name')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('country'))
+            ->columns($columns)
+            ->filters($filters)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

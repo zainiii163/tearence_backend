@@ -32,7 +32,12 @@ class ServiceResource extends Resource
                 Forms\Components\Section::make('Service Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->options(fn () => \App\Models\User::all()->pluck('name', 'user_id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => \App\Models\User::query()
+                                    ->orderBy('email')
+                                    ->get()
+                                    ->mapWithKeys(fn ($user) => [$user->getKey() => \App\Support\FilamentUserLabel::from($user)])
+                            ))
                             ->searchable()
                             ->preload()
                             ->required(),

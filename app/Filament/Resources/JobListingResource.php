@@ -34,9 +34,11 @@ class JobListingResource extends Resource
                 Forms\Components\Section::make('Job Information')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
-                            ->preload()
+                            ->relationship('user', 'email')
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => trim(($record->first_name ?? '') . ' ' . ($record->last_name ?? '')) . ' | ' . ($record->email ?? '')
+                            )
+                            ->searchable(['email', 'first_name', 'last_name'])
                             ->required(),
                         Forms\Components\Select::make('job_category_id')
                             ->relationship('jobCategory', 'name')
@@ -199,7 +201,7 @@ class JobListingResource extends Resource
                 Tables\Columns\TextColumn::make('country')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('work_type')
-                    ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucwords($state, '_')))
+                    ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucwords($state ?? '', '_')))
                     ->badge(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean(),

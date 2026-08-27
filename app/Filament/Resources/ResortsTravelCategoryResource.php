@@ -76,10 +76,11 @@ class ResortsTravelCategoryResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'accommodation' => 'success',
                         'transport' => 'warning',
                         'experience' => 'info',
+                        default => 'gray',
                     }),
                 Tables\Columns\ToggleColumn::make('is_active'),
                 Tables\Columns\TextColumn::make('sort_order')

@@ -38,7 +38,7 @@ class RecentServicesWidget extends BaseWidget
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'active' => 'success',
                         'pending' => 'warning',
                         'suspended' => 'danger',

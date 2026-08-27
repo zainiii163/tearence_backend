@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\AdManagementResource\Pages;
 
 use App\Filament\Resources\AdManagementResource;
+use App\Models\Advertisement;
 use Filament\Resources\Pages\Page as ResourcePage;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Leandrocfe\FilamentApexCharts\Widgets\ApexChartWidget;
 
 class AdAnalytics extends ResourcePage
@@ -51,36 +53,63 @@ class AdAnalytics extends ResourcePage
 
     public function getAnalyticsData(): array
     {
-        $query = DB::table('advertisements')
+        $table = (new Advertisement)->getTable();
+        if (! Schema::hasTable($table)) {
+            return [
+                'total_ads' => 0,
+                'active_ads' => 0,
+                'revenue' => 0,
+                'pending_payment' => 0,
+                'conversion_rate' => 0,
+            ];
+        }
+
+        $query = DB::table($table)
             ->whereBetween('created_at', [$this->startDate, $this->endDate]);
 
-        if ($this->adType !== 'all') {
+        if ($this->adType !== 'all' && Schema::hasColumn($table, 'type')) {
             $query->where('type', $this->adType);
         }
 
+        $total = (clone $query)->count();
+        $active = (clone $query)->where('is_active', true)->count();
+        $hasPayment = Schema::hasColumn($table, 'payment_status');
+        $hasPrice = Schema::hasColumn($table, 'price');
+
         return [
-            'total_ads' => $query->count(),
-            'active_ads' => $query->where('is_active', true)->count(),
-            'revenue' => $query->where('payment_status', 'paid')->sum('price'),
-            'pending_payment' => $query->where('payment_status', 'pending')->count(),
-            'conversion_rate' => $query->count() > 0 
-                ? ($query->where('payment_status', 'paid')->count() / $query->count()) * 100 
+            'total_ads' => $total,
+            'active_ads' => $active,
+            'revenue' => $hasPayment && $hasPrice ? (clone $query)->where('payment_status', 'paid')->sum('price') : 0,
+            'pending_payment' => $hasPayment ? (clone $query)->where('payment_status', 'pending')->count() : 0,
+            'conversion_rate' => $total > 0 && $hasPayment
+                ? ((clone $query)->where('payment_status', 'paid')->count() / $total) * 100
                 : 0,
         ];
     }
 
     public function getChartData(): array
     {
-        $data = DB::table('advertisements')
-            ->select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('COUNT(*) as count'),
-                DB::raw('SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as revenue')
-            )
-            ->whereBetween('created_at', [$this->startDate, $this->endDate])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+        $table = (new Advertisement)->getTable();
+        $data = collect();
+
+        if (Schema::hasTable($table)) {
+            $hasPayment = Schema::hasColumn($table, 'payment_status');
+            $hasPrice = Schema::hasColumn($table, 'price');
+            $revenueSql = $hasPayment && $hasPrice
+                ? 'SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as revenue'
+                : '0 as revenue';
+
+            $data = DB::table($table)
+                ->select(
+                    DB::raw('DATE(created_at) as date'),
+                    DB::raw('COUNT(*) as count'),
+                    DB::raw($revenueSql)
+                )
+                ->whereBetween('created_at', [$this->startDate, $this->endDate])
+                ->groupBy('date')
+                ->orderBy('date')
+                ->get();
+        }
 
         return [
             'dates' => $data->pluck('date')->toArray(),
@@ -91,7 +120,12 @@ class AdAnalytics extends ResourcePage
 
     public function getTypeDistribution(): array
     {
-        $data = DB::table('advertisements')
+        $table = (new Advertisement)->getTable();
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'type')) {
+            return [];
+        }
+
+        $data = DB::table($table)
             ->select('type', DB::raw('COUNT(*) as count'))
             ->whereBetween('created_at', [$this->startDate, $this->endDate])
             ->groupBy('type')

@@ -20,7 +20,7 @@ class DocumentsRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Document Information')
+                Forms\Components\Section::make('Document Information')
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->required()
@@ -77,11 +77,12 @@ class DocumentsRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('document_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'identity' => 'danger',
                         'marketing' => 'success',
                         'reward' => 'warning',
                         'other' => 'gray',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('mime_type')

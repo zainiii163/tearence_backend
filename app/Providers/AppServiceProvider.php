@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Blade;
+use App\Support\StripUnknownModelColumns;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -45,5 +46,7 @@ class AppServiceProvider extends ServiceProvider
         Blade::directive('endbadge', function () {
             return "<?php echo '</span>'; ?>";
         });
+
+        StripUnknownModelColumns::register();
     }
 }

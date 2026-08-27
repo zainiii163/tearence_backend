@@ -51,21 +51,23 @@ class RecentVehiclesWidget extends BaseWidget
                 
                 Tables\Columns\TextColumn::make('advert_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'sale' => 'success',
                         'hire' => 'warning',
                         'lease' => 'info',
                         'transport_service' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'approved' => 'success',
                         'pending' => 'warning',
                         'rejected' => 'danger',
                         'expired' => 'gray',
                         'sold' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('user.name')

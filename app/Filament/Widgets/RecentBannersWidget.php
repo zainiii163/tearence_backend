@@ -64,7 +64,7 @@ class RecentBannersWidget extends BaseWidget
                         'featured' => 'Featured',
                         'sponsored' => 'Sponsored',
                         'network_boost' => 'Network Boost',
-                        default => $state,
+                        default => ($state ?? ''),
                     }),
                 
                 Tables\Columns\TextColumn::make('views_count')

@@ -90,9 +90,12 @@ class AdManagementResource extends Resource
                                     ->label('Pricing Plan')
                                     ->options(function (callable $get) {
                                         $type = $get('type') ?? 'banner';
-                                        return AdPricingPlan::where('ad_type', $type)
-                                            ->active()
-                                            ->pluck('name', 'id');
+                                        return \App\Support\SafeSelectOptions::get(
+                                            fn () => AdPricingPlan::query()
+                                                ->where('ad_type', $type)
+                                                ->active()
+                                                ->pluck('name', 'id')
+                                        );
                                     })
                                     ->reactive()
                                     ->afterStateUpdated(fn ($state, callable $set) => 
@@ -214,11 +217,11 @@ class AdManagementResource extends Resource
                         'success' => 'sponsored',
                         'warning' => 'featured',
                     ])
-                    ->formatStateUsing(fn ($state) => ucfirst($state)),
+                    ->formatStateUsing(fn ($state) => $state ? ucfirst($state) : '—'),
                 
-                Tables\Columns\TextColumn::make('pricingPlan.name')
+                Tables\Columns\TextColumn::make('plan_name')
                     ->label('Pricing Plan')
-                    ->searchable()
+                    ->getStateUsing(fn ($record) => $record->pricingPlan?->name)
                     ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('price')
@@ -235,7 +238,7 @@ class AdManagementResource extends Resource
                         'danger' => 'failed',
                         'warning' => 'refunded',
                     ])
-                    ->formatStateUsing(fn ($state) => ucfirst($state)),
+                    ->formatStateUsing(fn ($state) => $state ? ucfirst($state) : '—'),
                 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Active')
@@ -283,7 +286,13 @@ class AdManagementResource extends Resource
                 
                 Tables\Filters\SelectFilter::make('pricing_plan_id')
                     ->label('Pricing Plan')
-                    ->options(AdPricingPlan::active()->pluck('name', 'id')),
+                    ->options(function () {
+                        try {
+                            return AdPricingPlan::active()->pluck('name', 'id');
+                        } catch (\Throwable $e) {
+                            return [];
+                        }
+                    }),
                 
                 Tables\Filters\Filter::make('expires_soon')
                     ->label('Expires Soon (7 days)')

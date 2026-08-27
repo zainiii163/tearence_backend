@@ -21,11 +21,12 @@ class AnalyticsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('event_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'view' => 'primary',
                         'save' => 'success',
                         'enquiry' => 'warning',
                         'contact' => 'info',
+                        default => 'gray',
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('user.name')

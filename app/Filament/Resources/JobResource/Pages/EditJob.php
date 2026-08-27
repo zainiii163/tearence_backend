@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\JobResource\Pages;
 
 use App\Filament\Resources\JobResource;
+use App\Support\JobSchema;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class EditJob extends EditRecord
@@ -33,5 +35,12 @@ class EditJob extends EditRecord
         }
 
         return $data;
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        $record->update(JobSchema::normalizeAdminPayload($data));
+
+        return $record;
     }
 }

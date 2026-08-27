@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class VenueService extends Model
@@ -12,6 +14,15 @@ class VenueService extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'venue_services';
+
+    public static function bootSoftDeletes()
+    {
+        if (! Schema::hasTable('venue_services') || ! Schema::hasColumn('venue_services', 'deleted_at')) {
+            return;
+        }
+
+        static::addGlobalScope(new SoftDeletingScope);
+    }
 
     protected $fillable = [
         'name',
@@ -65,7 +76,37 @@ class VenueService extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    public function getCategoryAttribute($value)
+    {
+        if ($value !== null && $value !== '') {
+            return $value;
+        }
+
+        return $this->attributes['service_category'] ?? null;
+    }
+
+    public function getImagesAttribute($value)
+    {
+        if (is_array($value) && $value !== []) {
+            return $value;
+        }
+        if (is_string($value) && $value !== '') {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        $portfolio = $this->attributes['portfolio_images'] ?? null;
+        if (is_string($portfolio)) {
+            $decoded = json_decode($portfolio, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($portfolio) ? $portfolio : [];
     }
 
     public function events()

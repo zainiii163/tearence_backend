@@ -58,12 +58,13 @@ class UpsellsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'gray',
                         'paid' => 'blue',
                         'active' => 'success',
                         'expired' => 'danger',
                         'cancelled' => 'warning',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('amount')

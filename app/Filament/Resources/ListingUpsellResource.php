@@ -124,7 +124,7 @@ class ListingUpsellResource extends Resource
                         ListingUpsell::TYPE_FEATURED => 'Featured',
                         ListingUpsell::TYPE_SPONSORED => 'Sponsored',
                         ListingUpsell::TYPE_PREMIUM => 'Premium',
-                        default => $state,
+                        default => ($state ?? ''),
                     }),
                 Tables\Columns\TextColumn::make('price')
                     ->label('Price')

@@ -34,7 +34,7 @@ class RecentPropertiesWidget extends BaseWidget
                     
                 Tables\Columns\TextColumn::make('property_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'residential' => 'primary',
                         'commercial' => 'success',
                         'industrial' => 'warning',
@@ -44,16 +44,18 @@ class RecentPropertiesWidget extends BaseWidget
                         'short_term_rental' => 'pink',
                         'investment' => 'orange',
                         'new_development' => 'cyan',
+                        default => 'gray',
                     }),
                     
                 Tables\Columns\TextColumn::make('category')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'buy' => 'success',
                         'rent' => 'primary',
                         'lease' => 'warning',
                         'auction' => 'danger',
                         'invest' => 'info',
+                        default => 'gray',
                     }),
                     
                 Tables\Columns\TextColumn::make('price')

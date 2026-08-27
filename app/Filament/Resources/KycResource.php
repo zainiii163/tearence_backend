@@ -131,12 +131,14 @@ class KycResource extends Resource
                         'submitted' => 'info',
                         'verified' => 'success',
                         'rejected' => 'danger',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'pending' => 'Pending Review',
                         'submitted' => 'Submitted',
                         'verified' => 'Verified',
                         'rejected' => 'Rejected',
+                        default => ($state ?? ''),
                     }),
 
                 Tables\Columns\TextColumn::make('kyc_verified_at')

@@ -194,6 +194,39 @@ class CustomerBusinessResource extends Resource
                         Forms\Components\TextInput::make('category_profile.booking_phone')
                             ->label('Booking phone')
                             ->tel(),
+                        Forms\Components\TextInput::make('category_profile.whatsapp')
+                            ->label('WhatsApp')
+                            ->helperText('Phone number or https://wa.me/… link shown as WhatsApp button'),
+                        Forms\Components\Repeater::make('category_profile.social_links')
+                            ->label('Social & website links')
+                            ->helperText('WWA Social Hub is automatic. Add Facebook, Instagram, or other brand sites (e.g. carservicesltd.com).')
+                            ->schema([
+                                Forms\Components\Select::make('platform')
+                                    ->options([
+                                        'custom' => 'Other site / brand page',
+                                        'website' => 'Website',
+                                        'facebook' => 'Facebook',
+                                        'instagram' => 'Instagram',
+                                        'linkedin' => 'LinkedIn',
+                                        'twitter' => 'X / Twitter',
+                                        'youtube' => 'YouTube',
+                                        'tiktok' => 'TikTok',
+                                    ])
+                                    ->default('custom')
+                                    ->required(),
+                                Forms\Components\TextInput::make('label')
+                                    ->label('Label')
+                                    ->maxLength(120),
+                                Forms\Components\TextInput::make('url')
+                                    ->label('URL')
+                                    ->url()
+                                    ->required()
+                                    ->maxLength(500),
+                            ])
+                            ->columns(3)
+                            ->defaultItems(0)
+                            ->collapsible()
+                            ->columnSpanFull(),
                         Forms\Components\TagsInput::make('category_profile.highlights')
                             ->label('Highlights')
                             ->placeholder('Add highlight')
@@ -336,7 +369,7 @@ class CustomerBusinessResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'active' => 'success',
                         'inactive' => 'danger',
                         default => 'gray',

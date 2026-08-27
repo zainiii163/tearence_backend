@@ -72,12 +72,12 @@ class HrLeaveRequestResource extends Resource
                                 ->orWhere('last_name', 'like', "%{$search}%");
                         });
                     }),
-                Tables\Columns\TextColumn::make('leave_type')->badge()->formatStateUsing(fn (string $state) => match ($state) {
+                Tables\Columns\TextColumn::make('leave_type')->badge()->formatStateUsing(fn (?string $state) => match ($state) {
                     'holiday' => 'Holiday',
                     'sick' => 'Sick leave',
                     'unpaid' => 'Unpaid',
-                    default => ucfirst($state),
-                })->color(fn (string $state): string => match ($state) {
+                    default => ucfirst($state ?? ''),
+                })->color(fn (?string $state): string => match ($state) {
                     'holiday' => 'info',
                     'sick' => 'warning',
                     default => 'gray',
@@ -85,7 +85,7 @@ class HrLeaveRequestResource extends Resource
                 Tables\Columns\TextColumn::make('start_date')->date()->sortable(),
                 Tables\Columns\TextColumn::make('end_date')->date()->sortable(),
                 Tables\Columns\TextColumn::make('days'),
-                Tables\Columns\TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
+                Tables\Columns\TextColumn::make('status')->badge()->color(fn (?string $state): string => match ($state) {
                     'approved' => 'success',
                     'pending' => 'warning',
                     'rejected' => 'danger',

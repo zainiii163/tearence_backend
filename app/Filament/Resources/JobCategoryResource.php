@@ -33,9 +33,11 @@ class JobCategoryResource extends Resource
                     ->live(onBlur: true)
                     ->afterStateUpdated(fn (string $operation, string $state, Forms\Set $set) => $operation === 'create' ? $set('slug', str()->slug($state)) : null),
                 Forms\Components\TextInput::make('slug')
-                    ->required()
+                    ->required(fn () => Schema::hasColumn('job_categories', 'slug'))
                     ->maxLength(120)
-                    ->unique(JobCategory::class, 'slug', ignoreRecord: true),
+                    ->unique(JobCategory::class, 'slug', ignoreRecord: true)
+                    ->visible(fn () => Schema::hasColumn('job_categories', 'slug'))
+                    ->dehydrated(fn () => Schema::hasColumn('job_categories', 'slug')),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('icon')

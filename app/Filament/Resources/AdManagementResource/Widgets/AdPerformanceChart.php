@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\AdManagementResource\Widgets;
 
+use App\Models\Advertisement;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdPerformanceChart extends ChartWidget
 {
@@ -15,16 +17,27 @@ class AdPerformanceChart extends ChartWidget
 
     protected function getData(): array
     {
-        $data = DB::table('advertisements')
-            ->select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('COUNT(*) as count'),
-                DB::raw('SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as revenue')
-            )
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+        $table = (new Advertisement)->getTable();
+        $data = collect();
+
+        if (Schema::hasTable($table)) {
+            $hasPayment = Schema::hasColumn($table, 'payment_status');
+            $hasPrice = Schema::hasColumn($table, 'price');
+            $revenueSql = $hasPayment && $hasPrice
+                ? 'SUM(CASE WHEN payment_status = "paid" THEN price ELSE 0 END) as revenue'
+                : '0 as revenue';
+
+            $data = DB::table($table)
+                ->select(
+                    DB::raw('DATE(created_at) as date'),
+                    DB::raw('COUNT(*) as count'),
+                    DB::raw($revenueSql)
+                )
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('date')
+                ->orderBy('date')
+                ->get();
+        }
 
         return [
             'datasets' => [

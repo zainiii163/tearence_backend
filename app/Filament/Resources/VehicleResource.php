@@ -52,14 +52,18 @@ class VehicleResource extends Resource
                         
                         Forms\Components\Select::make('category_id')
                             ->label('Category')
-                            ->options(VehicleCategory::active()->pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => VehicleCategory::query()->active()->pluck('name', 'id')
+                            ))
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set) => $set('category_name', VehicleCategory::find($state)?->name)),
                         
                         Forms\Components\Select::make('make_id')
                             ->label('Make')
-                            ->options(VehicleMake::active()->pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => VehicleMake::query()->active()->pluck('name', 'id')
+                            ))
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set) => $set('model_id', null)),
@@ -452,7 +456,9 @@ class VehicleResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('pricing_plan_id')
                             ->label('Pricing Plan')
-                            ->options(AdPricingPlan::where('ad_type', 'classified')->active()->pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => AdPricingPlan::query()->where('ad_type', 'classified')->active()->pluck('name', 'id')
+                            ))
                             ->reactive()
                             ->nullable(),
                         
@@ -534,11 +540,12 @@ class VehicleResource extends Resource
                 Tables\Columns\TextColumn::make('advert_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'sale' => 'success',
                         'hire' => 'info',
                         'lease' => 'warning',
                         'transport_service' => 'primary',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('year')
@@ -632,12 +639,16 @@ class VehicleResource extends Resource
                 
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('Category')
-                    ->options(VehicleCategory::active()->pluck('name', 'id'))
+                    ->options(fn () => \App\Support\SafeSelectOptions::get(
+                        fn () => VehicleCategory::query()->active()->pluck('name', 'id')
+                    ))
                     ->searchable(),
                 
                 Tables\Filters\SelectFilter::make('make_id')
                     ->label('Make')
-                    ->options(VehicleMake::active()->pluck('name', 'id'))
+                    ->options(fn () => \App\Support\SafeSelectOptions::get(
+                        fn () => VehicleMake::query()->active()->pluck('name', 'id')
+                    ))
                     ->searchable(),
                 
                 Tables\Filters\SelectFilter::make('payment_status')

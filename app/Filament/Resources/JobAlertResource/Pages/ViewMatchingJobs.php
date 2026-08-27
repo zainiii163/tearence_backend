@@ -40,7 +40,7 @@ class ViewMatchingJobs extends Page implements HasTable
                         });
 
                     // Keyword search
-                    if ($alert->keywords && count($alert->keywords) > 0) {
+                    if ($alert->keywords && is_countable($alert->keywords) && count($alert->keywords) > 0) {
                         $query->where(function($q) use ($alert) {
                             foreach ($alert->keywords as $keyword) {
                                 $q->orWhere('title', 'like', '%' . $keyword . '%')
@@ -60,7 +60,7 @@ class ViewMatchingJobs extends Page implements HasTable
                     }
 
                     // Job type filter
-                    if ($alert->job_type && count($alert->job_type) > 0) {
+                    if ($alert->job_type && is_countable($alert->job_type) && count($alert->job_type) > 0) {
                         $query->whereIn('job_type', $alert->job_type);
                     }
 

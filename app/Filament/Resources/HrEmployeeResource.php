@@ -72,7 +72,7 @@ class HrEmployeeResource extends Resource
                 Tables\Columns\TextColumn::make('job_position')->label('Position')->searchable(),
                 Tables\Columns\TextColumn::make('work_location')->label('Location')->toggleable(),
                 Tables\Columns\TextColumn::make('weekly_hours')->label('Hours/wk')->toggleable(),
-                Tables\Columns\TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
+                Tables\Columns\TextColumn::make('status')->badge()->color(fn (?string $state): string => match ($state) {
                     'active' => 'success',
                     'on_leave' => 'warning',
                     default => 'danger',

@@ -33,10 +33,11 @@ class ViewsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('device_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'desktop' => 'success',
                         'mobile' => 'warning',
                         'tablet' => 'info',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('created_at')

@@ -240,10 +240,11 @@ class BuySellItemResource extends Resource
                 Tables\Columns\TextColumn::make('item_type')
                     ->label('Type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'for_sale' => 'success',
                         'for_swap' => 'warning',
                         'give_away' => 'info',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('price')
@@ -252,23 +253,25 @@ class BuySellItemResource extends Resource
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'draft' => 'gray',
                         'active' => 'success',
                         'paused' => 'warning',
                         'sold' => 'info',
                         'suspended' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->label('Promotion')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'standard' => 'gray',
                         'promoted' => 'info',
                         'featured' => 'warning',
                         'sponsored' => 'success',
                         'network_boost' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\IconColumn::make('is_verified')

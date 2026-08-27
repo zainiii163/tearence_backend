@@ -71,7 +71,9 @@ class EventResource extends Resource
 
                         Forms\Components\Select::make('venue_id')
                             ->label('Associated Venue')
-                            ->options(Venue::pluck('name', 'id'))
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => Venue::query()->pluck('name', 'id')
+                            ))
                             ->searchable()
                             ->preload()
                             ->nullable(),
@@ -247,7 +249,7 @@ class EventResource extends Resource
 
                 Tables\Columns\TextColumn::make('category')
                     ->label('Category')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match($state) {
                         'concert' => 'Concerts & Music',
                         'workshop' => 'Workshops',
                         'party' => 'Parties & Nightlife',
@@ -258,7 +260,7 @@ class EventResource extends Resource
                         'food_drink' => 'Food & Drink',
                         'charity' => 'Charity Events',
                         'other' => 'Other',
-                        default => $state,
+                        default => ($state ?? ''),
                     })
                     ->searchable()
                     ->sortable(),

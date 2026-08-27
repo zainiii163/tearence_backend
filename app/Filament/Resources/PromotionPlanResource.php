@@ -31,7 +31,7 @@ class PromotionPlanResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Section::make('Promotion Plan Information')
+                Forms\Components\Section::make('Promotion Plan Information')
                     ->schema([
                         Forms\Components\TextInput::make('id')
                             ->required()

@@ -125,11 +125,12 @@ class JobPricingPlanResource extends Resource
                 
                 Tables\Columns\TextColumn::make('period')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'month' => 'primary',
                         'week' => 'success',
                         'day' => 'warning',
                         'year' => 'info',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('duration_months')

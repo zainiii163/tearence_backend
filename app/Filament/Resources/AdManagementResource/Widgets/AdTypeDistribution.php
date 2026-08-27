@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\AdManagementResource\Widgets;
 
+use App\Models\Advertisement;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class AdTypeDistribution extends ChartWidget
 {
@@ -15,10 +17,17 @@ class AdTypeDistribution extends ChartWidget
 
     protected function getData(): array
     {
-        $data = DB::table('advertisements')
-            ->select('type', DB::raw('COUNT(*) as count'))
-            ->groupBy('type')
-            ->get();
+        $table = (new Advertisement)->getTable();
+        $data = collect();
+
+        if (Schema::hasTable($table) && Schema::hasColumn($table, 'type')) {
+            $data = DB::table($table)
+                ->select('type', DB::raw('COUNT(*) as count'))
+                ->groupBy('type')
+                ->get();
+        } elseif (Schema::hasTable($table)) {
+            $data = collect([(object) ['type' => 'all', 'count' => DB::table($table)->count()]]);
+        }
 
         return [
             'datasets' => [
@@ -40,7 +49,7 @@ class AdTypeDistribution extends ChartWidget
                     'borderWidth' => 2,
                 ],
             ],
-            'labels' => $data->pluck('type')->map(fn ($type) => ucfirst($type))->toArray(),
+            'labels' => $data->pluck('type')->map(fn ($type) => $type ? ucfirst($type) : 'Unknown')->toArray(),
         ];
     }
 

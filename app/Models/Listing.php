@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -612,6 +613,9 @@ class Listing extends Model
      */
     public function setDisplayName(): void
     {
+        if (! Schema::hasColumn($this->getTable(), 'display_name')) {
+            return;
+        }
         if ($this->is_admin_post) {
             // Use generic admin identifier to protect admin identity
             $this->display_name = 'Admin';
@@ -646,24 +650,33 @@ class Listing extends Model
 
         // Handle data before creating the listing
         static::creating(function ($listing) {
-            if (empty($listing->slug)) {
+            $table = $listing->getTable();
+
+            if (empty($listing->slug) && Schema::hasColumn($table, 'slug')) {
                 $listing->slug = Str::slug($listing->title);
             }
 
-            // Set default values
-            $listing->type = "international";
-            $listing->status = "active";
-            $listing->approval_status = "pending"; // All ads start as pending
-            $listing->promo_expire_at = date("Y-m-d", strtotime("+1 year"));
-            
-            // Set display name based on context
+            if (Schema::hasColumn($table, 'type')) {
+                $listing->type = $listing->type ?: 'international';
+            }
+            if (Schema::hasColumn($table, 'status')) {
+                $listing->status = $listing->status ?: 'active';
+            }
+            if (Schema::hasColumn($table, 'approval_status')) {
+                $listing->approval_status = $listing->approval_status ?: 'pending';
+            }
+            if (Schema::hasColumn($table, 'promo_expire_at') && empty($listing->promo_expire_at)) {
+                $listing->promo_expire_at = date('Y-m-d', strtotime('+1 year'));
+            }
+
             $listing->setDisplayName();
         });
 
-        // Create admin notification after listing is created
         static::created(function ($listing) {
-            // Only create notification if it's not an admin post
-            if (!$listing->is_admin_post) {
+            if ($listing->is_admin_post) {
+                return;
+            }
+            try {
                 AdminNotification::notifyAllAdmins(
                     AdminNotification::TYPE_NEW_POST,
                     "New post submitted: {$listing->title}",
@@ -674,6 +687,8 @@ class Listing extends Model
                         'title' => $listing->title,
                     ]
                 );
+            } catch (\Throwable) {
+                // Notification table / admin users may be missing; never block the listing save.
             }
         });
 

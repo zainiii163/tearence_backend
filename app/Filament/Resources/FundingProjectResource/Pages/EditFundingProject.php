@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\FundingProjectResource\Pages;
 
 use App\Filament\Resources\FundingProjectResource;
+use App\Support\FundingProjectSchema;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class EditFundingProject extends EditRecord
 {
@@ -15,5 +17,12 @@ class EditFundingProject extends EditRecord
         return [
             Actions\DeleteAction::make(),
         ];
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        $record->update(FundingProjectSchema::normalizeAdminPayload($data));
+
+        return $record;
     }
 }

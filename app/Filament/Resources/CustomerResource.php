@@ -77,9 +77,13 @@ class CustomerResource extends Resource
                     ->options(function (callable $get) {
                         $countryId = $get('address_country');
                         if ($countryId) {
-                            return Zone::where('country_id', $countryId)->pluck('name', 'zone_id');
+                            return \App\Support\SafeSelectOptions::get(
+                                fn () => Zone::query()->where('country_id', $countryId)->pluck('name', 'zone_id')
+                            );
                         }
-                        return Zone::all()->pluck('name', 'zone_id'); // Return all zones if no country is selected
+                        return \App\Support\SafeSelectOptions::get(
+                            fn () => Zone::query()->pluck('name', 'zone_id')
+                        );
                     })
                     ->searchable(),
                 Forms\Components\TextInput::make('address_street')
@@ -90,7 +94,9 @@ class CustomerResource extends Resource
                     ->maxLength(32),
                 Forms\Components\Select::make('currency_id')
                     ->label('Currency')
-                    ->options(Currency::all()->pluck('name', 'currency_id'))
+                    ->options(fn () => \App\Support\SafeSelectOptions::get(
+                        fn () => Currency::query()->pluck('name', 'currency_id')
+                    ))
                     ->searchable(),
             ]);
     }

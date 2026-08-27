@@ -28,11 +28,12 @@ class EnquiriesRelationManager extends RelationManager
                     ->searchable(),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'general' => 'primary',
                         'schedule_viewing' => 'success',
                         'price_inquiry' => 'warning',
                         'financing' => 'info',
+                        default => 'gray',
                     })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('message')

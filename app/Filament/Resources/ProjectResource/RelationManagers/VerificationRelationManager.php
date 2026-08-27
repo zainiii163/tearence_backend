@@ -20,7 +20,7 @@ class VerificationRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Section::make('Verification Information')
+                Forms\Components\Section::make('Verification Information')
                     ->schema([
                         Forms\Components\Select::make('verification_status')
                             ->options([
@@ -61,10 +61,11 @@ class VerificationRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('verification_status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'verified' => 'success',
                         'rejected' => 'danger',
+                        default => 'gray',
                     }),
 
                 Tables\Columns\TextColumn::make('identity_document_url')

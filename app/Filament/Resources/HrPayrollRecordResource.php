@@ -96,7 +96,7 @@ class HrPayrollRecordResource extends Resource
                 Tables\Columns\TextColumn::make('work_location')->toggleable(),
                 Tables\Columns\TextColumn::make('hours_worked')->label('Hours'),
                 Tables\Columns\TextColumn::make('salary_amount')->money(fn (HrPayrollRecord $r) => $r->currency ?: 'USD')->label('Pay'),
-                Tables\Columns\TextColumn::make('payment_status')->badge()->color(fn (string $state): string => match ($state) {
+                Tables\Columns\TextColumn::make('payment_status')->badge()->color(fn (?string $state): string => match ($state) {
                     'paid' => 'success',
                     'approved' => 'info',
                     default => 'gray',

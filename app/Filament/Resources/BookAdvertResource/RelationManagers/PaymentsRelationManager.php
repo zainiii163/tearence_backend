@@ -21,8 +21,9 @@ class PaymentsRelationManager extends RelationManager
         return $form
             ->schema([
                 Forms\Components\Select::make('user_id')
-                    ->relationship('user', 'name')
-                    ->searchable()
+                    ->relationship('user', 'email')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => \App\Support\FilamentUserLabel::from($record))
+                    ->searchable(['email', 'first_name', 'last_name'])
                     ->required(),
                 Forms\Components\Select::make('plan_id')
                     ->relationship('plan', 'name')
@@ -74,11 +75,12 @@ class PaymentsRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'completed' => 'success',
                         'failed' => 'danger',
                         'refunded' => 'info',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('payment_method')
                     ->searchable(),

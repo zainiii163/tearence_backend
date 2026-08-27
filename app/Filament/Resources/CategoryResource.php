@@ -79,14 +79,15 @@ class CategoryResource extends Resource
                 Forms\Components\Select::make('parent_id')
                     ->label('Parent Category')
                     ->options(function ($record) {
-                        $query = Category::whereNull('parent_id')->orderBy('name', 'ASC');
-                        
-                        // When editing, exclude the current category to prevent self-referencing
-                        if ($record) {
-                            $query->where('category_id', '!=', $record->category_id);
-                        }
-                        
-                        return $query->pluck('name', 'category_id');
+                        return \App\Support\SafeSelectOptions::get(function () use ($record) {
+                            $query = Category::query()->whereNull('parent_id')->orderBy('name', 'ASC');
+
+                            if ($record) {
+                                $query->where('category_id', '!=', $record->category_id);
+                            }
+
+                            return $query->pluck('name', 'category_id');
+                        });
                     })
                     ->searchable()
                     ->placeholder('Select an option')

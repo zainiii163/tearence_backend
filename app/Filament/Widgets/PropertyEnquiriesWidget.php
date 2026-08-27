@@ -54,10 +54,11 @@ class PropertyEnquiriesWidget extends BaseWidget
                     
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'responded' => 'success',
                         'closed' => 'gray',
+                        default => 'gray',
                     }),
                     
                 Tables\Columns\TextColumn::make('created_at')

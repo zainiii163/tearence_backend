@@ -70,7 +70,7 @@ class ApplicationsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'submitted' => 'blue',
                         'viewed' => 'yellow',
                         'shortlisted' => 'green',
@@ -78,6 +78,7 @@ class ApplicationsRelationManager extends RelationManager
                         'rejected' => 'red',
                         'hired' => 'emerald',
                         'withdrawn' => 'gray',
+                        default => 'gray',
                     }),
                 
                 Tables\Columns\TextColumn::make('expected_salary')

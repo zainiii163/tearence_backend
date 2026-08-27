@@ -27,8 +27,9 @@ class FundingPledgeResource extends Resource
                 Forms\Components\Section::make('Pledge Details')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->relationship('user', 'name')
-                            ->searchable()
+                            ->relationship('user', 'email')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => \App\Support\FilamentUserLabel::from($record))
+                            ->searchable(['email', 'first_name', 'last_name'])
                             ->preload()
                             ->required(),
                         Forms\Components\Select::make('funding_project_id')

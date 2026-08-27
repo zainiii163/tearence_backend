@@ -7,6 +7,7 @@ use App\Models\Zone;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Cascading Country → Zone (City/State) select fields.
@@ -19,10 +20,7 @@ class CountryZoneSelect
         return [
             Select::make($countryField)
                 ->label('Country')
-                ->options(fn () => Country::where('is_active', true)
-                    ->orderBy('name')
-                    ->pluck('name', 'country_id')
-                    ->toArray())
+                ->options(fn () => static::countryQuery()->pluck('name', 'country_id')->toArray())
                 ->searchable()
                 ->preload()
                 ->live(onBlur: true)
@@ -38,12 +36,7 @@ class CountryZoneSelect
                     if (! $countryId) {
                         return [];
                     }
-                    return Zone::where('country_id', $countryId)
-                        ->where('is_active', true)
-                        ->orderBy('sort_order')
-                        ->orderBy('name')
-                        ->pluck('name', 'zone_id')
-                        ->toArray();
+                    return static::zoneQuery($countryId)->pluck('name', 'zone_id')->toArray();
                 })
                 ->searchable()
                 ->preload()
@@ -59,10 +52,7 @@ class CountryZoneSelect
         return [
             Select::make($countryField)
                 ->label('Country')
-                ->options(fn () => Country::where('is_active', true)
-                    ->orderBy('name')
-                    ->pluck('name', 'iso_code')
-                    ->toArray())
+                ->options(fn () => static::countryQuery()->pluck('name', 'iso_code')->toArray())
                 ->searchable()
                 ->preload()
                 ->live(onBlur: true)
@@ -82,17 +72,35 @@ class CountryZoneSelect
                     if (! $country) {
                         return [];
                     }
-                    return Zone::where('country_id', $country->country_id)
-                        ->where('is_active', true)
-                        ->orderBy('sort_order')
-                        ->orderBy('name')
-                        ->pluck('name', 'zone_id')
-                        ->toArray();
+                    return static::zoneQuery($country->country_id)->pluck('name', 'zone_id')->toArray();
                 })
                 ->searchable()
                 ->preload()
                 ->disabled(fn (Get $get) => ! $get($countryField))
                 ->required(),
         ];
+    }
+
+    protected static function countryQuery()
+    {
+        $query = Country::query()->orderBy('name');
+        if (Schema::hasColumn('country', 'is_active')) {
+            $query->where('is_active', true);
+        }
+
+        return $query;
+    }
+
+    protected static function zoneQuery($countryId)
+    {
+        $query = Zone::query()->where('country_id', $countryId);
+        if (Schema::hasColumn('zone', 'is_active')) {
+            $query->where('is_active', true);
+        }
+        if (Schema::hasColumn('zone', 'sort_order')) {
+            $query->orderBy('sort_order');
+        }
+
+        return $query->orderBy('name');
     }
 }

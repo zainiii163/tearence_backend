@@ -79,7 +79,7 @@ class PropertyCategoryResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'residential' => 'primary',
                         'commercial' => 'success',
                         'industrial' => 'warning',
@@ -87,6 +87,7 @@ class PropertyCategoryResource extends Resource
                         'agricultural' => 'gray',
                         'luxury' => 'purple',
                         'investment' => 'orange',
+                        default => 'gray',
                     })
                     ->searchable(),
                 Tables\Columns\IconColumn::make('active')

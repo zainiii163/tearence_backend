@@ -332,10 +332,11 @@ class ResortsTravelResource extends Resource
                     ->limit(50),
                 Tables\Columns\TextColumn::make('advert_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'accommodation' => 'success',
                         'transport' => 'warning',
                         'experience' => 'info',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('country')
                     ->searchable(),

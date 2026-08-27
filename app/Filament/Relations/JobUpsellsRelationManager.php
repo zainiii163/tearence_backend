@@ -62,11 +62,12 @@ class JobUpsellsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('upsell_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'success',
                         'featured' => 'info',
                         'sponsored' => 'warning',
                         'top_category' => 'danger',
+                        default => 'gray',
                     })
                     ->sortable(),
                 
@@ -84,10 +85,11 @@ class JobUpsellsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'active' => 'success',
                         'expired' => 'danger',
                         'cancelled' => 'warning',
+                        default => 'gray',
                     })
                     ->sortable(),
                 

@@ -36,7 +36,7 @@ class RecentEventsWidget extends BaseWidget
 
                 Tables\Columns\TextColumn::make('category')
                     ->label('Category')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match($state) {
                         'concert' => 'Concerts & Music',
                         'workshop' => 'Workshops',
                         'party' => 'Parties & Nightlife',
@@ -47,7 +47,7 @@ class RecentEventsWidget extends BaseWidget
                         'food_drink' => 'Food & Drink',
                         'charity' => 'Charity Events',
                         'other' => 'Other',
-                        default => $state,
+                        default => ($state ?? ''),
                     }),
 
                 Tables\Columns\TextColumn::make('date_time')

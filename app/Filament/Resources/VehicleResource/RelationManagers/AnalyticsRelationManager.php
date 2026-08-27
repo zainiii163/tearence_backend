@@ -63,11 +63,12 @@ class AnalyticsRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('event_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'view' => 'primary',
                         'save' => 'success',
                         'enquiry' => 'warning',
                         'click' => 'info',
+                        default => 'gray',
                     })
                     ->sortable(),
                 

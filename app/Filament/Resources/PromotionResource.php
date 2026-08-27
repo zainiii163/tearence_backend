@@ -87,21 +87,23 @@ class PromotionResource extends Resource
                     ->limit(50),
                 Tables\Columns\TextColumn::make('promotion_type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'promoted' => 'info',
                         'featured' => 'primary',
                         'sponsored' => 'warning',
                         'network_boost' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('price')
                     ->formatStateUsing(fn ($state) => '$' . number_format($state, 2))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'active' => 'success',
                         'expired' => 'warning',
                         'cancelled' => 'danger',
+                        default => 'gray',
                     }),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

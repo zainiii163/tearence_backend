@@ -40,7 +40,8 @@ class VehicleEnquiryResource extends Resource
                 
                 Forms\Components\Select::make('user_id')
                     ->label('User')
-                    ->relationship('user', 'name')
+                    ->relationship('user', 'email')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => \App\Support\FilamentUserLabel::from($record))
                     ->searchable()
                     ->nullable()
                     ->disabled(),

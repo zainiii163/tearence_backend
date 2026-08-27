@@ -71,12 +71,13 @@ class JobApplicationsRelationManager extends RelationManager
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'reviewed' => 'info',
                         'shortlisted' => 'success',
                         'rejected' => 'danger',
                         'hired' => 'primary',
+                        default => 'gray',
                     })
                     ->sortable(),
                 

@@ -10,6 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Filament\Forms\Components\CountrySelect;
 
@@ -229,7 +230,7 @@ class VenueServiceResource extends Resource
 
                 Tables\Columns\TextColumn::make('category')
                     ->label('Category')
-                    ->formatStateUsing(fn (string $state): string => match($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'catering' => 'Catering',
                         'decor' => 'Decor',
                         'dj' => 'DJ Services',
@@ -241,7 +242,7 @@ class VenueServiceResource extends Resource
                         'sound' => 'Sound System',
                         'transportation' => 'Transportation',
                         'other' => 'Other',
-                        default => $state,
+                        default => $state ?: '—',
                     })
                     ->searchable()
                     ->sortable(),
@@ -251,24 +252,24 @@ class VenueServiceResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('formatted_price_range')
-                    ->label('Price Range')
-                    ->sortable(),
+                    ->label('Price Range'),
 
-                Tables\Columns\BadgeColumn::make('promotion_tier')
-                    ->colors([
-                        'secondary' => 'standard',
-                        'warning' => 'promoted',
-                        'success' => 'featured',
-                        'info' => 'sponsored',
-                        'danger' => 'spotlight',
-                    ]),
+                Tables\Columns\TextColumn::make('promotion_tier')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'standard' => 'gray',
+                        'promoted' => 'warning',
+                        'featured' => 'success',
+                        'sponsored' => 'info',
+                        'spotlight' => 'danger',
+                        default => 'gray',
+                    }),
 
                 Tables\Columns\ToggleColumn::make('is_active')
                     ->label('Active'),
 
                 Tables\Columns\TextColumn::make('user.first_name')
                     ->label('Posted By')
-                    ->sortable()
                     ->toggleable(),
             ])
             ->filters([
@@ -285,7 +286,18 @@ class VenueServiceResource extends Resource
                         'sound' => 'Sound System',
                         'transportation' => 'Transportation',
                         'other' => 'Other',
-                    ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if (! $value) {
+                            return $query;
+                        }
+                        $column = Schema::hasColumn('venue_services', 'category')
+                            ? 'category'
+                            : 'service_category';
+
+                        return $query->where($column, $value);
+                    }),
 
                 Tables\Filters\SelectFilter::make('promotion_tier')
                     ->options([
