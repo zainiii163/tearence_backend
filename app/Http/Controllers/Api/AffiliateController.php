@@ -189,13 +189,13 @@ class AffiliateController extends Controller
     {
         $query = UserAffiliatePost::with(['user', 'affiliateCategory']);
 
-        // Public hub: only live paid listings (matches business marketplace)
+        // Public hub: only live approved listings (user posts are always free)
         if ($request->boolean('marketplace')) {
-            $query->active()->paid();
+            $query->active();
         } elseif ($request->boolean('mine') && Auth::check()) {
             $query->where('user_id', Auth::id());
         } else {
-            $query->active()->paid();
+            $query->active();
         }
         
         // Filters only apply to the result set
