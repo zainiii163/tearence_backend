@@ -1781,7 +1781,7 @@ class AffiliateController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'file' => 'required|image|mimes:jpeg,png,jpg,gif|max:10240',
+            'file' => 'required|image|mimes:jpeg,png,jpg,gif,webp,avif|max:10240',
         ]);
 
         if ($validator->fails()) {
