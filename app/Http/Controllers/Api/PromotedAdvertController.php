@@ -506,7 +506,7 @@ class PromotedAdvertController extends Controller
             try {
                 $filename = time() . '_' . $index . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
                 $path = $image->storeAs('promoted-adverts', $filename, 'public');
-                $uploadedImages[] = $filename;
+                $uploadedImages[] = 'promoted-adverts/' . $filename;
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
@@ -552,7 +552,7 @@ class PromotedAdvertController extends Controller
             'success' => true,
             'message' => 'Logo uploaded successfully',
             'data' => [
-                'logo' => $filename,
+                'logo' => 'promoted-adverts/logos/' . $filename,
             ],
         ]);
     }

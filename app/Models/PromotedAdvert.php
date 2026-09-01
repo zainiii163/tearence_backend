@@ -355,11 +355,35 @@ class PromotedAdvert extends Model
     }
 
     /**
+     * Resolve a stored image path to a full URL, handling both
+     * bare filenames ("file.jpeg") and prefixed paths ("promoted-adverts/file.jpeg").
+     */
+    private function resolveImagePath(string $path, string $directory = 'promoted-adverts'): string
+    {
+        $trimmed = trim($path);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        // Already contains the directory prefix — use as-is
+        if (str_starts_with($trimmed, $directory . '/') || str_starts_with($trimmed, $directory . '\\')) {
+            return asset('storage/' . $trimmed);
+        }
+
+        // Bare filename — prepend directory
+        return asset('storage/' . $directory . '/' . $trimmed);
+    }
+
+    /**
      * Get the main image URL.
      */
     public function getMainImageUrlAttribute(): string
     {
-        return asset('storage/promoted-adverts/' . $this->main_image);
+        if (!$this->main_image) {
+            return '';
+        }
+
+        return $this->resolveImagePath($this->main_image, 'promoted-adverts');
     }
 
     /**
@@ -372,7 +396,7 @@ class PromotedAdvert extends Model
         }
 
         return collect($this->additional_images)->map(function ($image) {
-            return asset('storage/promoted-adverts/' . $image);
+            return $this->resolveImagePath($image, 'promoted-adverts');
         })->toArray();
     }
 
@@ -384,8 +408,8 @@ class PromotedAdvert extends Model
         if (!$this->logo) {
             return asset('images/default-logo.png');
         }
-        
-        return asset('storage/promoted-adverts/logos/' . $this->logo);
+
+        return $this->resolveImagePath($this->logo, 'promoted-adverts/logos');
     }
 
     /**
