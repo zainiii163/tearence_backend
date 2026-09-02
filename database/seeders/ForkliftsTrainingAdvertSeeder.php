@@ -85,53 +85,35 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             ->exists();
 
         if (!$sponsoredExists) {
-            // Start with only the most basic columns that exist on all versions
-            $sponsoredData = [
-                'title'             => 'Professional Forklift Training',
-                'slug'              => 'professional-forklift-training',
-                'tagline'           => 'Build your skills. Boost your career.',
-                'description'       => $baseData['description'],
-                'advert_type'       => 'service',
-                'country'           => 'United Kingdom',
-                'city'              => 'Wolverhampton',
-                'price'             => null,
-                'main_image'        => 'promoted-adverts/forklifts-training.jpg',
-                'phone'             => '01922 315615',
-                'email'             => $email,
-                'sponsored_tier'    => 'premium',
-                'is_active'         => true,
-                'payment_status'    => 'paid',
-                'user_id'           => $user?->user_id,
-                'created_at'        => $now,
-                'updated_at'        => $now,
-            ];
-
-            // Add columns only if they exist on this install
-            $sponsoredCols = collect(DB::select('SHOW COLUMNS FROM sponsored_adverts'))->pluck('Field')->toArray();
-            $optionalCols = [
-                'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
-                'category'          => 'Jobs & Services',
-                'seller_name'       => 'Forklifts Training Ltd',
-                'business_name'     => 'Forklifts Training Ltd',
-                'contact_name'      => 'Forklifts Training Ltd',
-                'contact_phone'     => '01922 315615',
-                'contact_email'     => $email,
-                'status'            => 'approved',
-                'promotion_price'   => 299.99,
-                'tier_price'        => 299.99,
-                'promotion_start'   => $now,
-                'promotion_end'     => $expiresAt,
-                'approved_at'       => $now,
-                'verified_seller'   => true,
-                'is_verified_seller'=> true,
-            ];
-            foreach ($optionalCols as $col => $val) {
-                if (in_array($col, $sponsoredCols)) {
-                    $sponsoredData[$col] = $val;
-                }
-            }
-
-            DB::table('sponsored_adverts')->insert($sponsoredData);
+            DB::table('sponsored_adverts')->insert([
+                'title'                  => 'Professional Forklift Training',
+                'slug'                   => 'professional-forklift-training',
+                'tagline'                => 'Build your skills. Boost your career.',
+                'description'            => $baseData['description'],
+                'advert_type'            => 'service',
+                'country'                => 'United Kingdom',
+                'city'                   => 'Wolverhampton',
+                'price'                  => null,
+                'currency'               => 'GBP',
+                'condition'              => 'not_applicable',
+                'main_image'             => 'promoted-adverts/forklifts-training.jpg',
+                'additional_images'      => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
+                'seller_name'            => 'Forklifts Training Ltd',
+                'business_name'          => 'Forklifts Training Ltd',
+                'phone'                  => '01922 315615',
+                'email'                  => $email,
+                'verified_seller'        => true,
+                'sponsorship_tier'       => 'premium',
+                'sponsorship_price'      => 299.99,
+                'payment_status'         => 'paid',
+                'sponsorship_start_date' => $now,
+                'sponsorship_end_date'   => $expiresAt,
+                'is_active'              => true,
+                'is_featured'            => true,
+                'created_by'             => $user?->user_id,
+                'created_at'             => $now,
+                'updated_at'             => $now,
+            ]);
             $this->command->info("Created sponsored_advert");
         } else {
             $this->command->info("sponsored_adverts already exists — skipping.");
