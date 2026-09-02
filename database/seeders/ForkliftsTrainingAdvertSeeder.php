@@ -41,6 +41,7 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             'currency'    => 'GBP',
             'condition'   => 'not_applicable',
             'main_image'  => 'promoted-adverts/forklifts-training.jpg',
+            'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
             'seller_name' => 'Forklifts Training Ltd',
             'business_name' => 'Forklifts Training Ltd',
             'phone'       => '01922 315615',
@@ -86,6 +87,7 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
         if (!$sponsoredExists) {
             DB::table('sponsored_adverts')->insert(array_merge($baseData, [
                 'slug'              => 'professional-forklift-training',
+                'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
                 'contact_name'      => 'Forklifts Training Ltd',
                 'contact_phone'     => '01922 315615',
                 'contact_email'     => $email,
@@ -119,7 +121,7 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
                 'currency'          => 'GBP',
                 'advert_type'       => 'service',
                 'condition'         => null,
-                'images'            => json_encode(['forklifts-training.jpg']),
+                'images'            => json_encode(['forklifts-training.jpg', 'forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
                 'contact_name'      => 'Forklifts Training Ltd',
                 'contact_email'     => $email,
                 'contact_phone'     => '01922 315615',
