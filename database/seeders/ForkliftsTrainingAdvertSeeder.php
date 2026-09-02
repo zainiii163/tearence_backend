@@ -14,10 +14,9 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
         $title = '%Forklift%Training%';
         $email = 'hanzoali96@gmail.com';
 
-        // 1. Flag in the listing table
+        // 1. Flag in the listing table (no email column — link is via customer_id)
         $listing = DB::table('listing')
             ->where('title', 'LIKE', $title)
-            ->orWhere('email', $email)
             ->first();
 
         if ($listing) {
