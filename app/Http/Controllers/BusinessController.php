@@ -11,6 +11,7 @@ use App\Models\BusinessStaffInvite;
 use App\Models\Community;
 use App\Models\CommunityFollow;
 use App\Models\CommunityMember;
+use App\Models\Category;
 use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\Job;
@@ -348,6 +349,17 @@ class BusinessController extends APIController
 
             $creatorUserId = CommunityAuthHelper::usersUserId($user, true);
 
+            // Tag the business social page into the Vehicles Hub (community category)
+            $vehiclesCategoryId = null;
+            try {
+                $vehiclesCategory = Category::where('slug', 'vehicles')->first();
+                if ($vehiclesCategory) {
+                    $vehiclesCategoryId = $vehiclesCategory->category_id;
+                }
+            } catch (\Throwable $e) {
+                // category table may not exist on some environments - ignore
+            }
+
             $community = Community::create([
                 'community_id' => (string) Str::uuid(),
                 'name' => $baseName,
@@ -359,6 +371,7 @@ class BusinessController extends APIController
                 'city' => $business->city,
                 'created_by' => $creatorUserId,
                 'business_id' => $business->id,
+                'category_id' => $vehiclesCategoryId,
                 'members_count' => $creatorUserId ? 1 : 0,
                 'beginner_friendly' => true,
                 'rules' => [
