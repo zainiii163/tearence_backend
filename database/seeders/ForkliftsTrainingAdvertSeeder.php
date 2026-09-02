@@ -51,78 +51,94 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             'approved_at' => $now,
         ];
 
-        // Skip if already seeded
-        $exists = DB::table('promoted_adverts')
+        // 1. Create in promoted_adverts (promoted + featured)
+        $promotedExists = DB::table('promoted_adverts')
             ->where('slug', 'professional-forklift-training')
             ->where('email', $email)
             ->exists();
 
-        if ($exists) {
-            $this->command->info("Already seeded — skipping.");
-            return;
+        if (!$promotedExists) {
+            $promotedId = DB::table('promoted_adverts')->insertGetId(array_merge($baseData, [
+                'slug'             => 'professional-forklift-training',
+                'key_features'     => json_encode(['Forklift Training', 'Pivot Steer Training', 'Telehandler Training', 'And more courses']),
+                'category_id'      => $categoryId,
+                'price_type'       => 'negotiable',
+                'is_featured'      => true,
+                'promotion_tier'   => 'network_wide_boost',
+                'promotion_price'  => 199.99,
+                'promotion_start'  => $now->toDateString(),
+                'promotion_end'    => $expiresAt->toDateString(),
+                'user_id'          => $user?->user_id,
+                'created_at'       => $now,
+                'updated_at'       => $now,
+            ]));
+            $this->command->info("Created promoted_advert #{$promotedId}");
+        } else {
+            $this->command->info("promoted_adverts already exists — skipping.");
         }
 
-        // 1. Create in promoted_adverts (promoted + featured)
-        $promotedId = DB::table('promoted_adverts')->insertGetId(array_merge($baseData, [
-            'slug'             => 'professional-forklift-training',
-            'key_features'     => json_encode(['Forklift Training', 'Pivot Steer Training', 'Telehandler Training', 'And more courses']),
-            'category_id'      => $categoryId,
-            'price_type'       => 'negotiable',
-            'is_featured'      => true,
-            'promotion_tier'   => 'network_wide_boost',
-            'promotion_price'  => 199.99,
-            'promotion_start'  => $now->toDateString(),
-            'promotion_end'    => $expiresAt->toDateString(),
-            'user_id'          => $user?->user_id,
-            'created_at'       => $now,
-            'updated_at'       => $now,
-        ]));
-        $this->command->info("Created promoted_advert #{$promotedId}");
-
         // 2. Create in sponsored_adverts (sponsored)
-        DB::table('sponsored_adverts')->insert(array_merge($baseData, [
-            'slug'              => 'professional-forklift-training',
-            'contact_name'      => 'Forklifts Training Ltd',
-            'contact_phone'     => '01922 315615',
-            'contact_email'     => $email,
-            'sponsored_tier'    => 'premium',
-            'promotion_price'   => 299.99,
-            'promotion_start'   => $now,
-            'promotion_end'     => $expiresAt,
-            'payment_status'    => 'paid',
-            'user_id'           => $user?->user_id,
-            'created_at'        => $now,
-            'updated_at'        => $now,
-        ]));
-        $this->command->info("Created sponsored_advert");
+        $sponsoredExists = DB::table('sponsored_adverts')
+            ->where('slug', 'professional-forklift-training')
+            ->where('email', $email)
+            ->exists();
+
+        if (!$sponsoredExists) {
+            DB::table('sponsored_adverts')->insert(array_merge($baseData, [
+                'slug'              => 'professional-forklift-training',
+                'contact_name'      => 'Forklifts Training Ltd',
+                'contact_phone'     => '01922 315615',
+                'contact_email'     => $email,
+                'sponsored_tier'    => 'premium',
+                'promotion_price'   => 299.99,
+                'promotion_start'   => $now,
+                'promotion_end'     => $expiresAt,
+                'payment_status'    => 'paid',
+                'user_id'           => $user?->user_id,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ]));
+            $this->command->info("Created sponsored_advert");
+        } else {
+            $this->command->info("sponsored_adverts already exists — skipping.");
+        }
 
         // 3. Create in featured_adverts (upsell_tier = sponsored)
-        DB::table('featured_adverts')->insert([
-            'customer_id'       => $customer?->customer_id,
-            'title'             => 'Professional Forklift Training',
-            'slug'              => 'professional-forklift-training-' . Str::random(4),
-            'description'       => $baseData['description'],
-            'price'             => null,
-            'currency'          => 'GBP',
-            'advert_type'       => 'service',
-            'condition'         => null,
-            'images'            => json_encode(['forklifts-training.jpg']),
-            'contact_name'      => 'Forklifts Training Ltd',
-            'contact_email'     => $email,
-            'contact_phone'     => '01922 315615',
-            'country'           => 'United Kingdom',
-            'city'              => 'Wolverhampton',
-            'upsell_tier'       => 'sponsored',
-            'upsell_price'      => 299.99,
-            'payment_status'    => 'paid',
-            'starts_at'         => $now,
-            'expires_at'        => $expiresAt,
-            'is_active'         => true,
-            'is_verified_seller' => true,
-            'created_at'        => $now,
-            'updated_at'        => $now,
-        ]);
-        $this->command->info("Created featured_advert");
+        $featuredExists = DB::table('featured_adverts')
+            ->where('slug', 'LIKE', 'professional-forklift-training%')
+            ->where('contact_email', $email)
+            ->exists();
+
+        if (!$featuredExists) {
+            DB::table('featured_adverts')->insert([
+                'customer_id'       => $customer?->customer_id,
+                'title'             => 'Professional Forklift Training',
+                'slug'              => 'professional-forklift-training-' . Str::random(4),
+                'description'       => $baseData['description'],
+                'price'             => null,
+                'currency'          => 'GBP',
+                'advert_type'       => 'service',
+                'condition'         => null,
+                'images'            => json_encode(['forklifts-training.jpg']),
+                'contact_name'      => 'Forklifts Training Ltd',
+                'contact_email'     => $email,
+                'contact_phone'     => '01922 315615',
+                'country'           => 'United Kingdom',
+                'city'              => 'Wolverhampton',
+                'upsell_tier'       => 'sponsored',
+                'upsell_price'      => 299.99,
+                'payment_status'    => 'paid',
+                'starts_at'         => $now,
+                'expires_at'        => $expiresAt,
+                'is_active'         => true,
+                'is_verified_seller' => true,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ]);
+            $this->command->info("Created featured_advert");
+        } else {
+            $this->command->info("featured_adverts already exists — skipping.");
+        }
 
         $this->command->info("Forklifts Training Ltd advert created as sponsored, promoted & featured.");
     }
