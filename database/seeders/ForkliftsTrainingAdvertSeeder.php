@@ -1,11 +1,13 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-return new class extends Migration
+class ForkliftsTrainingAdvertSeeder extends Seeder
 {
-    public function up(): void
+    public function run(): void
     {
         $now = now();
         $expiresAt = now()->addYears(1);
@@ -30,6 +32,7 @@ return new class extends Migration
                     'sponsored_expires_at' => $expiresAt,
                     'updated_at'           => $now,
                 ]);
+            $this->command->info("Flagged listing #{$listing->listing_id}");
         }
 
         // 2. Flag in the promoted_adverts table
@@ -51,6 +54,7 @@ return new class extends Migration
                     'approved_at'      => $now,
                     'updated_at'       => $now,
                 ]);
+            $this->command->info("Flagged promoted_advert #{$promoted->id}");
         }
 
         // 3. Flag in the sponsored_adverts table
@@ -71,6 +75,7 @@ return new class extends Migration
                     'approved_at'       => $now,
                     'updated_at'        => $now,
                 ]);
+            $this->command->info("Flagged sponsored_advert #{$sponsored->id}");
         }
 
         // 4. Flag in the featured_adverts table (uses upsell_tier)
@@ -90,6 +95,7 @@ return new class extends Migration
                     'payment_status' => 'paid',
                     'updated_at'     => $now,
                 ]);
+            $this->command->info("Flagged featured_advert #{$featured->id}");
         }
 
         // 5. Flag in the vehicles_adverts table (uses promotion_tier)
@@ -109,65 +115,18 @@ return new class extends Migration
                     'promotion_end'    => $expiresAt->toDateString(),
                     'updated_at'       => $now,
                 ]);
+            $this->command->info("Flagged vehicles_advert #{$vehicles->id}");
         }
 
-        // Summary for artisan output
+        // Summary
         $found = collect([
-            'listing'           => $listing,
-            'promoted_adverts'  => $promoted,
-            'sponsored_adverts' => $sponsored,
-            'featured_adverts'  => $featured,
-            'vehicles_adverts'  => $vehicles,
+            $listing, $promoted, $sponsored, $featured, $vehicles,
         ])->filter()->count();
 
         if ($found === 0) {
-            $this->command->warn('No advert found matching "Forklift Training" or ' . $email . '. Check the title/email and adjust the migration.');
+            $this->command->warn('No advert found matching "Forklift Training" or ' . $email . '.');
         } else {
-            $this->command->info("Forklifts Training advert flagged as sponsored, promoted & featured in {$found} table(s).");
+            $this->command->info("Done — flagged in {$found} table(s).");
         }
     }
-
-    public function down(): void
-    {
-        $title = '%Forklift%Training%';
-        $email = 'hanzoali96@gmail.com';
-
-        DB::table('listing')
-            ->where('title', 'LIKE', $title)
-            ->orWhere('email', $email)
-            ->update([
-                'is_featured'  => false,
-                'is_promoted'  => false,
-                'is_sponsored' => false,
-            ]);
-
-        DB::table('promoted_adverts')
-            ->where('title', 'LIKE', $title)
-            ->orWhere('email', $email)
-            ->update([
-                'is_featured'    => false,
-                'promotion_tier' => 'promoted_basic',
-            ]);
-
-        DB::table('sponsored_adverts')
-            ->where('title', 'LIKE', $title)
-            ->orWhere('email', $email)
-            ->update([
-                'sponsored_tier' => 'basic',
-            ]);
-
-        DB::table('featured_adverts')
-            ->where('title', 'LIKE', $title)
-            ->orWhere('contact_email', $email)
-            ->update([
-                'upsell_tier' => 'promoted',
-            ]);
-
-        DB::table('vehicles_adverts')
-            ->where('title', 'LIKE', $title)
-            ->orWhere('email', $email)
-            ->update([
-                'promotion_tier' => 'standard',
-            ]);
-    }
-};
+}
