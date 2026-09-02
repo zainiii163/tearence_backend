@@ -109,7 +109,7 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             ];
 
             // Add columns only if they exist on this install
-            $sponsoredCols = DB::getSchemaBuilder()->getColumnNames('sponsored_adverts');
+            $sponsoredCols = collect(DB::select('SHOW COLUMNS FROM sponsored_adverts'))->pluck('Field')->toArray();
             if (in_array('seller_name', $sponsoredCols)) {
                 $sponsoredData['seller_name'] = 'Forklifts Training Ltd';
             }
