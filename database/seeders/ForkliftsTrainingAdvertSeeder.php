@@ -85,21 +85,72 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             ->exists();
 
         if (!$sponsoredExists) {
-            DB::table('sponsored_adverts')->insert(array_merge($baseData, [
+            // Use only columns that exist across all migration versions
+            $sponsoredData = [
+                'title'             => 'Professional Forklift Training',
                 'slug'              => 'professional-forklift-training',
+                'tagline'           => 'Build your skills. Boost your career.',
+                'description'       => $baseData['description'],
+                'advert_type'       => 'service',
+                'category'          => 'Jobs & Services',
+                'country'           => 'United Kingdom',
+                'city'              => 'Wolverhampton',
+                'price'             => null,
+                'main_image'        => 'promoted-adverts/forklifts-training.jpg',
                 'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
-                'contact_name'      => 'Forklifts Training Ltd',
-                'contact_phone'     => '01922 315615',
-                'contact_email'     => $email,
+                'phone'             => '01922 315615',
+                'email'             => $email,
                 'sponsored_tier'    => 'premium',
-                'promotion_price'   => 299.99,
-                'promotion_start'   => $now,
-                'promotion_end'     => $expiresAt,
+                'is_active'         => true,
                 'payment_status'    => 'paid',
                 'user_id'           => $user?->user_id,
                 'created_at'        => $now,
                 'updated_at'        => $now,
-            ]));
+            ];
+
+            // Add columns only if they exist on this install
+            $sponsoredCols = DB::getSchemaBuilder()->getColumnNames('sponsored_adverts');
+            if (in_array('seller_name', $sponsoredCols)) {
+                $sponsoredData['seller_name'] = 'Forklifts Training Ltd';
+            }
+            if (in_array('business_name', $sponsoredCols)) {
+                $sponsoredData['business_name'] = 'Forklifts Training Ltd';
+            }
+            if (in_array('contact_name', $sponsoredCols)) {
+                $sponsoredData['contact_name'] = 'Forklifts Training Ltd';
+            }
+            if (in_array('contact_phone', $sponsoredCols)) {
+                $sponsoredData['contact_phone'] = '01922 315615';
+            }
+            if (in_array('contact_email', $sponsoredCols)) {
+                $sponsoredData['contact_email'] = $email;
+            }
+            if (in_array('status', $sponsoredCols)) {
+                $sponsoredData['status'] = 'approved';
+            }
+            if (in_array('promotion_price', $sponsoredCols)) {
+                $sponsoredData['promotion_price'] = 299.99;
+            }
+            if (in_array('tier_price', $sponsoredCols)) {
+                $sponsoredData['tier_price'] = 299.99;
+            }
+            if (in_array('promotion_start', $sponsoredCols)) {
+                $sponsoredData['promotion_start'] = $now;
+            }
+            if (in_array('promotion_end', $sponsoredCols)) {
+                $sponsoredData['promotion_end'] = $expiresAt;
+            }
+            if (in_array('approved_at', $sponsoredCols)) {
+                $sponsoredData['approved_at'] = $now;
+            }
+            if (in_array('verified_seller', $sponsoredCols)) {
+                $sponsoredData['verified_seller'] = true;
+            }
+            if (in_array('is_verified_seller', $sponsoredCols)) {
+                $sponsoredData['is_verified_seller'] = true;
+            }
+
+            DB::table('sponsored_adverts')->insert($sponsoredData);
             $this->command->info("Created sponsored_advert");
         } else {
             $this->command->info("sponsored_adverts already exists — skipping.");
@@ -112,7 +163,10 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             ->exists();
 
         if (!$featuredExists) {
-            DB::table('featured_adverts')->insert([
+            if (!$customer) {
+                $this->command->warn("No customer record for {$email} — skipping featured_advert.");
+            } else {
+                DB::table('featured_adverts')->insert([
                 'customer_id'       => $customer?->customer_id,
                 'title'             => 'Professional Forklift Training',
                 'slug'              => 'professional-forklift-training-' . Str::random(4),
@@ -137,7 +191,8 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
                 'created_at'        => $now,
                 'updated_at'        => $now,
             ]);
-            $this->command->info("Created featured_advert");
+                $this->command->info("Created featured_advert");
+            }
         } else {
             $this->command->info("featured_adverts already exists — skipping.");
         }
