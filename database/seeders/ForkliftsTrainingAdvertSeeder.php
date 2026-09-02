@@ -16,7 +16,7 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
 
         // Resolve admin user (users table) and customer (customers table)
         $user = DB::table('users')->where('email', $email)->first();
-        $customer = DB::table('customers')->where('email', $email)->first();
+        $customer = DB::table('customer')->where('email', $email)->first();
 
         if (!$user && !$customer) {
             $this->command->error("No user or customer found for {$email}. Aborting.");
