@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CommunityAuthHelper;
 use App\Helpers\FileUploadHelper;
 use App\Mail\BusinessStaffInviteMail;
 use App\Models\AffiliateApplication;
 use App\Models\BusinessAffiliateOffer;
 use App\Models\BusinessStaffInvite;
+use App\Models\Community;
+use App\Models\CommunityFollow;
+use App\Models\CommunityMember;
 use App\Models\Customer;
 use App\Models\CustomerBusiness;
+use App\Models\Job;
+use App\Models\PromotedAdvert;
 use App\Models\StaffManagement;
 use App\Services\BusinessDashboardStatsService;
 use Illuminate\Http\Request;
@@ -30,6 +36,7 @@ class BusinessController extends APIController
             'except' => [
                 'index',
                 'show',
+                'listings',
                 'getBySlug',
                 'detail',
                 'acceptStaffInvite',
@@ -290,16 +297,20 @@ class BusinessController extends APIController
             }
             $query->booking_url = $request->booking_url;
             if ($request->has('category_profile') || $request->has('profile')) {
-                $profile = $request->input('category_profile', $request->input('profile'));
-                if (is_string($profile)) {
-                    $decoded = json_decode($profile, true);
-                    $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+                $query->category_profile = $this->mergeCategoryProfile(
+                    null,
+                    $request->input('category_profile', $request->input('profile'))
+                );
+                if (! empty($query->category_profile['booking_url']) && ! $request->filled('booking_url')) {
+                    $query->booking_url = $query->category_profile['booking_url'];
                 }
-                $query->category_profile = is_array($profile) ? $profile : null;
             }
             $query->status = 'active';
             
             $query->save();
+
+            // Auto-create a Social Hub page for the business (Vehicles Hub social page)
+            $this->ensureBusinessSocialPage($query, $user);
 
             DB::commit();
             return $this->successResponse($query, '', Response::HTTP_CREATED);
@@ -307,6 +318,73 @@ class BusinessController extends APIController
             DB::rollBack();
             \Log::error('Business creation error: ' . $e->getMessage());
             return $this->errorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Automatically create a Social Hub (community) page for a new business so
+     * members can follow/like the business on the Vehicles Hub.
+     */
+    protected function ensureBusinessSocialPage(CustomerBusiness $business, $user)
+    {
+        if (!Schema::hasColumn('communities', 'business_id')) {
+            return;
+        }
+
+        try {
+            if (Community::where('business_id', $business->id)->exists()) {
+                return;
+            }
+
+            $baseName = trim($business->business_name ?: 'Business') . ' — updates';
+            $slug = Str::slug($baseName);
+            $originalSlug = $slug ?: ('business-' . $business->id);
+            $slug = $originalSlug;
+            $counter = 1;
+            while (Community::where('slug', $slug)->exists()) {
+                $slug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
+
+            $creatorUserId = CommunityAuthHelper::usersUserId($user, true);
+
+            $community = Community::create([
+                'community_id' => (string) Str::uuid(),
+                'name' => $baseName,
+                'slug' => $slug,
+                'description' => $business->business_description
+                    ?: ('Follow ' . ($business->business_name ?: 'this business') . ' for promotions, photos and updates.'),
+                'cover_image' => $business->business_logo,
+                'scope' => 'global',
+                'city' => $business->city,
+                'created_by' => $creatorUserId,
+                'business_id' => $business->id,
+                'members_count' => $creatorUserId ? 1 : 0,
+                'beginner_friendly' => true,
+                'rules' => [
+                    'Be respectful',
+                    'No spam',
+                    'Share updates about this business only',
+                ],
+            ]);
+
+            if ($creatorUserId) {
+                CommunityMember::firstOrCreate(
+                    ['community_id' => $community->community_id, 'user_id' => $creatorUserId],
+                    ['id' => (string) Str::uuid(), 'role' => 'admin']
+                );
+
+                CommunityFollow::firstOrCreate(
+                    ['community_id' => $community->community_id, 'user_id' => $creatorUserId],
+                    ['id' => (string) Str::uuid()]
+                );
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal: business was created; log the social-page failure
+            \Log::warning('Auto business social page creation failed', [
+                'business_id' => $business->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -375,8 +453,162 @@ class BusinessController extends APIController
         if ($query->business_logo) {
             $query->business_logo = $this->fileUpload->getFile($query->business_logo, $this->folder);
         }
+        if ($query->cover_image) {
+            try {
+                $query->cover_image = $this->fileUpload->getFile($query->cover_image, $this->folder);
+            } catch (\Throwable $e) {
+                // keep relative path — frontend resolveStorageUrl can still handle it
+            }
+        }
 
-        return $this->successResponse($query, '', Response::HTTP_OK);
+        $careers = $this->careersForBusiness($query);
+        $payload = $query->toArray();
+        $payload['careers'] = $careers;
+        $payload['jobs'] = $careers;
+
+        // Attach live site reviews when table exists
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('site_reviews')) {
+                $bizKey = (string) ($query->id);
+                $reviews = \App\Models\SiteReview::approved()
+                    ->forTarget('business', $bizKey)
+                    ->orderByDesc('created_at')
+                    ->limit(50)
+                    ->get()
+                    ->map(function ($r) {
+                        return [
+                            'id' => $r->id,
+                            'rating' => (int) $r->rating,
+                            'comment' => $r->comment,
+                            'author_name' => $r->author_name ?: 'Customer',
+                            'created_at' => optional($r->created_at)->toIso8601String(),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+                $payload['reviews'] = $reviews;
+                $payload['rating'] = count($reviews)
+                    ? round(collect($reviews)->avg('rating'), 1)
+                    : (float) ($payload['rating'] ?? data_get($payload, 'category_profile.average_rating', 0));
+                $payload['reviews_count'] = count($reviews);
+            }
+        } catch (\Throwable $e) {
+            // keep profile load resilient
+        }
+
+        return $this->successResponse($payload, '', Response::HTTP_OK);
+    }
+
+    /**
+     * Public promotions / listings owned or branded by this business.
+     */
+    public function listings($id)
+    {
+        $business = null;
+        if (is_numeric($id)) {
+            $business = CustomerBusiness::find($id);
+        }
+        if (! $business) {
+            $business = CustomerBusiness::where('slug', $id)->first();
+        }
+        if (! $business) {
+            return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
+        }
+
+        $limit = (int) request('limit', 12);
+        $limit = max(1, min($limit, 50));
+
+        $items = [];
+        if (Schema::hasTable('promoted_adverts')) {
+            $q = PromotedAdvert::query()
+                ->where(function ($inner) use ($business) {
+                    $inner->where('business_name', $business->business_name);
+                    if ($business->business_company_name) {
+                        $inner->orWhere('business_name', $business->business_company_name);
+                    }
+                })
+                ->where(function ($inner) {
+                    $inner->where('is_active', true)->orWhere('status', 'active');
+                })
+                ->orderByDesc('is_featured')
+                ->orderByDesc('id')
+                ->limit($limit);
+
+            $items = $q->get()->map(function ($ad) {
+                return [
+                    'id' => $ad->id,
+                    'title' => $ad->title,
+                    'slug' => $ad->slug,
+                    'tagline' => $ad->tagline,
+                    'description' => $ad->description,
+                    'advert_type' => $ad->advert_type,
+                    'category_name' => optional($ad->category)->name,
+                    'image' => $ad->main_image,
+                    'main_image' => $ad->main_image,
+                    'price' => $ad->price,
+                    'currency' => $ad->currency,
+                    'website' => $ad->website,
+                    'business_name' => $ad->business_name,
+                ];
+            })->values()->all();
+        }
+
+        return $this->successResponse(['items' => $items], '', Response::HTTP_OK);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function careersForBusiness(CustomerBusiness $business): array
+    {
+        $profile = is_array($business->category_profile) ? $business->category_profile : [];
+        $fromProfile = [];
+        if (! empty($profile['careers']) && is_array($profile['careers'])) {
+            $fromProfile = $profile['careers'];
+        }
+
+        if (! Schema::hasTable('jobs') || ! $business->customer_id) {
+            return array_values($fromProfile);
+        }
+
+        try {
+            $jobs = Job::query()
+                ->where(function ($q) use ($business) {
+                    $q->where('user_id', $business->customer_id)
+                        ->orWhere('company_name', $business->business_name);
+                })
+                ->where(function ($q) {
+                    $q->where('is_active', true)->orWhere('status', 'active');
+                })
+                ->orderByDesc('id')
+                ->limit(20)
+                ->get();
+        } catch (\Throwable $e) {
+            return array_values($fromProfile);
+        }
+
+        if ($jobs->isEmpty()) {
+            return array_values($fromProfile);
+        }
+
+        return $jobs->map(function (Job $job) {
+            $location = $job->location_name
+                ?: collect([$job->city, $job->country])->filter()->implode(', ');
+
+            return [
+                'id' => $job->id,
+                'title' => $job->title,
+                'description' => $job->description,
+                'location' => $location,
+                'city' => $job->city,
+                'country' => $job->country,
+                'type' => $job->work_type,
+                'work_type' => $job->work_type,
+                'employment_type' => $job->work_type,
+                'apply_url' => $job->application_link,
+                'application_link' => $job->application_link,
+            ];
+        })->values()->all();
     }
 
     /**
@@ -505,12 +737,13 @@ class BusinessController extends APIController
                 $query->booking_url = $request->booking_url;
             }
             if ($request->has('category_profile') || $request->has('profile')) {
-                $profile = $request->input('category_profile', $request->input('profile'));
-                if (is_string($profile)) {
-                    $decoded = json_decode($profile, true);
-                    $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+                $query->category_profile = $this->mergeCategoryProfile(
+                    $query->category_profile,
+                    $request->input('category_profile', $request->input('profile'))
+                );
+                if (! empty($query->category_profile['booking_url']) && ! $request->filled('booking_url')) {
+                    $query->booking_url = $query->category_profile['booking_url'];
                 }
-                $query->category_profile = is_array($profile) ? $profile : null;
             }
             $query->status = $request->input('status', 'active');
             $query->save();
@@ -1131,20 +1364,48 @@ class BusinessController extends APIController
         if ($request->filled('business_category_slug') || $request->filled('dashboard_category')) {
             $business->business_category_slug = $request->input('business_category_slug', $request->dashboard_category);
         }
+        if ($request->filled('booking_url')) {
+            $business->booking_url = $request->booking_url;
+        }
         if ($request->has('category_profile')) {
-            $profile = $request->input('category_profile');
-            if (is_string($profile)) {
-                $decoded = json_decode($profile, true);
-                $profile = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
-            }
-            if (is_array($profile)) {
-                $business->category_profile = $profile;
+            $business->category_profile = $this->mergeCategoryProfile(
+                $business->category_profile,
+                $request->input('category_profile')
+            );
+            if (! empty($business->category_profile['booking_url']) && ! $request->filled('booking_url')) {
+                $business->booking_url = $business->category_profile['booking_url'];
             }
         }
 
         $business->save();
 
         return $this->successResponse($business, 'Business profile saved', Response::HTTP_OK);
+    }
+
+    /**
+     * Merge category_profile JSON so partial form updates do not wipe careers, social_links, etc.
+     * List-like keys from the request fully replace the previous list.
+     */
+    protected function mergeCategoryProfile($existing, $incoming): ?array
+    {
+        if (is_string($incoming)) {
+            $decoded = json_decode($incoming, true);
+            $incoming = json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+        }
+        if (! is_array($incoming)) {
+            return is_array($existing) ? $existing : null;
+        }
+
+        $base = is_array($existing) ? $existing : [];
+        $merged = array_replace_recursive($base, $incoming);
+
+        foreach (['social_links', 'booking_slots', 'services', 'careers', 'makes_serviced', 'highlights'] as $listKey) {
+            if (array_key_exists($listKey, $incoming)) {
+                $merged[$listKey] = $incoming[$listKey];
+            }
+        }
+
+        return $merged;
     }
 
     /**
