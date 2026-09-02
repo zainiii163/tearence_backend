@@ -210,6 +210,8 @@ use App\Http\Controllers\Api\CommunityPostController;
 
 use App\Http\Controllers\Api\CommentController;
 
+use App\Http\Controllers\Api\FriendshipController;
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -3651,6 +3653,19 @@ Route::group([
 
         Route::get('/{id}', [CommunityController::class, 'show']);
         Route::get('/{id}/members', [CommunityController::class, 'members']);
+    });
+
+    // Friendships API Routes (Social Hub friend requests)
+    Route::group(['prefix' => 'friendships', 'middleware' => 'jwt.auth'], function () {
+        Route::get('/friends', [FriendshipController::class, 'friends']);
+        Route::get('/incoming', [FriendshipController::class, 'incoming']);
+        Route::get('/outgoing', [FriendshipController::class, 'outgoing']);
+        Route::get('/status/{userId}', [FriendshipController::class, 'status']);
+        Route::post('/send/{userId}', [FriendshipController::class, 'send']);
+        Route::post('/{id}/accept', [FriendshipController::class, 'accept']);
+        Route::post('/{id}/decline', [FriendshipController::class, 'decline']);
+        Route::post('/{id}/cancel', [FriendshipController::class, 'cancel']);
+        Route::delete('/{id}', [FriendshipController::class, 'remove']);
     });
 
     // Community Posts API Routes
