@@ -85,19 +85,17 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
             ->exists();
 
         if (!$sponsoredExists) {
-            // Use only columns that exist across all migration versions
+            // Start with only the most basic columns that exist on all versions
             $sponsoredData = [
                 'title'             => 'Professional Forklift Training',
                 'slug'              => 'professional-forklift-training',
                 'tagline'           => 'Build your skills. Boost your career.',
                 'description'       => $baseData['description'],
                 'advert_type'       => 'service',
-                'category'          => 'Jobs & Services',
                 'country'           => 'United Kingdom',
                 'city'              => 'Wolverhampton',
                 'price'             => null,
                 'main_image'        => 'promoted-adverts/forklifts-training.jpg',
-                'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
                 'phone'             => '01922 315615',
                 'email'             => $email,
                 'sponsored_tier'    => 'premium',
@@ -110,44 +108,27 @@ class ForkliftsTrainingAdvertSeeder extends Seeder
 
             // Add columns only if they exist on this install
             $sponsoredCols = collect(DB::select('SHOW COLUMNS FROM sponsored_adverts'))->pluck('Field')->toArray();
-            if (in_array('seller_name', $sponsoredCols)) {
-                $sponsoredData['seller_name'] = 'Forklifts Training Ltd';
-            }
-            if (in_array('business_name', $sponsoredCols)) {
-                $sponsoredData['business_name'] = 'Forklifts Training Ltd';
-            }
-            if (in_array('contact_name', $sponsoredCols)) {
-                $sponsoredData['contact_name'] = 'Forklifts Training Ltd';
-            }
-            if (in_array('contact_phone', $sponsoredCols)) {
-                $sponsoredData['contact_phone'] = '01922 315615';
-            }
-            if (in_array('contact_email', $sponsoredCols)) {
-                $sponsoredData['contact_email'] = $email;
-            }
-            if (in_array('status', $sponsoredCols)) {
-                $sponsoredData['status'] = 'approved';
-            }
-            if (in_array('promotion_price', $sponsoredCols)) {
-                $sponsoredData['promotion_price'] = 299.99;
-            }
-            if (in_array('tier_price', $sponsoredCols)) {
-                $sponsoredData['tier_price'] = 299.99;
-            }
-            if (in_array('promotion_start', $sponsoredCols)) {
-                $sponsoredData['promotion_start'] = $now;
-            }
-            if (in_array('promotion_end', $sponsoredCols)) {
-                $sponsoredData['promotion_end'] = $expiresAt;
-            }
-            if (in_array('approved_at', $sponsoredCols)) {
-                $sponsoredData['approved_at'] = $now;
-            }
-            if (in_array('verified_seller', $sponsoredCols)) {
-                $sponsoredData['verified_seller'] = true;
-            }
-            if (in_array('is_verified_seller', $sponsoredCols)) {
-                $sponsoredData['is_verified_seller'] = true;
+            $optionalCols = [
+                'additional_images' => json_encode(['forklifts-training-2.jpg', 'forklifts-training-3.jpg']),
+                'category'          => 'Jobs & Services',
+                'seller_name'       => 'Forklifts Training Ltd',
+                'business_name'     => 'Forklifts Training Ltd',
+                'contact_name'      => 'Forklifts Training Ltd',
+                'contact_phone'     => '01922 315615',
+                'contact_email'     => $email,
+                'status'            => 'approved',
+                'promotion_price'   => 299.99,
+                'tier_price'        => 299.99,
+                'promotion_start'   => $now,
+                'promotion_end'     => $expiresAt,
+                'approved_at'       => $now,
+                'verified_seller'   => true,
+                'is_verified_seller'=> true,
+            ];
+            foreach ($optionalCols as $col => $val) {
+                if (in_array($col, $sponsoredCols)) {
+                    $sponsoredData[$col] = $val;
+                }
             }
 
             DB::table('sponsored_adverts')->insert($sponsoredData);
