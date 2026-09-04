@@ -692,8 +692,9 @@ class AffiliateController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'affiliate_category_id' => 'required|exists:affiliate_categories,id',
+            // Clive: feed is image + title + link — description optional
+            'description' => 'nullable|string',
+            'affiliate_category_id' => 'nullable|exists:affiliate_categories,id',
             'country' => 'nullable|string|max:255',
             'region' => 'nullable|string|max:255',
             'affiliate_link' => 'required|url',
@@ -712,6 +713,23 @@ class AffiliateController extends Controller
         }
 
         try {
+            $title = (string) $request->title;
+            $description = trim((string) ($request->description ?? ''));
+            if ($description === '') {
+                $description = $title;
+            }
+
+            $categoryId = $request->affiliate_category_id;
+            if (! $categoryId) {
+                $categoryId = \App\Models\AffiliateCategory::query()->value('id');
+            }
+            if (! $categoryId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No affiliate category is available. Ask an admin to add one.',
+                ], 422);
+            }
+
             // Server-side listing state — ignore client status/payment fields
             $post = UserAffiliatePost::create([
                 'user_id' => Auth::id(),
@@ -719,9 +737,9 @@ class AffiliateController extends Controller
                 'is_active' => true,
                 'payment_status' => 'paid',
                 'expires_at' => now()->addDays(\App\Services\PromoPricingService::DEFAULT_FREE_DURATION_DAYS),
-                'affiliate_category_id' => $request->affiliate_category_id,
-                'title' => $request->title,
-                'description' => $request->description,
+                'affiliate_category_id' => $categoryId,
+                'title' => $title,
+                'description' => $description,
                 'country' => $request->country,
                 'region' => $request->region,
                 'affiliate_link' => $request->affiliate_link,
@@ -1706,12 +1724,12 @@ class AffiliateController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'affiliate_category_id' => 'sometimes|required|exists:affiliate_categories,id',
+            'description' => 'nullable|string',
+            'affiliate_category_id' => 'nullable|exists:affiliate_categories,id',
             'country' => 'nullable|string|max:255',
             'region' => 'nullable|string|max:255',
             'affiliate_link' => 'sometimes|required|url',
-            'image' => 'sometimes|required|string',
+            'image' => 'nullable|string',
             'hashtags' => 'nullable|array',
             'hashtags.*' => 'string|max:50',
             'target_audience' => 'nullable|string|max:255',
