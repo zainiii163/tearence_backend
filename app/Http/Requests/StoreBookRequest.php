@@ -28,13 +28,15 @@ class StoreBookRequest extends FormRequest
             'description' => 'required|string|min:50',
             'short_description' => 'nullable|string|max:500',
             'price' => 'nullable|numeric|min:0|max:99999.99',
+            'is_free' => 'nullable|boolean',
+            'content_kind' => ['nullable', 'string', Rule::in(['book', 'course', 'guide', 'manual'])],
             'currency' => 'nullable|string|size:3|in:USD,GBP,EUR,JPY,CAD,AUD',
             'book_type' => ['required', 'string', Rule::in(['fiction', 'non-fiction', 'children', 'poetry', 'academic', 'self-help', 'business', 'other'])],
             'genre' => 'required|string|max:100',
             'author_name' => 'required|string|max:255',
             'author_id' => 'nullable|integer|exists:ea_authors,id',
             'country' => 'required|string|max:100',
-            'language' => 'required|string|max:10',
+            'language' => 'required|string|max:50',
             'format' => ['required', 'string', Rule::in(['paperback', 'hardcover', 'ebook', 'audiobook'])],
             'isbn' => 'nullable|string|max:20|regex:/^[0-9Xx\-]+$/',
             'publisher' => 'nullable|string|max:255',
@@ -52,6 +54,7 @@ class StoreBookRequest extends FormRequest
             'additional_images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
             'sample_files' => 'nullable|array|max:5',
             'sample_files.*' => 'file|mimes:pdf,mp3,m4a,wav|max:10240', // 10MB max
+            'digital_file' => 'nullable|file|mimes:pdf,epub,zip,mp3,m4a|max:51200', // 50MB full download
             'upsell_type' => ['nullable', 'string', Rule::in(['promoted', 'featured', 'sponsored', 'top_category'])],
             'verified_author_badge' => 'nullable|boolean'
         ];

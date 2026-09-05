@@ -16,12 +16,20 @@ class Book extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'is_free' => 'boolean',
         'publication_date' => 'date',
         'expires_at' => 'datetime',
         'additional_images' => 'array',
         'purchase_links' => 'array',
         'sample_files' => 'array',
         'verified_author' => 'boolean',
+    ];
+
+    public const CONTENT_KINDS = [
+        'book' => 'Book',
+        'course' => 'Course',
+        'guide' => 'Book guide',
+        'manual' => 'Manual',
     ];
 
     protected $appends = ['cover_image_url'];
@@ -32,9 +40,30 @@ class Book extends Model
 
         static::creating(function ($book) {
             if (empty($book->status)) {
-                $book->status = 'active';
+                // User submissions await publication; admins can set active in Filament.
+                $book->status = 'pending';
+            }
+            if (empty($book->content_kind)) {
+                $book->content_kind = 'book';
+            }
+            if (! isset($book->is_free) && isset($book->price)) {
+                $book->is_free = ((float) $book->price) <= 0;
             }
         });
+    }
+
+    public function scopeCoursesAndGuides($query)
+    {
+        return $query->whereIn('content_kind', ['course', 'guide', 'manual']);
+    }
+
+    public function scopeOfKind($query, $kind)
+    {
+        if (is_array($kind)) {
+            return $query->whereIn('content_kind', $kind);
+        }
+
+        return $query->where('content_kind', $kind);
     }
 
     /**

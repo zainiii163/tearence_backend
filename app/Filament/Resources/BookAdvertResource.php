@@ -19,11 +19,11 @@ class BookAdvertResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
 
-    protected static ?string $navigationLabel = 'Books Adverts';
+    protected static ?string $navigationLabel = 'Books & Courses';
 
-    protected static ?string $modelLabel = 'Book';
+    protected static ?string $modelLabel = 'Publication';
 
-    protected static ?string $pluralModelLabel = 'Books';
+    protected static ?string $pluralModelLabel = 'Books & Courses';
 
     protected static ?string $navigationGroup = 'Marketplace';
 
@@ -35,6 +35,13 @@ class BookAdvertResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Basic Information')
                     ->schema([
+                        Forms\Components\Select::make('content_kind')
+                            ->label('Content type')
+                            ->options(Book::CONTENT_KINDS)
+                            ->default('book')
+                            ->required()
+                            ->helperText('Books, courses, guides, or manuals.'),
+
                         Forms\Components\TextInput::make('title')
                             ->required()
                             ->maxLength(255)
@@ -123,11 +130,19 @@ class BookAdvertResource extends Resource
 
                 Forms\Components\Section::make('Pricing and Location')
                     ->schema([
+                        Forms\Components\Toggle::make('is_free')
+                            ->label('Free download / free listing')
+                            ->live()
+                            ->afterStateUpdated(fn ($state, Forms\Set $set) => $state ? $set('price', 0) : null),
+
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
                             ->prefix('$')
-                            ->step(0.01),
+                            ->step(0.01)
+                            ->default(0)
+                            ->disabled(fn (Forms\Get $get) => (bool) $get('is_free'))
+                            ->dehydrated(),
 
                         Forms\Components\Select::make('currency')
                             ->required()
@@ -159,13 +174,30 @@ class BookAdvertResource extends Resource
                     ])
                     ->columns(2),
 
-                Forms\Components\Section::make('Media')
+                Forms\Components\Section::make('Media & files')
                     ->schema([
                         Forms\Components\FileUpload::make('cover_image')
                             ->image()
                             ->disk('public')
                             ->directory('books/covers')
                             ->maxSize(2048)
+                            ->columnSpanFull(),
+
+                        Forms\Components\FileUpload::make('digital_file')
+                            ->label('Full digital file (PDF / EPUB / ZIP)')
+                            ->disk('public')
+                            ->directory('books/digital')
+                            ->acceptedFileTypes([
+                                'application/pdf',
+                                'application/epub+zip',
+                                'application/zip',
+                                'audio/mpeg',
+                                'audio/mp4',
+                            ])
+                            ->maxSize(51200)
+                            ->downloadable()
+                            ->openable()
+                            ->helperText('Buyers receive this file after purchase (or immediately if free). Samples can still be uploaded via the public post form.')
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('trailer_video_url')
@@ -188,15 +220,21 @@ class BookAdvertResource extends Resource
                         Forms\Components\Select::make('status')
                             ->options([
                                 'inactive' => 'Inactive',
-                                'active' => 'Active',
-                                'pending' => 'Pending',
+                                'active' => 'Active (published)',
+                                'pending' => 'Pending publication',
                                 'rejected' => 'Rejected',
                             ])
-                            ->default('pending')
-                            ->required(),
+                            ->default('active')
+                            ->required()
+                            ->helperText('User submissions arrive as Pending — set Active to publish on the site.'),
 
                         Forms\Components\Toggle::make('verified_author')
                             ->default(false),
+
+                        Forms\Components\Textarea::make('admin_notes')
+                            ->label('Admin notes')
+                            ->rows(2)
+                            ->columnSpanFull(),
                     ])
                     ->columns(3),
 
@@ -239,6 +277,16 @@ class BookAdvertResource extends Resource
                     ->sortable()
                     ->limit(50),
 
+                Tables\Columns\BadgeColumn::make('content_kind')
+                    ->label('Kind')
+                    ->formatStateUsing(fn (?string $state): string => Book::CONTENT_KINDS[$state] ?? ucfirst((string) $state))
+                    ->colors([
+                        'primary' => 'book',
+                        'info' => 'course',
+                        'success' => 'guide',
+                        'warning' => 'manual',
+                    ]),
+
                 Tables\Columns\TextColumn::make('author_name')
                     ->searchable()
                     ->sortable(),
@@ -250,8 +298,15 @@ class BookAdvertResource extends Resource
                     ->badge(),
 
                 Tables\Columns\TextColumn::make('price')
-                    ->money(fn ($record) => $record->currency ?? 'USD')
+                    ->formatStateUsing(fn ($state, Book $record): string => ($record->is_free || (float) $state <= 0)
+                        ? 'Free'
+                        : (($record->currency ?? 'USD').' '.number_format((float) $state, 2)))
                     ->sortable(),
+
+                Tables\Columns\IconColumn::make('digital_file')
+                    ->label('File')
+                    ->boolean()
+                    ->getStateUsing(fn (Book $record): bool => filled($record->digital_file)),
 
                 Tables\Columns\BadgeColumn::make('advert_type')
                     ->color(fn (?string $state): string => match ($state) {
@@ -289,25 +344,74 @@ class BookAdvertResource extends Resource
                     ->options([
                         'inactive' => 'Inactive',
                         'active' => 'Active',
-                        'pending' => 'Pending',
+                        'pending' => 'Pending publication',
                         'rejected' => 'Rejected',
                     ]),
+                Tables\Filters\SelectFilter::make('content_kind')
+                    ->label('Content type')
+                    ->options(Book::CONTENT_KINDS),
+                Tables\Filters\TernaryFilter::make('is_free')
+                    ->label('Free'),
+                Tables\Filters\TernaryFilter::make('has_digital_file')
+                    ->label('Has digital file')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('digital_file')->where('digital_file', '!=', ''),
+                        false: fn ($query) => $query->where(fn ($q) => $q->whereNull('digital_file')->orWhere('digital_file', '')),
+                    ),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn (Book $record) => filled($record->digital_file)
+                        || (is_array($record->sample_files) && count($record->sample_files) > 0)
+                        || filled($record->cover_image))
+                    ->action(function (Book $record) {
+                        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+                        if (filled($record->digital_file) && $disk->exists($record->digital_file)) {
+                            return response()->download($disk->path($record->digital_file), basename($record->digital_file));
+                        }
+                        $samples = is_array($record->sample_files) ? $record->sample_files : [];
+                        if (! empty($samples)) {
+                            $first = $samples[0];
+                            $path = is_array($first) ? ($first['path'] ?? null) : $first;
+                            if ($path && $disk->exists($path)) {
+                                $name = is_array($first) ? ($first['name'] ?? basename($path)) : basename($path);
+
+                                return response()->download($disk->path($path), $name);
+                            }
+                        }
+                        if (filled($record->cover_image) && $disk->exists($record->cover_image)) {
+                            return response()->download($disk->path($record->cover_image), basename($record->cover_image));
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('No downloadable file found')
+                            ->warning()
+                            ->send();
+                    }),
                 Tables\Actions\Action::make('approve')
-                    ->label('Approve')
+                    ->label('Publish')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn (Book $record) => $record->status === 'pending')
                     ->action(fn (Book $record) => $record->update(['status' => 'active'])),
+                Tables\Actions\Action::make('reject')
+                    ->label('Reject')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn (Book $record) => in_array($record->status, ['pending', 'active'], true))
+                    ->requiresConfirmation()
+                    ->action(fn (Book $record) => $record->update(['status' => 'rejected'])),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\BulkAction::make('approve')
-                        ->label('Approve selected')
+                        ->label('Publish selected')
                         ->icon('heroicon-o-check-circle')
                         ->action(fn ($records) => $records->each->update(['status' => 'active'])),
                     Tables\Actions\DeleteBulkAction::make(),

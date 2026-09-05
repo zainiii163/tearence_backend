@@ -63,6 +63,25 @@ class BookAdvertController extends Controller
             $query->where('format', $request->input('format'));
         }
 
+        // Filter by content kind (book, course, guide, manual)
+        if ($request->filled('content_kind')) {
+            $kinds = $request->input('content_kind');
+            if (is_string($kinds) && str_contains($kinds, ',')) {
+                $kinds = array_filter(array_map('trim', explode(',', $kinds)));
+            }
+            $query->ofKind($kinds);
+        }
+
+        if ($request->boolean('courses_only')) {
+            $query->coursesAndGuides();
+        }
+
+        if ($request->boolean('free_only')) {
+            $query->where(function ($q) {
+                $q->where('is_free', true)->orWhere('price', '<=', 0);
+            });
+        }
+
         // Filter by language
         if ($request->filled('language')) {
             $query->where('language', $request->input('language'));
@@ -175,11 +194,27 @@ class BookAdvertController extends Controller
                 $data['sample_files'] = $files;
             }
 
+            if ($request->hasFile('digital_file')) {
+                $data['digital_file'] = $request->file('digital_file')->store('books/digital', 'public');
+            }
+
+            // Free vs paid
+            $price = isset($data['price']) ? (float) $data['price'] : 0;
+            if ($request->boolean('is_free') || $price <= 0) {
+                $data['price'] = 0;
+                $data['is_free'] = true;
+            } else {
+                $data['is_free'] = false;
+            }
+
+            if (empty($data['content_kind'])) {
+                $data['content_kind'] = 'book';
+            }
+
             $data = self::filterBookTableAttributes($data);
 
-            if (!isset($data['status'])) {
-                $data['status'] = 'active';
-            }
+            // User submissions await admin publication review
+            $data['status'] = 'pending';
 
             $book = Book::create($data);
 
@@ -187,7 +222,7 @@ class BookAdvertController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Book created successfully!',
+                'message' => 'Submitted for publication. An admin will review your listing shortly.',
                 'data' => $book->load(['user', 'author']),
                 'payment_required' => $upsellPrice > 0,
                 'payment_amount' => $upsellPrice
@@ -309,6 +344,20 @@ class BookAdvertController extends Controller
                     ];
                 }
                 $data['sample_files'] = $files;
+            }
+
+            if ($request->hasFile('digital_file')) {
+                $data['digital_file'] = $request->file('digital_file')->store('books/digital', 'public');
+            }
+
+            if ($request->has('is_free') || $request->has('price')) {
+                $price = isset($data['price']) ? (float) $data['price'] : (float) $book->price;
+                if ($request->boolean('is_free') || $price <= 0) {
+                    $data['price'] = 0;
+                    $data['is_free'] = true;
+                } else {
+                    $data['is_free'] = false;
+                }
             }
 
             $data = self::filterBookTableAttributes($data);
@@ -762,6 +811,14 @@ class BookAdvertController extends Controller
         }
 
         $purchase->increment('download_attempts');
+
+        // Prefer full digital file, then sample attachments
+        if (!empty($book->digital_file) && Storage::disk('public')->exists($book->digital_file)) {
+            return Storage::disk('public')->download(
+                $book->digital_file,
+                basename($book->digital_file)
+            );
+        }
 
         $samples = is_array($book->sample_files) ? $book->sample_files : [];
         if (!empty($samples)) {
