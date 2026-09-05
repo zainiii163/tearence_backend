@@ -874,6 +874,8 @@ Route::group([
 
             Route::put('/{id}', [VehiclesAdvertController::class, 'update']);
 
+            Route::patch('/{id}/fleet-status', [VehiclesAdvertController::class, 'updateFleetStatus']);
+
             Route::delete('/{id}', [VehiclesAdvertController::class, 'destroy']);
 
             Route::post('/{id}/save', [VehiclesAdvertController::class, 'saveVehicle']);

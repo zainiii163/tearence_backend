@@ -433,6 +433,18 @@ class VehicleResource extends Resource
                             ->label('Active')
                             ->default(true),
                         
+                        Forms\Components\Select::make('fleet_status')
+                            ->label('Fleet status')
+                            ->options([
+                                'available' => 'Available',
+                                'in_service' => 'In service / on hire',
+                                'maintenance' => 'Maintenance',
+                                'sold' => 'Sold',
+                            ])
+                            ->default('available')
+                            ->helperText('Operational status for Fleet Management (dealers / hire).')
+                            ->required(),
+                        
                         Forms\Components\Toggle::make('is_promoted')
                             ->label('Promoted')
                             ->default(false),
@@ -449,7 +461,7 @@ class VehicleResource extends Resource
                             ->label('Top of Category')
                             ->default(false),
                     ])
-                    ->columns(6)
+                    ->columns(4)
                     ->columnSpan('full'),
 
                 Forms\Components\Section::make('Payment & Expiry')
@@ -569,6 +581,22 @@ class VehicleResource extends Resource
                         'danger' => 'rejected',
                     ])
                     ->formatStateUsing(fn ($state) => ucfirst($state)),
+
+                Tables\Columns\BadgeColumn::make('fleet_status')
+                    ->label('Fleet')
+                    ->colors([
+                        'success' => 'available',
+                        'info' => 'in_service',
+                        'warning' => 'maintenance',
+                        'gray' => 'sold',
+                    ])
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'in_service' => 'In service',
+                        'maintenance' => 'Maintenance',
+                        'sold' => 'Sold',
+                        default => 'Available',
+                    })
+                    ->toggleable(),
                 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Active')
@@ -627,6 +655,15 @@ class VehicleResource extends Resource
                         'pending' => 'Pending',
                         'approved' => 'Approved',
                         'rejected' => 'Rejected',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('fleet_status')
+                    ->label('Fleet status')
+                    ->options([
+                        'available' => 'Available',
+                        'in_service' => 'In service / on hire',
+                        'maintenance' => 'Maintenance',
+                        'sold' => 'Sold',
                     ]),
                 
                 Tables\Filters\SelectFilter::make('advert_type')

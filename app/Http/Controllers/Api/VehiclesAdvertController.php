@@ -421,6 +421,7 @@ class VehiclesAdvertController extends Controller
             'previous_owners' => $request->previous_owners,
             'status' => 'approved',
             'is_active' => true,
+            'fleet_status' => 'available',
         ]);
 
         return response()->json([
@@ -469,6 +470,7 @@ class VehiclesAdvertController extends Controller
             'phone_number' => ['string', 'max:20'],
             'email' => ['email'],
             'promotion_tier' => ['in:standard,promoted,featured,sponsored,top_of_category,network_boost'],
+            'fleet_status' => ['in:available,in_service,maintenance,sold'],
         ]);
 
         if ($validator->fails()) {
@@ -494,6 +496,45 @@ class VehiclesAdvertController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Vehicle advert updated successfully',
+            'data' => $vehicle->fresh(),
+        ]);
+    }
+
+    /**
+     * Update operational fleet status for the owner's vehicle.
+     */
+    public function updateFleetStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'fleet_status' => ['required', 'in:available,in_service,maintenance,sold'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $vehicle = Vehicle::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->first();
+
+        if (!$vehicle) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vehicle advert not found',
+            ], 404);
+        }
+
+        $vehicle->update([
+            'fleet_status' => $request->fleet_status,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Fleet status updated',
             'data' => $vehicle->fresh(),
         ]);
     }
@@ -527,9 +568,11 @@ class VehiclesAdvertController extends Controller
      */
     public function myVehicles()
     {
+        $perPage = min(max((int) request('per_page', 20), 1), 100);
+
         $vehicles = Vehicle::where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
