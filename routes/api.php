@@ -114,6 +114,8 @@ use App\Http\Controllers\Api\BuySellCategoryController;
 
 use App\Http\Controllers\Api\BuySellItemController;
 
+use App\Http\Controllers\Api\AdvertReportController;
+
 use App\Http\Controllers\Api\BannerAdController;
 
 use App\Http\Controllers\Api\BannerCategoryController;
@@ -3552,6 +3554,9 @@ Route::group([
         });
 
     });
+
+    // Generic advert reports (any category / detail page)
+    Route::post('/reports/submit', [AdvertReportController::class, 'submit']);
 
     // Jobs & Vacancies System - Comprehensive API
     Route::group(['prefix' => 'jobs'], function () {
