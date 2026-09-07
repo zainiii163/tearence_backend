@@ -276,7 +276,7 @@ class BusinessController extends APIController
             DB::beginTransaction();
             
             $query = new CustomerBusiness();
-            $query->slug = Str::slug($request->business_name).'-'.Str::lower(Str::random(4));
+            $query->slug = $this->uniqueBusinessSlug($request->business_name);
             $query->customer_id = $customer_id;
             $query->business_name = $request->business_name;
             $query->business_description = $request->business_description;
@@ -1467,7 +1467,7 @@ class BusinessController extends APIController
                 ?: trim(($request->first_name ?? '').' '.($request->last_name ?? ''))
                 ?: 'My business';
             $business->business_name = $name;
-            $business->slug = Str::slug($name).'-'.Str::lower(Str::random(4));
+            $business->slug = $this->uniqueBusinessSlug($name);
             $business->business_email = $request->input('business_email') ?: ($user->email ?? '');
             $business->business_phone_number = $request->input('business_phone_number') ?: ($request->phone ?: '');
             $business->business_address = $request->input('business_address') ?: '';
@@ -1550,6 +1550,32 @@ class BusinessController extends APIController
     /**
      * Company name, number, incorporation, VAT, DUNS, website, email, phone, address.
      */
+    /**
+     * Prefer a clean slug from the business name; only append a short suffix if taken.
+     */
+    protected function uniqueBusinessSlug(string $name, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($name) ?: 'business';
+        $slug = $base;
+        $n = 0;
+
+        while (
+            CustomerBusiness::query()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $n++;
+            $slug = $base.'-'.($n < 3 ? Str::lower(Str::random(4)) : $n);
+            if ($n > 20) {
+                $slug = $base.'-'.Str::lower(Str::random(6));
+                break;
+            }
+        }
+
+        return $slug;
+    }
+
     protected function applyCompanyLegalFields(CustomerBusiness $query, Request $request): void
     {
         $map = [

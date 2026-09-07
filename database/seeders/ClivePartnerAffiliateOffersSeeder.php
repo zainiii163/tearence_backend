@@ -159,6 +159,7 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
         $partners = [
             [
                 'names' => ['MGNIT LTD'],
+                'slug' => 'mgnit-ltd',
                 'website' => 'https://mgnit.co.uk',
                 'email' => 'info@mgnit.co.uk',
                 'booking' => 'https://mgnit.co.uk/contact/',
@@ -178,6 +179,7 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
             ],
             [
                 'names' => ['MGNIT GAMING LTD', 'MGNIT Gaming'],
+                'slug' => 'mgnit-gaming-ltd',
                 'website' => 'https://mgnitgaming.com/',
                 'email' => 'info@mgnitgaming.com',
                 'booking' => 'https://mgnitgaming.com/',
@@ -194,6 +196,7 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
             ],
             [
                 'names' => ['Book Writting Ltd', 'Book Writing Ltd'],
+                'slug' => 'book-writting-ltd',
                 'website' => 'https://bookwritting.com/',
                 'email' => 'info@bookwritting.com',
                 'booking' => 'https://bookwritting.com/',
@@ -205,6 +208,7 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
             ],
             [
                 'names' => ['Car Services Ltd'],
+                'slug' => 'car-services-ltd',
                 'website' => 'https://carservicesltd.com/',
                 'email' => 'info@carservicesltd.com',
                 'booking' => 'https://carservicesltd.com/',
@@ -253,7 +257,17 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
                 ];
             }
 
+            $desiredSlug = $partner['slug'];
+            $slugTaken = CustomerBusiness::query()
+                ->where('slug', $desiredSlug)
+                ->where('id', '!=', $biz->id)
+                ->exists();
+            if ($slugTaken) {
+                $desiredSlug = $biz->slug ?: $desiredSlug;
+            }
+
             $biz->fill([
+                'slug' => $desiredSlug,
                 'business_website' => $partner['website'],
                 'booking_url' => $partner['booking'],
                 'business_email' => $biz->business_email ?: $partner['email'],
@@ -261,7 +275,9 @@ class ClivePartnerAffiliateOffersSeeder extends Seeder
                 'status' => 'active',
             ])->save();
 
-            $this->command?->info('Updated links for '.$biz->business_name.' (id '.$biz->id.').');
+            $this->command?->info(
+                'Updated links for '.$biz->business_name.' → /business/'.$desiredSlug.' (id '.$biz->id.').'
+            );
         }
     }
 
