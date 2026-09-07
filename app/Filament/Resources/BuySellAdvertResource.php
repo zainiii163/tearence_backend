@@ -204,10 +204,12 @@ class BuySellAdvertResource extends Resource
                 
                 Forms\Components\Section::make('Media')
                     ->schema([
-                        Forms\Components\KeyValue::make('images')
-                            ->label('Image URLs')
-                            ->keyLabel('URL')
-                            ->valueLabel('Label')
+                        Forms\Components\ImageUpload::make('images')
+                            ->label('Images')
+                            ->image()
+                            ->columnSpanFull()
+                            ->storeFileNamesInDB(false)
+                            ->maxImages(5)
                             ->columnSpanFull(),
                         
                         Forms\Components\TextInput::make('video_url')
