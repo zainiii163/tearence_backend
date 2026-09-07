@@ -45,12 +45,12 @@ class BuySellAdvertResource extends Resource
                         
                         Forms\Components\Select::make('category_id')
                             ->label('Main Category')
-                            ->options(function () {
-                                return BuySellCategory::whereNull('parent_id')
+                            ->options(fn () => \App\Support\SafeSelectOptions::get(
+                                fn () => BuySellCategory::whereNull('parent_id')
                                     ->where('is_active', true)
                                     ->orderBy('name')
-                                    ->pluck('name', 'id');
-                            })
+                                    ->pluck('name', 'id')
+                            ))
                             ->searchable()
                             ->required()
                             ->reactive()
@@ -60,22 +60,32 @@ class BuySellAdvertResource extends Resource
                             ->label('Subcategory')
                             ->options(function (callable $get) {
                                 $categoryId = $get('category_id');
-                                if (!$categoryId) return [];
-                                
-                                return BuySellCategory::where('parent_id', $categoryId)
-                                    ->where('is_active', true)
-                                    ->orderBy('name')
-                                    ->pluck('name', 'id');
+                                if (!$categoryId) {
+                                    return [];
+                                }
+
+                                return \App\Support\SafeSelectOptions::get(
+                                    fn () => BuySellCategory::where('parent_id', $categoryId)
+                                        ->where('is_active', true)
+                                        ->orderBy('name')
+                                        ->pluck('name', 'id')
+                                );
                             })
                             ->searchable()
                             ->helperText(function (callable $get) {
                                 $categoryId = $get('category_id');
-                                if (!$categoryId) return 'Please select a main category first';
-                                
-                                $hasSubcategories = BuySellCategory::where('parent_id', $categoryId)
-                                    ->where('is_active', true)
-                                    ->exists();
-                                
+                                if (!$categoryId) {
+                                    return 'Please select a main category first';
+                                }
+
+                                try {
+                                    $hasSubcategories = BuySellCategory::where('parent_id', $categoryId)
+                                        ->where('is_active', true)
+                                        ->exists();
+                                } catch (\Throwable $e) {
+                                    return 'Select a subcategory';
+                                }
+
                                 return $hasSubcategories ? 'Select a subcategory' : 'No subcategories available for this category';
                             }),
                         
@@ -204,14 +214,17 @@ class BuySellAdvertResource extends Resource
                 
                 Forms\Components\Section::make('Media')
                     ->schema([
-                        Forms\Components\ImageUpload::make('images')
+                        Forms\Components\FileUpload::make('images')
                             ->label('Images')
                             ->image()
-                            ->columnSpanFull()
-                            ->storeFileNamesInDB(false)
-                            ->maxImages(5)
+                            ->multiple()
+                            ->maxFiles(5)
+                            ->disk('public')
+                            ->directory('buysell/adverts')
+                            ->visibility('public')
+                            ->reorderable()
                             ->columnSpanFull(),
-                        
+
                         Forms\Components\TextInput::make('video_url')
                             ->url()
                             ->maxLength(500)
