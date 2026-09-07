@@ -530,10 +530,18 @@ class BusinessController extends APIController
 
         $limit = (int) request('limit', 12);
         $limit = max(1, min($limit, 50));
-
+        $customerId = $business->customer_id;
         $items = [];
+
+        $push = function (array $row) use (&$items, $limit) {
+            if (count($items) >= $limit) {
+                return;
+            }
+            $items[] = $row;
+        };
+
         if (Schema::hasTable('promoted_adverts')) {
-            $q = PromotedAdvert::query()
+            PromotedAdvert::query()
                 ->where(function ($inner) use ($business) {
                     $inner->where('business_name', $business->business_name);
                     if ($business->business_company_name) {
@@ -545,28 +553,146 @@ class BusinessController extends APIController
                 })
                 ->orderByDesc('is_featured')
                 ->orderByDesc('id')
-                ->limit($limit);
-
-            $items = $q->get()->map(function ($ad) {
-                return [
-                    'id' => $ad->id,
-                    'title' => $ad->title,
-                    'slug' => $ad->slug,
-                    'tagline' => $ad->tagline,
-                    'description' => $ad->description,
-                    'advert_type' => $ad->advert_type,
-                    'category_name' => optional($ad->category)->name,
-                    'image' => $ad->main_image,
-                    'main_image' => $ad->main_image,
-                    'price' => $ad->price,
-                    'currency' => $ad->currency,
-                    'website' => $ad->website,
-                    'business_name' => $ad->business_name,
-                ];
-            })->values()->all();
+                ->limit($limit)
+                ->get()
+                ->each(function ($ad) use ($push) {
+                    $push([
+                        'id' => $ad->id,
+                        'title' => $ad->title,
+                        'slug' => $ad->slug,
+                        'tagline' => $ad->tagline,
+                        'description' => $ad->description,
+                        'advert_type' => $ad->advert_type ?? 'promoted',
+                        'category_name' => optional($ad->category)->name,
+                        'image' => $ad->main_image,
+                        'main_image' => $ad->main_image,
+                        'price' => $ad->price,
+                        'currency' => $ad->currency,
+                        'website' => $ad->website,
+                        'business_name' => $ad->business_name,
+                        'href' => $ad->slug ? '/promoted-adverts/'.$ad->slug : null,
+                    ]);
+                });
         }
 
-        return $this->successResponse(['items' => $items], '', Response::HTTP_OK);
+        // Store products owned by this business customer
+        if ($customerId && Schema::hasTable('store_products') && Schema::hasTable('customer_store')) {
+            $storeIds = DB::table('customer_store')
+                ->where('customer_id', $customerId)
+                ->pluck('store_id');
+            if ($storeIds->isNotEmpty() && Schema::hasColumn('store_products', 'store_id')) {
+                DB::table('store_products')
+                    ->whereIn('store_id', $storeIds)
+                    ->when(Schema::hasColumn('store_products', 'is_active'), fn ($q) => $q->where('is_active', true))
+                    ->orderByDesc('id')
+                    ->limit($limit)
+                    ->get()
+                    ->each(function ($product) use ($push) {
+                        $push([
+                            'id' => $product->id,
+                            'title' => $product->name ?? $product->title ?? 'Product',
+                            'slug' => $product->slug ?? null,
+                            'description' => $product->description ?? null,
+                            'advert_type' => 'store_product',
+                            'category_name' => 'Store',
+                            'image' => $product->image ?? $product->main_image ?? null,
+                            'main_image' => $product->image ?? $product->main_image ?? null,
+                            'price' => $product->price ?? null,
+                            'currency' => $product->currency ?? 'USD',
+                            'href' => '/stores/'.($product->store_id ?? '').'/products/'.$product->id,
+                        ]);
+                    });
+            }
+        }
+
+        // Books posted by this customer/user
+        if ($customerId && Schema::hasTable('books')) {
+            $bookQuery = DB::table('books')->orderByDesc('id')->limit($limit);
+            if (Schema::hasColumn('books', 'user_id')) {
+                $bookQuery->where('user_id', $customerId);
+            }
+            if (Schema::hasColumn('books', 'status')) {
+                $bookQuery->whereIn('status', ['active', 'approved', 'published']);
+            }
+            $bookQuery->get()->each(function ($book) use ($push) {
+                $push([
+                    'id' => $book->id,
+                    'title' => $book->title,
+                    'slug' => $book->slug ?? null,
+                    'description' => $book->short_description ?? $book->description ?? null,
+                    'advert_type' => 'book',
+                    'category_name' => 'Books',
+                    'image' => $book->cover_image ?? null,
+                    'main_image' => $book->cover_image ?? null,
+                    'price' => $book->price ?? null,
+                    'currency' => $book->currency ?? 'USD',
+                    'href' => '/books/'.($book->slug ?? $book->id),
+                ]);
+            });
+        }
+
+        // Buy & Sell adverts by this seller
+        if ($customerId && Schema::hasTable('buysell_adverts')) {
+            $bs = DB::table('buysell_adverts')->orderByDesc('created_at')->limit($limit);
+            if (Schema::hasColumn('buysell_adverts', 'user_id')) {
+                $bs->where('user_id', $customerId);
+            } elseif (Schema::hasColumn('buysell_adverts', 'customer_id')) {
+                $bs->where('customer_id', $customerId);
+            }
+            if (Schema::hasColumn('buysell_adverts', 'status')) {
+                $bs->where('status', 'active');
+            }
+            $bs->get()->each(function ($ad) use ($push) {
+                $images = $ad->images ?? null;
+                if (is_string($images)) {
+                    $decoded = json_decode($images, true);
+                    $images = is_array($decoded) ? $decoded : null;
+                }
+                $image = is_array($images) ? ($images[0] ?? null) : null;
+                $push([
+                    'id' => $ad->id,
+                    'title' => $ad->title,
+                    'description' => $ad->description ?? null,
+                    'advert_type' => 'buy_sell',
+                    'category_name' => 'Buy & Sell',
+                    'image' => $image,
+                    'main_image' => $image,
+                    'price' => $ad->price ?? null,
+                    'currency' => $ad->currency ?? 'USD',
+                    'href' => '/buy-sell/'.($ad->id),
+                ]);
+            });
+        }
+
+        // Vehicles posted by this account
+        if ($customerId && Schema::hasTable('vehicles')) {
+            $vq = DB::table('vehicles')->orderByDesc('id')->limit($limit);
+            if (Schema::hasColumn('vehicles', 'user_id')) {
+                $vq->where('user_id', $customerId);
+            }
+            if (Schema::hasColumn('vehicles', 'status')) {
+                $vq->whereIn('status', ['approved', 'active']);
+            }
+            if (Schema::hasColumn('vehicles', 'is_active')) {
+                $vq->where('is_active', true);
+            }
+            $vq->get()->each(function ($vehicle) use ($push) {
+                $push([
+                    'id' => $vehicle->id,
+                    'title' => $vehicle->title,
+                    'description' => $vehicle->description ?? null,
+                    'advert_type' => 'vehicle',
+                    'category_name' => 'Vehicles',
+                    'image' => $vehicle->main_image ?? null,
+                    'main_image' => $vehicle->main_image ?? null,
+                    'price' => $vehicle->price ?? null,
+                    'currency' => $vehicle->currency ?? 'USD',
+                    'href' => '/vehicles/'.$vehicle->id,
+                ]);
+            });
+        }
+
+        return $this->successResponse(['items' => array_slice($items, 0, $limit)], '', Response::HTTP_OK);
     }
 
     /**

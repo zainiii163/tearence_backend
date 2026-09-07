@@ -8,8 +8,10 @@ use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class VehiclesAdvertController extends Controller
@@ -262,10 +264,7 @@ class VehiclesAdvertController extends Controller
      */
     public function show($id)
     {
-        $vehicle = Vehicle::with(['category', 'make', 'vehicleModel', 'user', 'business'])
-            ->where('id', $id)
-            ->published()
-            ->first();
+        $vehicle = $this->findPublishedVehicle($id);
 
         if (!$vehicle) {
             return response()->json([
@@ -297,15 +296,7 @@ class VehiclesAdvertController extends Controller
      */
     public function showBySlug($slug)
     {
-        $query = Vehicle::with(['category', 'make', 'vehicleModel', 'user', 'business'])
-            ->published();
-
-        if (is_numeric($slug)) {
-            $vehicle = (clone $query)->where('id', (int) $slug)->first();
-        } else {
-            // vehicles table may not have slug — try title slug match via id only when numeric
-            $vehicle = null;
-        }
+        $vehicle = $this->findPublishedVehicle($slug);
 
         if (!$vehicle) {
             return response()->json([
@@ -320,6 +311,51 @@ class VehiclesAdvertController extends Controller
             'success' => true,
             'data' => new \App\Http\Resources\VehicleResource($vehicle),
         ]);
+    }
+
+    /**
+     * Resolve a published vehicle by id, slug column, or "{id}-{title-slug}" URL style.
+     */
+    private function findPublishedVehicle($key): ?Vehicle
+    {
+        $query = Vehicle::with(['category', 'make', 'vehicleModel', 'user', 'business'])
+            ->published();
+
+        $raw = trim((string) $key);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (ctype_digit($raw)) {
+            return (clone $query)->where('id', (int) $raw)->first();
+        }
+
+        // Patterns like "1202-2022-volvo-..." or "12-2022-volvo-..."
+        if (preg_match('/^(\d+)(?:-|$)/', $raw, $m)) {
+            $byId = (clone $query)->where('id', (int) $m[1])->first();
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        if (Schema::hasColumn('vehicles', 'slug')) {
+            $bySlug = (clone $query)->where('slug', $raw)->first();
+            if ($bySlug) {
+                return $bySlug;
+            }
+        }
+
+        // Best-effort title slug match (keeps old external-style links working on WWA)
+        $candidates = (clone $query)->latest()->limit(200)->get();
+        foreach ($candidates as $candidate) {
+            $titleSlug = Str::slug(($candidate->id ? $candidate->id.'-' : '').($candidate->title ?? ''));
+            $titleOnly = Str::slug((string) $candidate->title);
+            if ($titleSlug === $raw || $titleOnly === $raw) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**

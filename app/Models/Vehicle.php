@@ -172,7 +172,8 @@ class Vehicle extends Model
             return 'Price on request';
         }
 
-        $symbol = '$'; // You can make this dynamic based on user preferences
+        $code = strtoupper((string) ($this->currency ?: 'USD'));
+        $symbol = \App\Support\CountryCurrencyOptions::symbolForCurrency($code);
         $formattedPrice = number_format($this->price, 2);
         
         switch ($this->price_type) {

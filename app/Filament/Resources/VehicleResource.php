@@ -260,13 +260,44 @@ class VehicleResource extends Resource
 
                 Forms\Components\Section::make('Pricing')
                     ->schema([
+                        Forms\Components\Select::make('country')
+                            ->label('Country & currency')
+                            ->options(fn () => \App\Support\CountryCurrencyOptions::byCountryName())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                $set('currency', \App\Support\CountryCurrencyOptions::currencyCodeForCountryName($state));
+                            })
+                            ->helperText('Select the listing country — currency updates automatically.')
+                            ->columnSpan(2),
+
+                        Forms\Components\Select::make('currency')
+                            ->label('Currency')
+                            ->options(collect(\App\Support\CountryCurrencyOptions::byCountryName())
+                                ->mapWithKeys(function ($label, $country) {
+                                    $code = \App\Support\CountryCurrencyOptions::currencyCodeForCountryName($country);
+
+                                    return [$code => $code.' ('.\App\Support\CountryCurrencyOptions::symbolForCurrency($code).')'];
+                                })
+                                ->unique()
+                                ->sort()
+                                ->all())
+                            ->searchable()
+                            ->default('USD')
+                            ->required()
+                            ->live(),
+
                         Forms\Components\TextInput::make('price')
                             ->label('Price')
                             ->numeric()
                             ->step(0.01)
-                            ->prefix('$')
+                            ->prefix(fn (Forms\Get $get) => \App\Support\CountryCurrencyOptions::symbolForCurrency(
+                                $get('currency') ?: \App\Support\CountryCurrencyOptions::currencyCodeForCountryName($get('country'))
+                            ))
                             ->nullable(),
-                        
+
                         Forms\Components\Select::make('price_type')
                             ->label('Price Type')
                             ->options([
@@ -274,22 +305,24 @@ class VehicleResource extends Resource
                                 'per_day' => 'Per Day',
                                 'per_week' => 'Per Week',
                                 'per_month' => 'Per Month',
-                                'per_hour' => 'Per Hour'
+                                'per_hour' => 'Per Hour',
                             ])
                             ->required(),
-                        
+
                         Forms\Components\Toggle::make('negotiable')
                             ->label('Negotiable')
                             ->default(false),
-                        
+
                         Forms\Components\TextInput::make('deposit')
                             ->label('Deposit')
                             ->numeric()
                             ->step(0.01)
-                            ->prefix('$')
+                            ->prefix(fn (Forms\Get $get) => \App\Support\CountryCurrencyOptions::symbolForCurrency(
+                                $get('currency') ?: \App\Support\CountryCurrencyOptions::currencyCodeForCountryName($get('country'))
+                            ))
                             ->nullable(),
                     ])
-                    ->columns(4)
+                    ->columns(3)
                     ->columnSpan('full'),
 
                 Forms\Components\Section::make('Media')
@@ -321,10 +354,10 @@ class VehicleResource extends Resource
 
                 Forms\Components\Section::make('Location')
                     ->schema([
-                        CountrySelect::make('country')
-                            
-                            ->required(),
-                        
+                        Forms\Components\Placeholder::make('country_hint')
+                            ->label('Country')
+                            ->content('Set country & currency in the Pricing section above.'),
+
                         Forms\Components\TextInput::make('city')
                             ->label('City')
                             ->required()
