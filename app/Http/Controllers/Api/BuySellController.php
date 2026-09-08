@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class BuySellController extends Controller
@@ -118,19 +119,14 @@ class BuySellController extends Controller
 
     public function show($id): JsonResponse
     {
-        $advert = BuySellAdvert::with(['category', 'subcategory', 'user'])
-            ->active()
-            ->findOrFail($id);
+        $advert = $this->findPublicBuySellAdvert($id);
 
-        // Log advert data for debugging
-        \Log::info('Showing advert:', [
-            'id' => $advert->id,
-            'images' => $advert->images,
-            'brand' => $advert->brand,
-            'model' => $advert->model,
-            'color' => $advert->color,
-            'dimensions' => $advert->dimensions,
-        ]);
+        if (! $advert) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Advert not found',
+            ], 404);
+        }
 
         // Track view
         $advert->incrementView(
@@ -1288,5 +1284,46 @@ class BuySellController extends Controller
                 'platform_fee' => $purchase->platform_fee,
             ],
         ]);
+    }
+
+    /**
+     * Resolve buy-sell advert by numeric id or "{id}-{title-slug}" public URL.
+     */
+    private function findPublicBuySellAdvert($key): ?BuySellAdvert
+    {
+        $query = BuySellAdvert::with(['category', 'subcategory', 'user'])->active();
+        $raw = trim((string) $key);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (ctype_digit($raw)) {
+            return (clone $query)->where('id', (int) $raw)->first();
+        }
+
+        if (preg_match('/^(\d+)(?:-|$)/', $raw, $m)) {
+            $byId = (clone $query)->where('id', (int) $m[1])->first();
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        if (Schema::hasColumn('buysell_adverts', 'slug')) {
+            $bySlug = (clone $query)->where('slug', $raw)->first();
+            if ($bySlug) {
+                return $bySlug;
+            }
+        }
+
+        $candidates = (clone $query)->latest()->limit(200)->get();
+        foreach ($candidates as $candidate) {
+            $titleSlug = Str::slug(($candidate->id ? $candidate->id.'-' : '').($candidate->title ?? ''));
+            $titleOnly = Str::slug((string) ($candidate->title ?? ''));
+            if ($titleSlug === $raw || $titleOnly === $raw) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

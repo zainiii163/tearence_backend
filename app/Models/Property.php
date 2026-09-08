@@ -354,6 +354,34 @@ class Property extends Model
     }
 
     /**
+     * Allow /property/{id} and /property/{slug} detail URLs.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $field = $field ?: $this->getRouteKeyName();
+        $query = $this->newQuery();
+
+        if (ctype_digit((string) $value)) {
+            return $query->where($this->getKeyName(), (int) $value)->firstOrFail();
+        }
+
+        // Patterns like "3-marina-bay-..." — prefer explicit slug, then leading id
+        $bySlug = (clone $query)->where('slug', $value)->first();
+        if ($bySlug) {
+            return $bySlug;
+        }
+
+        if (preg_match('/^(\d+)(?:-|$)/', (string) $value, $m)) {
+            $byId = (clone $query)->where($this->getKeyName(), (int) $m[1])->first();
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        return $query->where($field, $value)->firstOrFail();
+    }
+
+    /**
      * Get formatted latitude attribute.
      */
     public function getLatitudeAttribute($value): float
