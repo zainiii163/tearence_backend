@@ -328,11 +328,10 @@ class BusinessController extends APIController
      */
     protected function ensureBusinessSocialPage(CustomerBusiness $business, $user)
     {
-        if (!Schema::hasColumn('communities', 'business_id')) {
-            return;
-        }
-
         try {
+            if (!Schema::hasColumn('communities', 'business_id')) {
+                return;
+            }
             if (Community::where('business_id', $business->id)->exists()) {
                 return;
             }
