@@ -1572,6 +1572,7 @@ Route::group([
         Route::get('/search', [ApiAffiliateController::class, 'search']);
         Route::get('/upsell-plans', [ApiAffiliateController::class, 'upsellPlans']);
         Route::post('/track-click', [ApiAffiliateController::class, 'trackClick']);
+        Route::post('/track-share', [ApiAffiliateController::class, 'trackShare']);
         Route::get('/hubs', [ApiAffiliateController::class, 'hubs']);
 
         // Authenticated routes

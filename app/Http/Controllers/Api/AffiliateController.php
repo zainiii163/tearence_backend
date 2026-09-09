@@ -941,6 +941,73 @@ class AffiliateController extends Controller
     }
 
     /**
+     * Track a share event for an affiliate offer or user post.
+     */
+    public function trackShare(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'type' => 'required|in:business,user',
+            'id' => 'required|integer',
+            'method' => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->type === 'user') {
+            $post = UserAffiliatePost::find($request->id);
+            if ($post) {
+                $post->incrementShares();
+
+                try {
+                    $row = $post->analytics()->firstOrCreate(
+                        ['date' => now()->toDateString()],
+                        [
+                            'views' => 0,
+                            'unique_views' => 0,
+                            'clicks' => 0,
+                            'unique_clicks' => 0,
+                        ]
+                    );
+                    $row->increment('shares', 1);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        } elseif ($request->type === 'business') {
+            $offer = BusinessAffiliateOffer::find($request->id);
+            if ($offer) {
+                $offer->increment('shares', 1);
+
+                try {
+                    $row = $offer->analytics()->firstOrCreate(
+                        ['date' => now()->toDateString()],
+                        [
+                            'views' => 0,
+                            'unique_views' => 0,
+                            'clicks' => 0,
+                            'unique_clicks' => 0,
+                        ]
+                    );
+                    $row->increment('shares', 1);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Share tracked successfully',
+        ]);
+    }
+
+    /**
      * Get user's affiliate applications (promotions).
      */
     public function myApplications(Request $request): JsonResponse
