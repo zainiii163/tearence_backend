@@ -1554,7 +1554,9 @@ Route::group([
     Route::group(['prefix' => 'promo'], function () {
         Route::get('/pricing-plans', [PromoController::class, 'pricingPlans']);
         Route::post('/codes/validate', [PromoController::class, 'validateCode']);
+        Route::post('/codes/validate-onboarding', [PromoController::class, 'validateOnboardingCode']);
         Route::group(['middleware' => 'jwt.auth'], function () {
+            Route::get('/my-credits', [PromoController::class, 'myCredits']);
             Route::post('/extend-duration', [PromoController::class, 'extendDuration']);
         });
     });

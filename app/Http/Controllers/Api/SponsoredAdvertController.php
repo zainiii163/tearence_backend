@@ -326,13 +326,43 @@ class SponsoredAdvertController extends Controller
         }
 
         $advert = SponsoredAdvert::create($data);
+        $listingId = $advert->sponsored_advert_id ?? $advert->id;
+        $customerId = $this->resolveAuthCustomerId() ?? (int) auth('api')->id();
+
+        $creditUsed = $this->tryConsumePromoCredit(
+            $request,
+            $customerId,
+            'sponsored',
+            'sponsored_advert',
+            $listingId,
+            true
+        );
+        if ($creditUsed) {
+            $days = (int) ($creditUsed['duration_days'] ?? $duration);
+            $advert->update([
+                'payment_status' => 'paid',
+                'sponsorship_price' => 0,
+                'is_active' => true,
+                'sponsorship_start_date' => now(),
+                'sponsorship_end_date' => now()->addDays($days),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'promo_credit_applied' => true,
+                'promo_credits_remaining' => $creditUsed['quantity_remaining'] ?? null,
+                'message' => 'Sponsored advert activated with onboarding promo credit',
+                'data' => $advert->fresh(),
+            ], 201);
+        }
 
         if ($this->requestHasPaymentReference($request)) {
             $verified = $this->verifyPromoPayment(
                 $request,
                 $promoAmount,
                 'sponsored_advert',
-                $advert->sponsored_advert_id ?? $advert->id
+                $listingId
             );
             if ($verified instanceof JsonResponse) {
                 return $verified;

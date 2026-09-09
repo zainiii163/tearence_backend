@@ -150,6 +150,38 @@ class PromotedAdvertController extends Controller
 
         $promotedAdvert = PromotedAdvert::create($data);
 
+        $customerId = $this->resolveAuthCustomerId() ?? (int) Auth::id();
+
+        // Onboarding free-post credit activates without payment
+        $creditUsed = $this->tryConsumePromoCredit(
+            $request,
+            $customerId,
+            'promoted',
+            'promoted_advert',
+            $promotedAdvert->id,
+            true
+        );
+        if ($creditUsed) {
+            $days = (int) ($creditUsed['duration_days'] ?? $durationDays);
+            $promotedAdvert->update([
+                'status' => 'active',
+                'is_active' => true,
+                'approved_at' => now(),
+                'promotion_price' => 0,
+                'promotion_start' => now(),
+                'promotion_end' => now()->addDays($days),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'promo_credit_applied' => true,
+                'promo_credits_remaining' => $creditUsed['quantity_remaining'] ?? null,
+                'message' => 'Promoted advert activated with onboarding promo credit',
+                'data' => $promotedAdvert->fresh()->load(['category', 'user']),
+            ], 201);
+        }
+
         if ($this->requestHasPaymentReference($request)) {
             $verified = $this->verifyPromoPayment($request, $promoAmount, 'promoted_advert', $promotedAdvert->id);
             if ($verified instanceof JsonResponse) {
@@ -198,6 +230,34 @@ class PromotedAdvertController extends Controller
 
         $tierKey = $this->resolveCanonicalPromoTier($promotedAdvert->promotion_tier, 'promoted');
         $amount = (float) ($promotedAdvert->promotion_price ?: $this->resolvePromoAmountForTier($tierKey));
+
+        $customerId = $this->resolveAuthCustomerId() ?? (int) Auth::id();
+        $creditUsed = $this->tryConsumePromoCredit(
+            $request,
+            $customerId,
+            'promoted',
+            'promoted_advert',
+            $promotedAdvert->id,
+            true
+        );
+        if ($creditUsed) {
+            $days = (int) ($creditUsed['duration_days'] ?? $this->resolvePromoDurationDays($tierKey));
+            $promotedAdvert->update([
+                'status' => 'active',
+                'is_active' => true,
+                'approved_at' => now(),
+                'promotion_price' => 0,
+                'promotion_start' => now(),
+                'promotion_end' => now()->addDays($days),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'promo_credit_applied' => true,
+                'message' => 'Promoted advert activated with onboarding promo credit.',
+                'data' => $promotedAdvert->fresh()->load(['category', 'user']),
+            ]);
+        }
 
         $verified = $this->verifyPromoPayment($request, $amount, 'promoted_advert', $promotedAdvert->id);
         if ($verified instanceof JsonResponse) {

@@ -6,6 +6,7 @@ use App\Filament\Resources\PromoRewardCodeResource\Pages;
 use App\Models\PromoRewardCode;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -28,12 +29,62 @@ class PromoRewardCodeResource extends Resource
             Forms\Components\TextInput::make('code')->required()->unique(ignoreRecord: true)->maxLength(64),
             Forms\Components\Select::make('type')
                 ->options([
-                    'percent' => 'Percent discount',
-                    'fixed' => 'Fixed USD off',
-                    'points' => 'Reward points',
+                    'percent' => 'Percent discount (checkout)',
+                    'fixed' => 'Fixed USD off (checkout)',
+                    'points' => 'Reward points (checkout)',
+                    'free_posts' => 'Free promoted/featured/sponsored posts (onboarding)',
                 ])
+                ->required()
+                ->live(),
+            Forms\Components\Select::make('purpose')
+                ->options([
+                    'checkout' => 'Checkout discount only',
+                    'onboarding' => 'Business signup (free posts)',
+                    'both' => 'Both checkout + onboarding',
+                ])
+                ->default('checkout')
                 ->required(),
-            Forms\Components\TextInput::make('value')->numeric()->required()->step(0.01),
+            Forms\Components\Select::make('platform')
+                ->options([
+                    'both' => 'WWA + CarServices',
+                    'wwa' => 'Worldwide Adverts only',
+                    'carservices' => 'CarServices Ltd only',
+                ])
+                ->default('both')
+                ->required()
+                ->helperText('Which site business signup can redeem this code'),
+            Forms\Components\TextInput::make('value')
+                ->numeric()
+                ->required()
+                ->step(0.01)
+                ->default(0)
+                ->helperText('Discount amount / percent / points. Use 0 for free_posts.'),
+            Forms\Components\Select::make('grant_tier')
+                ->label('Free post tier')
+                ->options([
+                    'promoted' => 'Promoted',
+                    'featured' => 'Featured',
+                    'sponsored' => 'Sponsored',
+                    'all' => 'All three (1 of each × quantity)',
+                ])
+                ->visible(fn (Get $get) => in_array($get('type'), ['free_posts'], true)
+                    || in_array($get('purpose'), ['onboarding', 'both'], true)),
+            Forms\Components\TextInput::make('grant_quantity')
+                ->numeric()
+                ->default(1)
+                ->minValue(1)
+                ->visible(fn (Get $get) => in_array($get('type'), ['free_posts'], true)
+                    || in_array($get('purpose'), ['onboarding', 'both'], true)),
+            Forms\Components\TextInput::make('grant_duration_days')
+                ->numeric()
+                ->default(7)
+                ->minValue(1)
+                ->visible(fn (Get $get) => in_array($get('type'), ['free_posts'], true)
+                    || in_array($get('purpose'), ['onboarding', 'both'], true)),
+            Forms\Components\TextInput::make('max_redemptions_per_user')
+                ->numeric()
+                ->default(1)
+                ->helperText('How many times one business account can redeem this onboarding code'),
             Forms\Components\TextInput::make('max_uses')->numeric()->nullable(),
             Forms\Components\TextInput::make('uses_count')->numeric()->disabled()->default(0),
             Forms\Components\DateTimePicker::make('valid_from'),
@@ -46,7 +97,8 @@ class PromoRewardCodeResource extends Resource
                     'sponsored' => 'Sponsored',
                 ])
                 ->columns(2)
-                ->helperText('Leave empty to apply to all tiers'),
+                ->helperText('Checkout codes only — leave empty to apply to all tiers')
+                ->visible(fn (Get $get) => $get('type') !== 'free_posts'),
             Forms\Components\Toggle::make('is_active')->default(true),
             Forms\Components\TextInput::make('description')->maxLength(255)->columnSpanFull(),
         ])->columns(2);
@@ -58,6 +110,10 @@ class PromoRewardCodeResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('code')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('type')->badge(),
+                Tables\Columns\TextColumn::make('purpose')->badge()->toggleable(),
+                Tables\Columns\TextColumn::make('platform')->badge()->toggleable(),
+                Tables\Columns\TextColumn::make('grant_tier')->label('Grant')->toggleable(),
+                Tables\Columns\TextColumn::make('grant_quantity')->label('Qty')->toggleable(),
                 Tables\Columns\TextColumn::make('value'),
                 Tables\Columns\TextColumn::make('uses_count')->label('Uses'),
                 Tables\Columns\TextColumn::make('max_uses')->label('Max'),

@@ -343,6 +343,14 @@ class PromoPricingService
             return ['valid' => false, 'message' => 'Invalid or expired reward code'];
         }
 
+        // Onboarding free-post codes are validated via OnboardingPromoCreditService
+        if (method_exists($reward, 'isCheckoutDiscountCode') && ! $reward->isCheckoutDiscountCode()) {
+            return [
+                'valid' => false,
+                'message' => 'This is an onboarding signup code — enter it during business registration, not at checkout',
+            ];
+        }
+
         if (! $reward->appliesToTier($tier)) {
             return ['valid' => false, 'message' => 'This code does not apply to the selected promotion tier'];
         }

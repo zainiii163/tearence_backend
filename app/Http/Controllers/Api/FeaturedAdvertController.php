@@ -210,6 +210,35 @@ class FeaturedAdvertController extends Controller
 
         $featuredAdvert = FeaturedAdvert::create($validated);
 
+        $customerId = (int) ($customer->customer_id ?? $customer->id ?? 0);
+        $creditUsed = $this->tryConsumePromoCredit(
+            $request,
+            $customerId,
+            'featured',
+            'featured_advert',
+            $featuredAdvert->id,
+            true
+        );
+        if ($creditUsed) {
+            $days = (int) ($creditUsed['duration_days'] ?? $durationDays);
+            $featuredAdvert->update([
+                'payment_status' => FeaturedAdvert::PAYMENT_PAID,
+                'is_active' => true,
+                'upsell_price' => 0,
+                'starts_at' => now(),
+                'expires_at' => now()->addDays($days),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_required' => false,
+                'promo_credit_applied' => true,
+                'promo_credits_remaining' => $creditUsed['quantity_remaining'] ?? null,
+                'data' => $featuredAdvert->fresh()->load(['listing', 'customer', 'category', 'country']),
+                'message' => 'Featured advert activated with onboarding promo credit.',
+            ], 201);
+        }
+
         if ($this->requestHasPaymentReference($request)) {
             $verified = $this->verifyPromoPayment(
                 $request,
@@ -267,9 +296,35 @@ class FeaturedAdvertController extends Controller
             ]);
         }
 
-        $amount = (float) ($featuredAdvert->upsell_price ?: $this->resolvePromoAmountForTier(
-            $this->resolveCanonicalPromoTier($featuredAdvert->upsell_tier, 'featured')
-        ));
+        $tierKey = $this->resolveCanonicalPromoTier($featuredAdvert->upsell_tier, 'featured');
+        $amount = (float) ($featuredAdvert->upsell_price ?: $this->resolvePromoAmountForTier($tierKey));
+
+        $customerId = (int) ($customer->customer_id ?? $customer->id ?? 0);
+        $creditUsed = $this->tryConsumePromoCredit(
+            $request,
+            $customerId,
+            'featured',
+            'featured_advert',
+            $featuredAdvert->id,
+            true
+        );
+        if ($creditUsed) {
+            $days = (int) ($creditUsed['duration_days'] ?? $this->resolvePromoDurationDays($tierKey));
+            $featuredAdvert->update([
+                'payment_status' => FeaturedAdvert::PAYMENT_PAID,
+                'is_active' => true,
+                'upsell_price' => 0,
+                'starts_at' => now(),
+                'expires_at' => now()->addDays($days),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'promo_credit_applied' => true,
+                'message' => 'Featured advert activated with onboarding promo credit.',
+                'data' => $featuredAdvert->fresh(),
+            ]);
+        }
 
         $verified = $this->verifyPromoPayment(
             $request,

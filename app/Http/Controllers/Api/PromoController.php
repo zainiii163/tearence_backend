@@ -9,6 +9,7 @@ use App\Models\Listing;
 use App\Models\PromotedAdvert;
 use App\Models\SponsoredAdvert;
 use App\Models\UserAffiliatePost;
+use App\Services\OnboardingPromoCreditService;
 use App\Services\PromoPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,8 +19,10 @@ use Illuminate\Support\Facades\Validator;
 
 class PromoController extends Controller
 {
-    public function __construct(private PromoPricingService $promo)
-    {
+    public function __construct(
+        private PromoPricingService $promo,
+        private OnboardingPromoCreditService $onboardingCredits
+    ) {
     }
 
     public function pricingPlans(Request $request): JsonResponse
@@ -111,6 +114,59 @@ class PromoController extends Controller
             'message' => $result['message'] ?? '',
             'data' => $result,
         ], ($result['valid'] ?? false) ? 200 : 422);
+    }
+
+    /**
+     * Validate an onboarding free-post code (business signup / CarServices).
+     */
+    public function validateOnboardingCode(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'code' => 'required|string|max:64',
+            'platform' => 'nullable|string|max:32',
+            'signup_platform' => 'nullable|string|max:32',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $platform = $request->input('platform') ?: $request->input('signup_platform') ?: 'wwa';
+        $result = $this->onboardingCredits->validateOnboardingCode($request->code, $platform);
+
+        return response()->json([
+            'success' => (bool) ($result['valid'] ?? false),
+            'message' => $result['message'] ?? '',
+            'data' => $result,
+        ], ($result['valid'] ?? false) ? 200 : 422);
+    }
+
+    /**
+     * List remaining free promoted/featured/sponsored credits for the logged-in customer.
+     */
+    public function myCredits(Request $request): JsonResponse
+    {
+        $user = Auth::guard('api')->user() ?? Auth::user();
+        if (! $user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $customerId = (int) ($user->customer_id ?? $user->id);
+        $credits = $this->onboardingCredits->listAvailableCredits($customerId);
+
+        return response()->json([
+            'success' => true,
+            'data' => $credits,
+            'totals' => [
+                'promoted' => collect($credits)->where('tier', 'promoted')->sum('quantity'),
+                'featured' => collect($credits)->where('tier', 'featured')->sum('quantity'),
+                'sponsored' => collect($credits)->where('tier', 'sponsored')->sum('quantity'),
+            ],
+        ]);
     }
 
     /**

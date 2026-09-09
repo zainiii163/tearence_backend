@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Services\ListingPaymentGuard;
+use App\Services\OnboardingPromoCreditService;
 use App\Services\PromoPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 /**
  * Shared create/confirm flow for paid listing promotions.
  * Free tiers go live immediately; paid tiers stay pending until payment is verified.
+ * Onboarding promo credits can activate promoted/featured/sponsored without payment.
  */
 trait EnforcesListingPromoPayment
 {
@@ -18,6 +20,64 @@ trait EnforcesListingPromoPayment
     protected function promoPricing(): PromoPricingService
     {
         return app(PromoPricingService::class);
+    }
+
+    protected function onboardingPromoCredits(): OnboardingPromoCreditService
+    {
+        return app(OnboardingPromoCreditService::class);
+    }
+
+    /**
+     * Try to activate a paid promo listing using an onboarding free-post credit.
+     * Returns consumption result array on success, or null if no credit / not requested.
+     *
+     * @return array{ok: bool, message: string, duration_days?: int, quantity_remaining?: int}|null
+     */
+    protected function tryConsumePromoCredit(
+        Request $request,
+        int $customerId,
+        string $canonicalTier,
+        string $listingType,
+        string|int $listingId,
+        bool $autoIfAvailable = true
+    ): ?array {
+        if (! in_array($canonicalTier, OnboardingPromoCreditService::TIERS, true)) {
+            return null;
+        }
+
+        $wantsCredit = filter_var($request->input('use_promo_credit', false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var($request->input('apply_promo_credit', false), FILTER_VALIDATE_BOOLEAN)
+            || $request->boolean('use_onboarding_credit');
+
+        if (! $wantsCredit && ! $autoIfAvailable) {
+            return null;
+        }
+
+        if (! $wantsCredit && $autoIfAvailable) {
+            if (! $this->onboardingPromoCredits()->hasCredit($customerId, $canonicalTier)) {
+                return null;
+            }
+        }
+
+        $result = $this->onboardingPromoCredits()->consumeCredit(
+            $customerId,
+            $canonicalTier,
+            $listingType,
+            $listingId
+        );
+
+        return ($result['ok'] ?? false) ? $result : null;
+    }
+
+    protected function resolveAuthCustomerId(): ?int
+    {
+        $user = auth('api')->user() ?? auth()->user();
+        if (! $user) {
+            return null;
+        }
+        $id = $user->customer_id ?? $user->id ?? null;
+
+        return $id !== null ? (int) $id : null;
     }
 
     /**

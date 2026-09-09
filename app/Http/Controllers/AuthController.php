@@ -20,6 +20,7 @@ use App\Models\Customer;
 use App\Models\CustomerBusiness;
 use App\Models\Category;
 use App\Services\LoginAuditService;
+use App\Services\OnboardingPromoCreditService;
 use App\Services\VerificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -776,6 +777,11 @@ class AuthController extends APIController
             'user_type' => 'nullable|in:basic,business',
             'country' => 'nullable|string|max:100',
             'city' => 'nullable|string|max:100',
+            // Onboarding free-post promo (WWA / CarServices business signup)
+            'onboarding_promo_code' => 'nullable|string|max:64',
+            'promo_code' => 'nullable|string|max:64',
+            'signup_platform' => 'nullable|string|max:32',
+            'platform' => 'nullable|string|max:32',
         ];
 
         if ($isBusiness) {
@@ -796,6 +802,27 @@ class AuthController extends APIController
 
         if ($validator->fails()) {
             return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
+        }
+
+        $onboardingCode = trim((string) (request()->onboarding_promo_code ?: request()->promo_code ?: ''));
+        $signupPlatform = app(OnboardingPromoCreditService::class)->normalizePlatform(
+            request()->signup_platform ?: request()->platform ?: 'wwa'
+        );
+        $pendingOnboardingGrant = null;
+        $promoCreditsGrant = null;
+
+        if ($isBusiness && $onboardingCode !== '') {
+            $codeCheck = app(OnboardingPromoCreditService::class)->validateOnboardingCode(
+                $onboardingCode,
+                $signupPlatform
+            );
+            if (! ($codeCheck['valid'] ?? false)) {
+                return $this->errorResponse(
+                    $codeCheck['message'] ?? 'Invalid onboarding promo code',
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+            $pendingOnboardingGrant = $onboardingCode;
         }
 
         $verification = app(VerificationService::class);
@@ -923,6 +950,19 @@ class AuthController extends APIController
 
             $userReferral = ReferralService::processRegistrationReferral($customer, request()->referral_code);
 
+            if ($isBusiness && $pendingOnboardingGrant) {
+                $business = CustomerBusiness::where('customer_id', $customer->customer_id)->first();
+                $promoCreditsGrant = app(OnboardingPromoCreditService::class)->grantOnSignup(
+                    (int) $customer->customer_id,
+                    $pendingOnboardingGrant,
+                    $signupPlatform,
+                    $business ? (int) ($business->id ?? $business->customer_business_id ?? 0) ?: null : null
+                );
+                if (! ($promoCreditsGrant['ok'] ?? false)) {
+                    throw new \RuntimeException($promoCreditsGrant['message'] ?? 'Failed to apply promo code');
+                }
+            }
+
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -936,6 +976,11 @@ class AuthController extends APIController
 
         if ($isBusiness) {
             $responseData['business'] = CustomerBusiness::where('customer_id', $customer->customer_id)->first();
+        }
+
+        if (! empty($promoCreditsGrant['ok'])) {
+            $responseData['promo_credits'] = $promoCreditsGrant['summary'] ?? [];
+            $responseData['promo_credits_message'] = $promoCreditsGrant['message'] ?? null;
         }
 
         if ($userReferral) {
