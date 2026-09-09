@@ -896,8 +896,9 @@ class AuthController extends APIController
                     'personal_email' => $email,
                     'personal_phone_number' => $phone,
                     'category_id' => $categoryId,
-'vat_number' => request()->vat_number,
-                'status' => 'pending',
+                    'vat_number' => request()->vat_number,
+                    // customer_business.status is ENUM(inactive, active) — pending truncates and 500s signup
+                    'status' => 'active',
                 ];
                 if (Schema::hasColumn('customer_business', 'duns_number')) {
                     $createPayload['duns_number'] = request()->duns_number;
