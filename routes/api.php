@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\AffiliateController as ApiAffiliateController;
 
 use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\MarketingToolkitController;
 
 use App\Http\Controllers\AnalyticsController;
 
@@ -2440,6 +2441,14 @@ Route::group([
             ->middleware('jwt.auth');
         Route::post('/consume-entitlement', [SubscriptionController::class, 'consumeEntitlement'])
             ->middleware('jwt.auth');
+    });
+
+    // Marketing toolkits
+    Route::group(['prefix' => 'marketing-toolkits'], function () {
+        Route::get('/', [MarketingToolkitController::class, 'index']);
+        Route::get('/categories', [MarketingToolkitController::class, 'categories']);
+        Route::get('/{category}', [MarketingToolkitController::class, 'byCategory']);
+        Route::get('/tool/{id}', [MarketingToolkitController::class, 'show']);
     });
 
     // Marketplace seller earnings (product sales → 85% seller / 15% platform)
