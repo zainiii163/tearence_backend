@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\AffiliateProgramController;
 use App\Http\Controllers\Api\AffiliateController as ApiAffiliateController;
 
 use App\Http\Controllers\Api\PromoController;
+use App\Http\Controllers\Api\SubscriptionController;
 
 use App\Http\Controllers\AnalyticsController;
 
@@ -2421,6 +2422,24 @@ Route::group([
             ->middleware('jwt.auth')
             ->where('paymentId', '[A-Za-z0-9_-]+');
         Route::post('/webhook', [StripePaymentController::class, 'webhook']);
+    });
+
+    // Subscription plans
+    Route::group(['prefix' => 'subscriptions'], function () {
+        Route::get('/plans', [SubscriptionController::class, 'plans']);
+        Route::get('/status', [SubscriptionController::class, 'status'])
+            ->middleware('jwt.auth');
+        Route::get('/entitlements', [SubscriptionController::class, 'entitlements'])
+            ->middleware('jwt.auth');
+        Route::post('/purchase', [SubscriptionController::class, 'purchase'])
+            ->middleware('jwt.auth')
+            ->middleware('throttle:payments');
+        Route::post('/cancel', [SubscriptionController::class, 'cancel'])
+            ->middleware('jwt.auth');
+        Route::post('/check-entitlement', [SubscriptionController::class, 'checkEntitlement'])
+            ->middleware('jwt.auth');
+        Route::post('/consume-entitlement', [SubscriptionController::class, 'consumeEntitlement'])
+            ->middleware('jwt.auth');
     });
 
     // Marketplace seller earnings (product sales → 85% seller / 15% platform)
