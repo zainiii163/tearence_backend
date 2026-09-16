@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('subscription_id')->references('id')->on('user_subscriptions')->onDelete('cascade');
-            $table->index(['user_id', 'entitlement_type', 'period_start']);
+            $table->index(['user_id', 'entitlement_type', 'period_start'], 'sub_ent_user_type_period_idx');
         });
     }
 

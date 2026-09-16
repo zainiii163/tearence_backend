@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['category_slug', 'tool_type']);
+            $table->index(['category_slug', 'tool_type'], 'mkt_tool_cat_type_idx');
         });
     }
 
