@@ -55,20 +55,15 @@ class PayPalOrderController extends Controller
      */
     private function useMock(): bool
     {
+        // Live mode never mocks; production is gated centrally too (B1).
         if ($this->mode() !== 'sandbox') {
             return false;
         }
 
-        $flag = config('paypal.sandbox_mock');
-        if ($flag === true || $flag === 1 || $flag === '1' || $flag === 'true') {
-            return true;
-        }
-        if ($flag === false || $flag === 0 || $flag === '0' || $flag === 'false') {
-            return false;
-        }
-
-        // "auto" / anything else → mock when real sandbox keys are missing
-        return ! $this->credentialsConfigured();
+        return \App\Support\PaymentMode::useMock(
+            config('paypal.sandbox_mock'),
+            $this->credentialsConfigured(),
+        );
     }
 
     private function provider(): PayPalClient

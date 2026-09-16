@@ -28,15 +28,11 @@ class CryptoPaymentController extends Controller
             return false;
         }
 
-        $flag = config('crypto.mock', 'auto');
-        if ($flag === true || $flag === 1 || $flag === '1' || $flag === 'true') {
-            return true;
-        }
-        if ($flag === false || $flag === 0 || $flag === '0' || $flag === 'false') {
-            return false;
-        }
-
-        return ! app(NowPaymentsClient::class)->configured();
+        // Production never mocks (B1) — resolved centrally in PaymentMode.
+        return \App\Support\PaymentMode::useMock(
+            config('crypto.mock', 'auto'),
+            app(NowPaymentsClient::class)->configured(),
+        );
     }
 
     public function clientConfig(): JsonResponse
@@ -327,6 +323,13 @@ class CryptoPaymentController extends Controller
      */
     public function confirmMock(Request $request, string $paymentId): JsonResponse
     {
+        // Defence in depth (B1): mock confirmation is never valid in production.
+        if (\App\Support\PaymentMode::mockDisabledHere()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mock payments are disabled in production.',
+            ], 403);
+        }
         if (! $this->useMock() || ! str_starts_with($paymentId, 'CRYPTO-MOCK-')) {
             return response()->json([
                 'success' => false,

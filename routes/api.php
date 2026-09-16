@@ -605,11 +605,20 @@ Route::group([
 
         Route::get('/', [CustomerController::class, 'index']);
 
+        // Admin: accounts awaiting deletion approval. Declared before /{id} so
+        // "deletion-requests" is not captured as an :id by the show route.
+        Route::get('/deletion-requests', [CustomerController::class, 'deletionRequests']);
+
         Route::get('/{id}', [CustomerController::class, 'show']);
 
         Route::post('/', [CustomerController::class, 'store']);
 
         Route::put('/{id}', [CustomerController::class, 'update']);
+
+        // A user requests deletion of their own account (admin then approves via
+        // DELETE below, or rejects). Deletion is never immediate.
+        Route::post('/{id}/request-deletion', [CustomerController::class, 'requestDeletion']);
+        Route::post('/{id}/reject-deletion', [CustomerController::class, 'rejectDeletion']);
 
         Route::delete('/{id}', [CustomerController::class, 'destroy']);
 
