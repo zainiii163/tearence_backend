@@ -35,6 +35,34 @@ class CustomerController extends APIController
     }
 
     /**
+     * B6/B15: only the account's owner (or an admin) may modify or delete it.
+     *
+     * The customer group runs behind `auth:api`, but nothing checked that the
+     * `{id}` in the path belongs to the caller — so any signed-in user could
+     * `PUT`/`DELETE` anyone else's account by id (an IDOR). This is the missing
+     * ownership assertion.
+     */
+    private function ownsOrAdmin($id): bool
+    {
+        $authId = auth('api')->id();
+        if ($authId !== null && (int) $authId === (int) $id) {
+            return true;
+        }
+
+        $user = auth('api')->user();
+
+        return $user !== null && method_exists($user, 'isAdmin') && $user->isAdmin();
+    }
+
+    /** True when the caller is an admin. */
+    private function isAdminRequest(): bool
+    {
+        $user = auth('api')->user();
+
+        return $user !== null && method_exists($user, 'isAdmin') && $user->isAdmin();
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @return \Illuminate\Http\Response
@@ -444,6 +472,14 @@ class CustomerController extends APIController
      */
     public function update(Request $request, $id)
     {
+        // B6: reject cross-account edits before touching anything.
+        if (! $this->ownsOrAdmin($id)) {
+            return $this->errorResponse(
+                'You do not have permission to modify this account.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
         // $input = $request->all();
         $customer = Customer::find($id);
         if (is_null($customer)) {
@@ -599,15 +635,113 @@ class CustomerController extends APIController
      *      ),
      * )
      */
-    public function destroy($id)
+    /**
+     * A user requests deletion of their own account.
+     *
+     * This does NOT delete anything — deletion is admin-approved. It records
+     * `deletion_requested_at` so the request shows up for an admin, and the
+     * account stays fully usable until approval. Idempotent: requesting again
+     * while one is pending is a no-op success.
+     */
+    public function requestDeletion($id)
     {
-        $query = Customer::where('id', $id)->first();
-        if (is_null($query)) {
+        if (! $this->ownsOrAdmin($id)) {
+            return $this->errorResponse(
+                'You do not have permission to modify this account.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
+        $customer = Customer::find($id);
+        if (is_null($customer)) {
             return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
         }
-        $query->delete();
-        
-        return $this->successResponse($query, 'Data successfully deleted!', Response::HTTP_OK);
+
+        if (! $customer->hasPendingDeletionRequest()) {
+            $customer->deletion_requested_at = now();
+            $customer->save();
+        }
+
+        return $this->successResponse(
+            ['deletion_requested_at' => $customer->deletion_requested_at],
+            'Your account deletion request has been submitted for review.',
+            Response::HTTP_OK
+        );
+    }
+
+    /**
+     * Admin approves a deletion request.
+     *
+     * The account is not physically removed — approval sets the soft-delete
+     * `deleted_at` flag (the "deleted key"), so the row stays for records and
+     * login answers "this account is deleted". This is what
+     * `SuperAdminDashboard`'s delete-user action calls.
+     */
+    public function destroy($id)
+    {
+        // Only an admin may action a deletion; users can only *request* one.
+        if (! $this->isAdminRequest()) {
+            return $this->errorResponse(
+                'Only an administrator can delete an account. Users may submit a deletion request.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
+        // B15: the primary key is `customer_id`, not `id` — the old
+        // `where('id', $id)` queried a non-existent column and 500'd. `find()`
+        // uses the real PK.
+        $customer = Customer::find($id);
+        if (is_null($customer)) {
+            return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
+        }
+
+        // Soft delete: sets `deleted_at` (the flag the system reads) without
+        // removing the row.
+        $customer->delete();
+
+        return $this->successResponse(null, 'Account deletion approved.', Response::HTTP_OK);
+    }
+
+    /**
+     * Admin rejects a pending deletion request — the account stays active.
+     */
+    public function rejectDeletion($id)
+    {
+        if (! $this->isAdminRequest()) {
+            return $this->errorResponse(
+                'Admin privileges required.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
+        $customer = Customer::find($id);
+        if (is_null($customer)) {
+            return $this->errorResponse('Data not found.', Response::HTTP_NOT_FOUND);
+        }
+
+        $customer->deletion_requested_at = null;
+        $customer->save();
+
+        return $this->successResponse(null, 'Deletion request rejected.', Response::HTTP_OK);
+    }
+
+    /**
+     * Admin list of accounts awaiting deletion approval.
+     */
+    public function deletionRequests()
+    {
+        if (! $this->isAdminRequest()) {
+            return $this->errorResponse(
+                'Admin privileges required.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
+        $pending = Customer::whereNotNull('deletion_requested_at')
+            ->orderBy('deletion_requested_at')
+            ->get(['customer_id', 'first_name', 'last_name', 'email', 'deletion_requested_at']);
+
+        return $this->successResponse($pending, 'Pending deletion requests.', Response::HTTP_OK);
     }
 
     /**
@@ -657,6 +791,14 @@ class CustomerController extends APIController
      **/
     public function uploadAvatar(Request $request, $id)
     {
+        // B6: an avatar belongs to one account; do not let others overwrite it.
+        if (! $this->ownsOrAdmin($id)) {
+            return $this->errorResponse(
+                'You do not have permission to modify this account.',
+                Response::HTTP_FORBIDDEN
+            );
+        }
+
         $input = $request->only('avatar');
         $validator = Validator::make($input, [
             'avatar' => 'required',

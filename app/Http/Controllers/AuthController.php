@@ -118,6 +118,26 @@ class AuthController extends APIController
         // check user is exists or not by email
         $check_user = Customer::where('email', request()->email);
         if (!$check_user->exists()) {
+            // B15: no *active* account. If a soft-deleted one exists for this
+            // email (and it was not re-registered as a fresh active account),
+            // say so distinctly so the app can show "This account is deleted."
+            // on any device — otherwise fall through to the generic message.
+            if (Customer::onlyTrashed()->where('email', request()->email)->exists()) {
+                app(LoginAuditService::class)->recordCustomerFailure(
+                    (string) request()->email,
+                    'account_deleted',
+                    'api'
+                );
+                // `code` lets the app map this to a typed failure regardless of
+                // the human message/locale (B15 mobile switch).
+                return response()->json([
+                    'status' => 'Error',
+                    'code' => 'ACCOUNT_DELETED',
+                    'message' => 'This account is deleted.',
+                    'data' => null,
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             app(LoginAuditService::class)->recordCustomerFailure(
                 (string) request()->email,
                 'user_not_found',
@@ -196,6 +216,25 @@ class AuthController extends APIController
 
             // Attempt JWT authentication using the configured api guard
             if (!$token = auth('api')->attempt($credentials)) {
+                // B15: if the failure is because the only account for this email
+                // is soft-deleted (no active one exists), say so distinctly.
+                $hasActive = Customer::where('email', $credentials['email'])->exists();
+                $isDeleted = ! $hasActive
+                    && Customer::onlyTrashed()->where('email', $credentials['email'])->exists();
+                if ($isDeleted) {
+                    app(LoginAuditService::class)->recordCustomerFailure(
+                        (string) $credentials['email'],
+                        'account_deleted',
+                        'api'
+                    );
+
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'ACCOUNT_DELETED',
+                        'message' => 'This account is deleted.',
+                    ], 403);
+                }
+
                 app(LoginAuditService::class)->recordCustomerFailure(
                     (string) $credentials['email'],
                     'invalid_credentials',

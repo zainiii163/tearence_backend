@@ -4,13 +4,19 @@ namespace App\Models;
 
 use App\Helpers\FileUploadHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 use Laravel\Sanctum\HasApiTokens;
 
 class Customer extends Authenticatable implements JWTSubject
 {
-    use HasFactory, HasApiTokens;
+    // SoftDeletes (B15): a deleted account leaves a `deleted_at` tombstone so
+    // the app can tell "deleted" from "never existed". Default query scoping
+    // now excludes trashed customers everywhere, so a deleted user vanishes
+    // from listings, chat and search; login re-includes them with withTrashed()
+    // only to return a distinct "this account is deleted" message.
+    use HasFactory, HasApiTokens, SoftDeletes;
     
     protected $appends = ['name'];
 
@@ -63,7 +69,14 @@ class Customer extends Authenticatable implements JWTSubject
         'kyc_documents' => 'array',
         'kyc_verified_at' => 'datetime',
         'crypto_wallet_verified_at' => 'datetime',
+        'deletion_requested_at' => 'datetime',
     ];
+
+    /** A deletion request is awaiting admin approval. */
+    public function hasPendingDeletionRequest(): bool
+    {
+        return $this->deletion_requested_at !== null;
+    }
 
     public function isKycVerified(): bool
     {
