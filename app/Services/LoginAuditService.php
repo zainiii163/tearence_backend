@@ -190,20 +190,6 @@ class LoginAuditService
             }
         }
 
-        if ($log->successful && ! $log->is_admin_backend && $log->actor_id && $log->ip_address) {
-            $seenIp = LoginLog::query()
-                ->where('actor_type', 'customer')
-                ->where('actor_id', $log->actor_id)
-                ->where('successful', true)
-                ->where('ip_address', $log->ip_address)
-                ->where('id', '!=', $log->id)
-                ->exists();
-
-            if (! $seenIp) {
-                $shouldAlert = true;
-            }
-        }
-
         if (! $shouldAlert) {
             return;
         }

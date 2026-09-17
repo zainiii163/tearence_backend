@@ -23,4 +23,7 @@ return [
     // Failed customer attempts in window before alert
     'failed_attempt_threshold' => (int) env('SECURITY_FAILED_LOGIN_THRESHOLD', 3),
     'failed_attempt_window_minutes' => (int) env('SECURITY_FAILED_LOGIN_WINDOW', 15),
+
+    // Alert on customer login from new IP (noisy — disabled by default)
+    'alert_customer_new_ip' => env('SECURITY_ALERT_CUSTOMER_NEW_IP', false),
 ];
