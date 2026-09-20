@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\APIController;
+use App\Models\Customer;
 use App\Services\VerificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -12,6 +13,90 @@ class VerificationController extends APIController
 {
     public function __construct(protected VerificationService $verification)
     {
+    }
+
+    /**
+     * Resend email verification OTP for the authenticated user.
+     * POST /v1/auth/resend-verification
+     */
+    public function resendVerificationForUser(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated.', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $email = strtolower(trim($user->email ?? ''));
+        if (! $email) {
+            return $this->errorResponse('No email address found for this account.', Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $result = $this->verification->sendEmailOtp($email);
+            return $this->successResponse($result, 'Verification code sent to your email.');
+        } catch (\RuntimeException $e) {
+            return $this->errorResponse($e->getMessage(), Response::HTTP_TOO_MANY_REQUESTS);
+        } catch (\Throwable $e) {
+            return $this->errorResponse('Failed to send verification email.', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Verify email OTP for the authenticated user.
+     * POST /v1/auth/verify-email  { code: "123456" }
+     */
+    public function verifyEmailForUser(Request $request)
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return $this->errorResponse('Unauthenticated.', Response::HTTP_UNAUTHORIZED);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'code' => 'required|string|min:4|max:8',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), Response::HTTP_BAD_REQUEST);
+        }
+
+        $email = strtolower(trim($user->email ?? ''));
+        if (! $email) {
+            return $this->errorResponse('No email address found for this account.', Response::HTTP_BAD_REQUEST);
+        }
+
+        $verified = $this->verification->verifyEmailOtp($email, $request->code);
+
+        if (! $verified) {
+            return response()->json([
+                'success' => false,
+                'status' => 'Error',
+                'message' => 'Invalid or expired verification code.',
+                'data' => null,
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Update customer email_verified_at
+        $customer = Customer::where('email', $email)->first();
+        if ($customer) {
+            $customer->email_verified_at = now();
+            $customer->save();
+
+            // Activate associated business pages
+            \App\Models\CustomerBusiness::where('customer_id', $customer->customer_id)
+                ->where('status', 'pending')
+                ->update(['status' => 'active']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => 'Success',
+            'message' => 'Email verified successfully.',
+            'data' => [
+                'verified' => true,
+                'email_verified_at' => now()->toDateTimeString(),
+            ],
+        ]);
     }
 
     public function sendEmailOtp(Request $request)

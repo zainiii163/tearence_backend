@@ -261,6 +261,10 @@ Route::group([
 
         Route::post('/change-password', [AuthController::class, 'changePassword']);
 
+        // Email verification (OTP-based)
+        Route::post('/resend-verification', [VerificationController::class, 'resendVerificationForUser']);
+        Route::post('/verify-email', [VerificationController::class, 'verifyEmailForUser']);
+
         Route::get('/2fa/status', [TwoFactorController::class, 'status']);
         Route::post('/2fa/setup', [TwoFactorController::class, 'setup']);
         Route::post('/2fa/confirm', [TwoFactorController::class, 'confirm']);

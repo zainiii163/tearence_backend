@@ -34,10 +34,12 @@ class EnsureVerifiedToPost
             $emailVerified = $this->isEmailVerified($user);
 
             if (! $emailVerified) {
-                // Soft warning — allow the post but flag for frontend banner
-                $request->attributes->set('email_verification_warning', true);
-
-                return $next($request);
+                // Hard block — email verification required before posting
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please verify your email before posting.',
+                    'code' => 'EMAIL_NOT_VERIFIED',
+                ], 403);
             }
         }
 

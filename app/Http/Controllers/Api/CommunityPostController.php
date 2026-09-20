@@ -337,8 +337,9 @@ class CommunityPostController extends Controller
                     $mime = $value->getMimeType();
                     $okImage = str_starts_with((string) $mime, 'image/');
                     $okVideo = in_array($mime, ['video/mp4', 'video/webm', 'video/quicktime'], true);
-                    if (! $okImage && ! $okVideo) {
-                        $fail('File must be an image (jpeg/png/gif/webp) or video (mp4/webm/mov).');
+                    $okAudio = in_array($mime, ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/aac'], true);
+                    if (! $okImage && ! $okVideo && ! $okAudio) {
+                        $fail('Only images, videos, and audio files are allowed.');
                     }
                 },
             ],
@@ -363,11 +364,14 @@ class CommunityPostController extends Controller
         $file = $request->file('file');
         $mime = $file->getMimeType();
         $isVideo = str_starts_with((string) $mime, 'video/');
-        $ext = $isVideo ? $file->getClientOriginalExtension() : 'webp';
-        $fileName = Str::uuid().'.'.($ext ?: ($isVideo ? 'mp4' : 'webp'));
+        $isAudio = str_starts_with((string) $mime, 'audio/');
+        $ext = $isVideo ? ($file->getClientOriginalExtension() ?: 'mp4')
+            : ($isAudio ? ($file->getClientOriginalExtension() ?: 'mp3')
+            : 'webp');
+        $fileName = Str::uuid().'.'.($ext ?: ($isVideo ? 'mp4' : ($isAudio ? 'mp3' : 'webp')));
         $path = $folder.'/'.$fileName;
 
-        if ($isVideo) {
+        if ($isVideo || $isAudio) {
             $stored = $file->storeAs($folder, $fileName, $disk);
             $path = $stored;
         } else {
@@ -381,7 +385,10 @@ class CommunityPostController extends Controller
                     ->encode('webp', 82);
                 Storage::disk($disk)->put($path, (string) $image);
             } catch (\Throwable $e) {
-                $stored = $file->storeAs($folder, $file->hashName(), $disk);
+                // Fallback: store the original file with its original extension
+                $originalExt = $file->getClientOriginalExtension() ?: 'jpg';
+                $fallbackName = Str::uuid().'.'.$originalExt;
+                $stored = $file->storeAs($folder, $fallbackName, $disk);
                 $path = $stored;
             }
         }
@@ -392,7 +399,7 @@ class CommunityPostController extends Controller
             'data' => [
                 'path' => $path,
                 'url' => \App\Helpers\MediaUrlHelper::resolve($path),
-                'media_type' => $isVideo ? 'video' : 'image',
+                'media_type' => $isVideo ? 'video' : ($isAudio ? 'audio' : 'image'),
             ],
         ], 201);
     }
@@ -422,15 +429,20 @@ class CommunityPostController extends Controller
             'tags' => 'nullable|array',
             'community_ids' => 'required|array|min:1',
             'community_ids.*' => 'uuid|exists:communities,community_id',
-            'cover_image_file' => 'nullable|file|image|max:10240',
+            'cover_image_file' => 'nullable|file|image|mimes:jpeg,jpg,png,gif,webp,jfif|max:10240',
             'media_files' => 'nullable|array',
-            'media_files.*' => 'file|max:51200',
+            'media_files.*' => 'file|max:51200|mimes:jpeg,jpg,png,gif,webp,jfif,mp4,webm,mov,mp3,wav,ogg,aac',
         ]);
 
         if ($validator->fails()) {
+            $errors = $validator->errors();
+            $firstMessage = $errors->first('media_files.0') ?: $errors->first();
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'message' => str_contains($firstMessage, 'mimes')
+                    ? 'Only images, videos, and audio files are allowed.'
+                    : $firstMessage,
+                'errors' => $errors
             ], 422);
         }
 
@@ -970,11 +982,14 @@ class CommunityPostController extends Controller
 
         $mime = $file->getMimeType();
         $isVideo = str_starts_with((string) $mime, 'video/');
-        $ext = $isVideo ? ($file->getClientOriginalExtension() ?: 'mp4') : 'webp';
+        $isAudio = str_starts_with((string) $mime, 'audio/');
+        $ext = $isVideo ? ($file->getClientOriginalExtension() ?: 'mp4')
+            : ($isAudio ? ($file->getClientOriginalExtension() ?: 'mp3')
+            : 'webp');
         $fileName = Str::uuid().'.'.$ext;
         $path = $folder.'/'.$fileName;
 
-        if ($isVideo) {
+        if ($isVideo || $isAudio) {
             $path = $file->storeAs($folder, $fileName, $disk);
         } else {
             try {
@@ -987,14 +1002,17 @@ class CommunityPostController extends Controller
                     ->encode('webp', 82);
                 Storage::disk($disk)->put($path, (string) $image);
             } catch (\Throwable $e) {
-                $path = $file->storeAs($folder, $file->hashName(), $disk);
+                // Fallback: store original file with original extension
+                $originalExt = $file->getClientOriginalExtension() ?: 'jpg';
+                $fallbackName = Str::uuid().'.'.$originalExt;
+                $path = $file->storeAs($folder, $fallbackName, $disk);
             }
         }
 
         return [
             'path' => $path,
             'url' => MediaUrlHelper::resolve($path),
-            'media_type' => $isVideo ? 'video' : 'image',
+            'media_type' => $isVideo ? 'video' : ($isAudio ? 'audio' : 'image'),
         ];
     }
 
