@@ -19,6 +19,9 @@ class VerificationCodeMail extends Mailable
 
     public function build()
     {
+        $frontendUrl = config('verification.frontend_url', 'https://worldwideadverts.info');
+        $verifyUrl = $frontendUrl . '/verify-email?code=' . urlencode($this->code);
+
         return $this->from(config('mail.from.address'), config('mail.from.name'))
             ->subject('Your verification code — Worldwide Adverts')
             ->view('emails.verification-code')
@@ -26,6 +29,7 @@ class VerificationCodeMail extends Mailable
                 'name' => $this->name,
                 'code' => $this->code,
                 'expiresIn' => $this->expiresIn,
+                'verifyUrl' => $verifyUrl,
             ]);
     }
 }
