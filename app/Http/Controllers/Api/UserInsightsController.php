@@ -64,7 +64,7 @@ class UserInsightsController extends Controller
             $favouritesSaved = \DB::table('listing_favourite')->where('customer_id', $customerId)->count();
         }
 
-        $favouritesReceived = (int) Listing::where('customer_id', $customerId)->sum('saves');
+        try { $favouritesReceived = (int) Listing::where('customer_id', $customerId)->sum('saves'); } catch (\Throwable $e) { $favouritesReceived = 0; }
 
         $endingPromotions = collect();
         try {
@@ -130,3 +130,4 @@ class UserInsightsController extends Controller
         ]);
     }
 }
+
