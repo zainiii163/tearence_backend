@@ -255,7 +255,7 @@ class BookAdvertResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value) {
                                 $user = \App\Models\User::find($value);
-                                if (!$user) return null;
+                                if (!$user) return 'Unknown #' . $value;
                                 return trim($user->first_name . ' ' . $user->last_name);
                             })
                             ->required(),

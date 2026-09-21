@@ -69,7 +69,7 @@ class JobAlertResource extends Resource
                                 if ($customer) {
                                     return $customer->first_name . ' ' . $customer->last_name . ' | ' . $customer->email;
                                 }
-                                return null;
+                                return 'Unknown #' . $value;
                             })
                             ->required()
                             ->searchable()

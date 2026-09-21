@@ -39,7 +39,7 @@ class JobUpsellResource extends Resource
                                 ->where('title', 'like', "%{$search}%")
                                 ->limit(50)
                                 ->pluck('title', 'id'))
-                            ->getOptionLabelUsing(fn ($value) => Job::find($value)?->title)
+                            ->getOptionLabelUsing(fn ($value) => Job::find($value)?->title ?? 'Unknown #' . $value)
                             ->required()
                             ->searchable(),
                         Forms\Components\Select::make('upsell_type')

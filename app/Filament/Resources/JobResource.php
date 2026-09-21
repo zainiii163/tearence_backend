@@ -232,7 +232,7 @@ class JobResource extends Resource
                             ->getOptionLabelUsing(function ($value) {
                                 $customer = Customer::find($value);
                                 if (! $customer) {
-                                    return null;
+                                    return 'Unknown #' . $value;
                                 }
 
                                 return trim(($customer->first_name ?? '') . ' ' . ($customer->last_name ?? '')) . ' | ' . $customer->email;

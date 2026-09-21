@@ -49,7 +49,7 @@ class BuySellItemResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value) {
                                 $category = BuySellCategory::find($value);
-                                return $category ? $category->name : null;
+                                return $category ? $category->name : 'Unknown #' . $value;
                             })
                             ->required(),
 

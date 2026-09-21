@@ -87,7 +87,7 @@ class CandidateProfileResource extends Resource
                                 if ($customer) {
                                     return $customer->first_name . ' ' . $customer->last_name . ' | ' . $customer->email;
                                 }
-                                return null;
+                                return 'Unknown #' . $value;
                             })
                             ->required()
                             ->searchable()
@@ -197,7 +197,7 @@ class CandidateProfileResource extends Resource
                                     }
                                     return $label;
                                 }
-                                return null;
+                                return 'Unknown #' . $value;
                             })
                             ->searchable()
                             ->preload()

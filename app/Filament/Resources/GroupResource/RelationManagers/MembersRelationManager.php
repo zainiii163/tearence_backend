@@ -67,7 +67,7 @@ class MembersRelationManager extends RelationManager
                                 ->get()
                                 ->mapWithKeys(fn (User $u) => [$u->user_id => "{$u->name} <{$u->email}>"])
                                 ->all())
-                            ->getOptionLabelUsing(fn ($value) => optional(User::find($value))->email)
+                            ->getOptionLabelUsing(fn ($value) => User::find($value)?->email ?? 'Unknown #' . $value)
                             ->required(),
                     ])
                     ->action(function (array $data): void {
