@@ -94,7 +94,7 @@ class ListingResource extends Resource
                                 if ($customer) {
                                     return $customer->first_name . ' ' . $customer->last_name . ' | ' . $customer->email;
                                 }
-                                return null;
+                                return 'Unknown #' . $value;
                             })
                             ->required()
                             ->searchable()
@@ -161,7 +161,7 @@ class ListingResource extends Resource
                                     }
                                     return $label;
                                 }
-                                return null;
+                                return 'Unknown #' . $value;
                             })
                             ->searchable()
                             ->createOptionForm([
@@ -211,7 +211,7 @@ class ListingResource extends Resource
                             ))
                             ->getOptionLabelUsing(function ($value) {
                                 $category = Category::find($value);
-                                return $category ? $category->name : null;
+                                return $category ? $category->name : 'Unknown #' . $value;
                             })
                             ->default('')
                             ->reactive()  // Make it reactive to trigger the update for child categories
@@ -251,7 +251,7 @@ class ListingResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value) {
                                 $category = Category::find($value);
-                                return $category ? $category->name : null;
+                                return $category ? $category->name : 'Unknown #' . $value;
                             })
                             ->default('')
                             ->required()
@@ -265,7 +265,7 @@ class ListingResource extends Resource
                             ))
                             ->getOptionLabelUsing(function ($value) {
                                 $currency = Currency::find($value);
-                                return $currency ? $currency->name : null;
+                                return $currency ? $currency->name : 'Unknown #' . $value;
                             })
                             ->default('')
                             ->required()
@@ -281,7 +281,7 @@ class ListingResource extends Resource
                             ))
                             ->getOptionLabelUsing(function ($value) {
                                 $package = Package::find($value);
-                                return $package ? $package->title : null;
+                                return $package ? $package->title : 'Unknown #' . $value;
                             })
                             ->default('')
                             ->required()

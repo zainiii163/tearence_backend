@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ResortsTravel;
 use App\Models\ResortsTravelCategory;
+use App\Models\SiteReview;
 use App\Models\TravelBooking;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -849,13 +851,31 @@ class ResortsTravelController extends Controller
      */
     public function getReviews(Request $request, $id)
     {
-        // For now, return empty array as reviews table doesn't exist yet
-        // In a full implementation, you would query a reviews table
-        $reviews = [];
+        if (! Schema::hasTable('site_reviews')) {
+            return response()->json(['success' => true, 'data' => [], 'average_rating' => 0, 'reviews_count' => 0]);
+        }
+
+        $reviews = SiteReview::approved()
+            ->forTarget('resort', (string) $id)
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (SiteReview $r) => [
+                'id' => $r->id,
+                'rating' => (int) $r->rating,
+                'comment' => $r->comment,
+                'author_name' => $r->author_name ?: 'Guest',
+                'created_at' => optional($r->created_at)->toIso8601String(),
+            ]);
+
+        $count = $reviews->count();
+        $avg = $count ? round($reviews->avg('rating'), 1) : 0;
 
         return response()->json([
             'success' => true,
             'data' => $reviews,
+            'average_rating' => $avg,
+            'reviews_count' => $count,
         ]);
     }
 
@@ -866,25 +886,48 @@ class ResortsTravelController extends Controller
     {
         $request->validate([
             'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'required|string',
+            'comment' => 'required|string|min:3|max:2000',
         ]);
 
         $advert = ResortsTravel::findOrFail($id);
 
-        // For now, just return a success response
-        // In a full implementation, you would save to a reviews table
-        $review = [
-            'advert_id' => $advert->id,
-            'user_id' => Auth::id(),
-            'rating' => $request->input('rating'),
-            'comment' => $request->input('comment'),
-            'created_at' => now(),
-        ];
+        if (! Schema::hasTable('site_reviews')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reviews are not available yet.',
+            ], 503);
+        }
+
+        $user = Auth::user();
+        $customerId = $user->customer_id ?? $user->getKey();
+        $authorName = trim(($user->first_name ?? '').' '.($user->last_name ?? ''))
+            ?: ($user->name ?? 'Guest');
+
+        $review = SiteReview::updateOrCreate(
+            [
+                'reviewable_type' => 'resort',
+                'reviewable_id' => (string) $advert->id,
+                'customer_id' => $customerId,
+            ],
+            [
+                'author_name' => $authorName,
+                'rating' => (int) $request->input('rating'),
+                'comment' => $request->input('comment'),
+                'status' => 'approved',
+            ]
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'Review added successfully',
-            'data' => $review,
+            'message' => 'Review submitted',
+            'data' => [
+                'id' => $review->id,
+                'advert_id' => $advert->id,
+                'rating' => (int) $review->rating,
+                'comment' => $review->comment,
+                'author_name' => $review->author_name,
+                'created_at' => optional($review->created_at)->toIso8601String(),
+            ],
         ], 201);
     }
 

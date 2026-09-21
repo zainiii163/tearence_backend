@@ -108,10 +108,31 @@ class PromotedAdvertSeeder extends Seeder
                 'is_active' => true,
                 'sort_order' => 10,
             ],
+            [
+                'name' => 'Web Design',
+                'slug' => 'web-design',
+                'description' => '',
+                'icon' => 'heroicon-o-computer-desktop',
+                'color' => '#2563EB',
+                'is_active' => true,
+                'sort_order' => 11,
+            ],
+            [
+                'name' => 'Design Themes',
+                'slug' => 'design-themes',
+                'description' => '',
+                'icon' => 'heroicon-o-swatch',
+                'color' => '#7C3AED',
+                'is_active' => true,
+                'sort_order' => 12,
+            ],
         ];
 
         foreach ($categories as $category) {
-            PromotedAdvertCategory::create($category);
+            PromotedAdvertCategory::firstOrCreate(
+                ['slug' => $category['slug']],
+                $category
+            );
         }
 
         // Get a user for testing
